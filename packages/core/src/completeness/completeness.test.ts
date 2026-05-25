@@ -224,9 +224,9 @@ describe("PR-08 completeness scoring", () => {
         ...completeState().currentSpec,
         sections: [
           "Problem Statement",
-          "Target Customer",
           "Value Proposition",
-          "Validation Plan"
+          "MVP Scope",
+          "Success Criteria"
         ]
       }
     };
@@ -244,6 +244,41 @@ describe("PR-08 completeness scoring", () => {
       passed: true
     });
     expect(projection.completionCandidate.status).toBe("candidate");
+  });
+
+  it("blocks implementation when a core ambiguity dimension is still below the floor despite strong aggregate scores", () => {
+    const scopeAmbiguousState = {
+      ...completeState(),
+      currentSpec: {
+        ...completeState().currentSpec,
+        sections: completeSections.filter((section) => section !== "MVP Scope")
+      }
+    };
+    const projection = buildConfidenceCompletionProjection(scopeAmbiguousState, 13 as ProjectionVersion);
+
+    expect(projection.compositeScore).toBeGreaterThanOrEqual(85);
+    expect(projection.axes.filter((axis) => axis.score >= 75)).toHaveLength(5);
+    expect(projection.ambiguityDimensionCoverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          dimension: "scope",
+          requiredForImplementation: true,
+          score: expect.any(Number)
+        })
+      ])
+    );
+    expect(projection.ambiguityDimensionCoverage?.find((dimension) => dimension.dimension === "scope")?.score).toBeLessThan(75);
+    expect(projection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "ambiguity_dimension_floor",
+          label: "Core ambiguity dimensions are 75 or higher",
+          passed: false,
+          blockingReason: expect.stringContaining("Scope/non-goal clarity")
+        })
+      ])
+    );
+    expect(projection.completionCandidate.status).toBe("not_ready");
   });
 
   it("blocks strong and investor-grade completion pressure until carried as Known Risk", () => {

@@ -24,6 +24,7 @@ import {
   isAutoImplementationReservedProjectFolderName,
   type AutoImplementationIssueDocument,
   type AutoImplementationIssueStatusSummary,
+  type AutoImplementationPlanningIssueDocument,
   type AutoImplementationGitHubIssueMutationContract,
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationRemoteGuide,
@@ -41,10 +42,13 @@ const COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME = "solo-superman-project";
 const DEFAULT_PROJECT_FOLDER_NAME = DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME;
 const PLANNING_HANDOFF_IMPLEMENTATION_PLAN_RELATIVE_PATH = "planning-handoff-implementation-plan.md";
+const PLANNING_HANDOFF_PR_ISSUE_SEQUENCE_TRACKER_RELATIVE_PATH = "planning-handoff-pr-issue-sequence.md";
 const PLANNING_HANDOFF_PR_ISSUE_PLAN_DIR = "planning-handoff-pr-issues";
 const AUTO_IMPLEMENTATION_RUN_MANIFEST_RELATIVE_PATH = ".solo-superman/auto-implementation-run.json";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_START = "<!-- solo-superman:auto-implementation-run-state:start -->";
 const AUTO_IMPLEMENTATION_TRACKER_RUN_STATE_END = "<!-- solo-superman:auto-implementation-run-state:end -->";
+const AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_START = "<!-- solo-superman:planning-issue-sequence-state:start -->";
+const AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_END = "<!-- solo-superman:planning-issue-sequence-state:end -->";
 const AUTO_IMPLEMENTATION_ISSUE_STATE_START = "<!-- solo-superman:auto-implementation-issue-state:start -->";
 const AUTO_IMPLEMENTATION_ISSUE_STATE_END = "<!-- solo-superman:auto-implementation-issue-state:end -->";
 const WORKSPACE_BOOTSTRAP_COMMIT_MESSAGE = "Bootstrap Solo Superman implementation workspace";
@@ -590,6 +594,28 @@ function planningHandoffPrIssuePlanRelativePaths(artifact: PlanningHandoffArtifa
   );
 }
 
+function planningIssueDocsForArtifact(input: {
+  readonly artifact: PlanningHandoffArtifactDto;
+  readonly relativePaths: readonly string[];
+  readonly selectedPlanningIssueId?: string;
+}): readonly AutoImplementationPlanningIssueDocument[] {
+  const selectedIndex = input.selectedPlanningIssueId
+    ? input.artifact.prIssuePlan.findIndex((plan) => plan.sequenceId === input.selectedPlanningIssueId)
+    : 0;
+
+  if (selectedIndex < 0) {
+    throw new Error("Selected Planning Handoff PR issue id was not found in the planning artifact.");
+  }
+
+  return input.artifact.prIssuePlan.map((plan, index) => ({
+    issueId: plan.sequenceId || `planning-slice-${String(index + 1).padStart(3, "0")}`,
+    title: plan.summary,
+    relativePath: input.relativePaths[index]!,
+    includedTaskIds: plan.includedTaskIds,
+    status: index < selectedIndex ? "completed" as const : index === selectedIndex ? "active" as const : "planned" as const
+  }));
+}
+
 function githubIssuePlansForIssueDocs(
   issueDocs: readonly AutoImplementationIssueDocument[]
 ): readonly AutoImplementationGitHubIssuePlan[] {
@@ -745,6 +771,35 @@ function inlineMarkdownList(values: readonly string[], emptyLabel = "none") {
   return values.length ? values.map((value) => markdownLineValue(value)).join(", ") : emptyLabel;
 }
 
+function autoImplementationReviewStreakSummaryMarkdown(
+  values:
+    | NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>["codeReviewStreaks"]
+    | NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>["cleanCodeReviewStreaks"]
+    | undefined
+) {
+  return values?.length
+    ? values.map((value) =>
+        `${value.reviewScope} ${value.currentNoFindingPasses}/${value.requiredNoFindingPasses} no-finding passes ${value.satisfied ? "satisfied" : "missing"} (${inlineMarkdownList(value.latestReviewIds, "no review refs")})`
+      ).join("; ")
+    : "none";
+}
+
+function autoImplementationMissingTestAuditSummaryMarkdown(
+  value: NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>["missingTestAuditSummary"] | undefined
+) {
+  return value
+    ? `${value.auditId}: ${value.missingTestGapCount} missing targeted-test gaps (${value.satisfied ? "satisfied" : "missing"})`
+    : "none";
+}
+
+function autoImplementationTestEvidenceSummaryMarkdown(
+  value: NonNullable<AutoImplementationRun["stagePlan"][number]["ledgerEvidence"]>["testEvidenceSummary"] | undefined
+) {
+  return value
+    ? `${value.testEvidenceId}: ${value.outcome}; passed ${value.passedTestCount} / failed ${value.failedTestCount}; not-tested gaps ${value.notTestedGapCount}; commands ${inlineMarkdownList(value.commands)}`
+    : "none";
+}
+
 function latestValue<T>(values: readonly T[]) {
   return values.length ? values[values.length - 1]! : null;
 }
@@ -758,9 +813,13 @@ function autoImplementationStageStateMarkdown(stage: AutoImplementationRun["stag
     `  - Ledger step: ${markdownLineValue(stage.ledgerEvidence?.implementationStepId)}`,
     `  - Implementation evidence refs: ${inlineMarkdownList(stage.ledgerEvidence?.implementationEvidenceRefs ?? [])}`,
     `  - Code review streak refs: ${inlineMarkdownList(stage.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
+    `  - Code review streak summary: ${autoImplementationReviewStreakSummaryMarkdown(stage.ledgerEvidence?.codeReviewStreaks)}`,
     `  - Clean-code review streak refs: ${inlineMarkdownList(stage.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])}`,
+    `  - Clean-code review streak summary: ${autoImplementationReviewStreakSummaryMarkdown(stage.ledgerEvidence?.cleanCodeReviewStreaks)}`,
     `  - Missing-test audit refs: ${inlineMarkdownList(stage.ledgerEvidence?.missingTestAuditRefs ?? [])}`,
+    `  - Missing-test audit summary: ${autoImplementationMissingTestAuditSummaryMarkdown(stage.ledgerEvidence?.missingTestAuditSummary)}`,
     `  - Test evidence refs: ${inlineMarkdownList(stage.ledgerEvidence?.testEvidenceRefs ?? [])}`,
+    `  - Test evidence summary: ${autoImplementationTestEvidenceSummaryMarkdown(stage.ledgerEvidence?.testEvidenceSummary)}`,
     `  - Blocker: ${markdownLineValue(stage.blocker?.reason)}`
   ];
 }
@@ -782,6 +841,12 @@ function latestAutoImplementationWorkerJobMarkdown(job: AutoImplementationRun["w
 
 function autoImplementationIssueStatusSummaryMarkdown(summary: AutoImplementationIssueStatusSummary) {
   return `${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`;
+}
+
+function planningIssueDocMarkdown(issue: AutoImplementationPlanningIssueDocument) {
+  const taskIds = issue.includedTaskIds.length ? issue.includedTaskIds.join(", ") : "none";
+
+  return `- [ ] ${issue.issueId}: ${issue.title} (${issue.status}; ${issue.relativePath}; tasks: ${taskIds})`;
 }
 
 function latestAutoImplementationPullRequestMutationMarkdown(
@@ -846,9 +911,13 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     `- Ledger step: ${markdownLineValue(stage?.ledgerEvidence?.implementationStepId)}`,
     `- Implementation evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.implementationEvidenceRefs ?? [])}`,
     `- Code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.codeReviewStreakRefs ?? [])}`,
+    `- Code review streak summary: ${autoImplementationReviewStreakSummaryMarkdown(stage?.ledgerEvidence?.codeReviewStreaks)}`,
     `- Clean-code review streak refs: ${inlineMarkdownList(stage?.ledgerEvidence?.cleanCodeReviewStreakRefs ?? [])}`,
+    `- Clean-code review streak summary: ${autoImplementationReviewStreakSummaryMarkdown(stage?.ledgerEvidence?.cleanCodeReviewStreaks)}`,
     `- Missing-test audit refs: ${inlineMarkdownList(stage?.ledgerEvidence?.missingTestAuditRefs ?? [])}`,
+    `- Missing-test audit summary: ${autoImplementationMissingTestAuditSummaryMarkdown(stage?.ledgerEvidence?.missingTestAuditSummary)}`,
     `- Test evidence refs: ${inlineMarkdownList(stage?.ledgerEvidence?.testEvidenceRefs ?? [])}`,
+    `- Test evidence summary: ${autoImplementationTestEvidenceSummaryMarkdown(stage?.ledgerEvidence?.testEvidenceSummary)}`,
     `- Stage evidence refs: ${inlineMarkdownList(stage?.evidenceRefs ?? [])}`,
     `- Stage blocker: ${markdownLineValue(stage?.blocker?.reason)}`,
     `- Stage blocker evidence refs: ${inlineMarkdownList(stage?.blocker?.evidenceRefs ?? [])}`,
@@ -857,6 +926,70 @@ function autoImplementationIssueStateMarkdown(run: AutoImplementationRun, issue:
     `- Latest stage worker evidence refs: ${inlineMarkdownList(latestWorkerJob?.evidenceRefs ?? [])}`,
     `- Required next action: ${autoImplementationIssueNextAction({ stage, latestWorkerJob })}`,
     AUTO_IMPLEMENTATION_ISSUE_STATE_END
+  ].join("\n");
+}
+
+function autoImplementationPlanningIssueSequenceStateMarkdown(run: AutoImplementationRun) {
+  const activeIssue = run.issueManagement.planningIssueDocs.find((issue) => issue.status === "active") ?? null;
+  const completedCount = run.issueManagement.planningIssueDocs.filter((issue) => issue.status === "completed").length;
+
+  return [
+    AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_START,
+    "## Planning issue sequence state",
+    "",
+    "> Generated by Solo Superman. Do not edit this section by hand; stage, worker, and PR transitions rewrite it.",
+    "",
+    `- Run: ${run.runId}`,
+    `- Run status: ${run.status}`,
+    `- Current active planning issue: ${activeIssue ? `${activeIssue.issueId} (${activeIssue.relativePath})` : "none"}`,
+    `- Completed planning issues: ${completedCount}/${run.issueManagement.planningIssueDocs.length}`,
+    `- Updated at: ${run.updatedAt}`,
+    "",
+    "### Ordered PR-sized slices",
+    "",
+    ...(run.issueManagement.planningIssueDocs.length
+      ? run.issueManagement.planningIssueDocs.map((issue, index) => {
+          const predecessor = index === 0 ? "none" : run.issueManagement.planningIssueDocs[index - 1]?.issueId ?? "none";
+          const taskIds = issue.includedTaskIds.length ? issue.includedTaskIds.join(", ") : "none";
+
+          return `- ${index + 1}. ${issue.issueId}: ${issue.title} — ${issue.status}; predecessor: ${predecessor}; tasks: ${taskIds}; markdown: ${issue.relativePath}`;
+        })
+      : ["- No Planning Handoff PR-sized issue slices recorded."]),
+    AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_END
+  ].join("\n");
+}
+
+function planningIssueSequenceTrackerMarkdown(input: {
+  readonly run: AutoImplementationRun;
+  readonly planningPlanRelativePath: string | null;
+}) {
+  return [
+    "# Planning Handoff PR issue sequence tracker",
+    "",
+    `- Run: ${input.run.runId}`,
+    `- Project folder: ${input.run.projectFolderName}`,
+    input.planningPlanRelativePath
+      ? `- Planning Handoff implementation plan: ${input.planningPlanRelativePath}`
+      : "- Planning Handoff implementation plan: not available for this run-derived follow-up request.",
+    "- Purpose: keep PR-sized implementation slices separate from the per-stage delivery tracker.",
+    "",
+    autoImplementationPlanningIssueSequenceStateMarkdown(input.run),
+    "",
+    "## Sequence gates",
+    "",
+    "- [ ] Do not start a later PR-sized slice until the predecessor slice has merged or recorded an explicit blocker handoff.",
+    "- [ ] Keep one markdown or GitHub issue per PR-sized slice before opening its PR.",
+    "- [ ] Record acceptance evidence, targeted tests, review-streak evidence, missing-test audit evidence, and rollback notes for each slice.",
+    "- [ ] Run feature and repository code reviews until two consecutive no-finding passes are recorded.",
+    "- [ ] Run changed-code and repository clean-code reviews until two consecutive no-finding passes are recorded.",
+    "- [ ] Refresh the PR body with final verification commands before merge.",
+    "- [ ] After merge, move the next planned PR-sized slice to active through a new selected planningIssueId run.",
+    "",
+    "## Separation from delivery stages",
+    "",
+    `- Delivery-stage tracker: ${input.run.issueManagement.trackerRelativePath}`,
+    "- This sequence tracker owns cross-slice order; delivery-stage issue docs own the current slice's implementation/review/test/merge loop.",
+    ""
   ].join("\n");
 }
 
@@ -878,6 +1011,12 @@ function autoImplementationRunStateMarkdown(run: AutoImplementationRun) {
     `- Next tick at: ${run.nextTickAt}`,
     `- Remote status: ${run.remoteStatus}`,
     `- Issue status summary: ${autoImplementationIssueStatusSummaryMarkdown(run.issueManagement.issueStatusSummary)}`,
+    "",
+    "### Planning PR-sized issue slices",
+    "",
+    ...(run.issueManagement.planningIssueDocs.length
+      ? run.issueManagement.planningIssueDocs.map((issue) => planningIssueDocMarkdown(issue))
+      : ["- No Planning Handoff PR-sized issue slices recorded."]),
     "",
     "### Stage plan",
     "",
@@ -1081,6 +1220,7 @@ function trackerMarkdown(input: {
   readonly sourcePlanningRef: string;
   readonly planningPlanRelativePath: string | null;
   readonly planningIssuePlanRelativePaths: readonly string[];
+  readonly planningIssueSequenceTrackerRelativePath: string | null;
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly remoteGuide: AutoImplementationRemoteGuide;
   readonly githubIssueMutation: AutoImplementationGitHubIssueMutationContract;
@@ -1103,13 +1243,18 @@ function trackerMarkdown(input: {
     input.planningPlanRelativePath
       ? `- Source-driven plan: [${input.planningPlanRelativePath}](${input.planningPlanRelativePath})`
       : "- Source-driven plan: not available for this run-derived follow-up request.",
-    "- The Planning Handoff plan defines the product tasks and PR/issue breakdown; the local issue sequence below records the delivery, review, verification, and merge gates for the selected slice.",
+    input.planningIssueSequenceTrackerRelativePath
+      ? `- PR issue sequence tracker: [${input.planningIssueSequenceTrackerRelativePath}](${input.planningIssueSequenceTrackerRelativePath})`
+      : "- PR issue sequence tracker: not available for this run-derived follow-up request.",
+    "- The Planning Handoff plan defines the product tasks and PR/issue breakdown; the sequence tracker owns cross-slice order; the local issue sequence below records the delivery, review, verification, and merge gates for the selected slice.",
     "",
     "## Planning-derived PR/issue files",
     "",
-    ...(input.planningIssuePlanRelativePaths.length
-      ? input.planningIssuePlanRelativePaths.map((relativePath) => `- [ ] [${relativePath}](${relativePath})`)
-      : ["- No Planning Handoff PR/issue files are available for this run-derived follow-up request."]),
+    ...(input.run.issueManagement.planningIssueDocs.length
+      ? input.run.issueManagement.planningIssueDocs.map((issue) => planningIssueDocMarkdown(issue))
+      : input.planningIssuePlanRelativePaths.length
+        ? input.planningIssuePlanRelativePaths.map((relativePath) => `- [ ] [${relativePath}](${relativePath})`)
+        : ["- No Planning Handoff PR/issue files are available for this run-derived follow-up request."]),
     "",
     "## Local issue sequence",
     "",
@@ -1328,6 +1473,16 @@ export async function prepareAutoImplementationWorkspaceRun(
   const planningIssuePlanRelativePaths = input.planningHandoffArtifact
     ? planningHandoffPrIssuePlanRelativePaths(input.planningHandoffArtifact)
     : [];
+  const planningIssueDocs = input.planningHandoffArtifact
+    ? planningIssueDocsForArtifact({
+        artifact: input.planningHandoffArtifact,
+        relativePaths: planningIssuePlanRelativePaths,
+        ...(input.request.planningIssueId ? { selectedPlanningIssueId: input.request.planningIssueId } : {})
+      })
+    : [];
+  const planningIssueSequenceTrackerRelativePath = planningIssueDocs.length
+    ? PLANNING_HANDOFF_PR_ISSUE_SEQUENCE_TRACKER_RELATIVE_PATH
+    : null;
   const issueDocs = AUTO_IMPLEMENTATION_STAGES.map((stage, index) => ({
     issueId: `local-${String(index + 1).padStart(3, "0")}`,
     title: issueTitles[index] ?? DEFAULT_AUTO_IMPLEMENTATION_ISSUE_TITLES[index]!,
@@ -1414,6 +1569,8 @@ export async function prepareAutoImplementationWorkspaceRun(
     issueManagement: {
       mode: issueMode,
       trackerRelativePath,
+      planningIssueSequenceTrackerRelativePath,
+      planningIssueDocs,
       issueDocs,
       issueStatusSummary: autoImplementationIssueStatusSummary(issueDocs),
       githubIssueUrls: githubIssueMutation.createdIssueUrls,
@@ -1435,6 +1592,9 @@ export async function prepareAutoImplementationWorkspaceRun(
       `issues:${issueMode}`,
       ...(planningPlanRelativePath ? [`planning-handoff-plan:${planningPlanRelativePath}`] : []),
       ...planningIssuePlanRelativePaths.map((relativePath) => `planning-handoff-pr-issue:${relativePath}`),
+      ...planningIssueDocs
+        .filter((issue) => issue.status === "active")
+        .map((issue) => `planning-handoff-active-pr-issue:${issue.relativePath}`),
       `manifest:${manifestRelativePath}`,
       `git:workspace-bootstrap-ref:${workspaceBootstrapRef}`,
       `schema:${AUTO_IMPLEMENTATION_SCHEMA_VERSION}`
@@ -1442,6 +1602,16 @@ export async function prepareAutoImplementationWorkspaceRun(
   };
 
   await writeAutoImplementationRunManifest({ workspaceRoot, run });
+  if (planningIssueSequenceTrackerRelativePath) {
+    await writeIfChanged(
+      workspaceRoot,
+      resolve(generatedRepoPath, planningIssueSequenceTrackerRelativePath),
+      planningIssueSequenceTrackerMarkdown({
+        run,
+        planningPlanRelativePath
+      })
+    );
+  }
   await writeIfChanged(
     workspaceRoot,
     resolve(generatedRepoPath, trackerRelativePath),
@@ -1451,6 +1621,7 @@ export async function prepareAutoImplementationWorkspaceRun(
       sourcePlanningRef,
       planningPlanRelativePath,
       planningIssuePlanRelativePaths,
+      planningIssueSequenceTrackerRelativePath,
       issueDocs,
       remoteGuide: guide,
       githubIssueMutation,
@@ -1461,6 +1632,7 @@ export async function prepareAutoImplementationWorkspaceRun(
 
   const generatedWorkspaceRelativePaths = [
     ...(planningPlanRelativePath ? [planningPlanRelativePath] : []),
+    ...(planningIssueSequenceTrackerRelativePath ? [planningIssueSequenceTrackerRelativePath] : []),
     ...planningIssuePlanRelativePaths,
     trackerRelativePath,
     ...issueDocs.map((issue) => issue.relativePath),
@@ -1557,6 +1729,66 @@ export async function writeAutoImplementationRunTrackerState(input: {
     resolvedWorkspaceRoot,
     trackerPath,
     replaceAutoImplementationTrackerRunState(existing, input.run)
+  );
+}
+
+function replaceAutoImplementationPlanningIssueSequenceState(existing: string | null, run: AutoImplementationRun) {
+  return replaceGeneratedMarkdownSection({
+    existing,
+    startMarker: AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_START,
+    endMarker: AUTO_IMPLEMENTATION_SEQUENCE_TRACKER_STATE_END,
+    nextSection: autoImplementationPlanningIssueSequenceStateMarkdown(run)
+  });
+}
+
+export async function writeAutoImplementationPlanningIssueSequenceTrackerState(input: {
+  readonly workspaceRoot: string;
+  readonly run: AutoImplementationRun;
+}) {
+  const { resolvedWorkspaceRoot, resolvedGeneratedRepoPath } = resolveGeneratedRepoWithinWorkspace(input);
+  const sequenceTrackerRelativePath = input.run.issueManagement.planningIssueSequenceTrackerRelativePath;
+
+  if (!sequenceTrackerRelativePath) {
+    return;
+  }
+
+  if (isAbsolute(sequenceTrackerRelativePath)) {
+    throw new Error("Auto implementation planning issue sequence tracker path must be relative to the generated repo.");
+  }
+
+  const sequenceTrackerPath = resolve(resolvedGeneratedRepoPath, sequenceTrackerRelativePath.split("/").join(sep));
+
+  assertInsideDirectory(
+    resolvedGeneratedRepoPath,
+    sequenceTrackerPath,
+    "Auto implementation planning issue sequence tracker file must stay inside the generated repo."
+  );
+
+  let existing: string | null;
+
+  try {
+    existing = await readFile(sequenceTrackerPath, "utf8");
+  } catch (error) {
+    const maybeError = error as { readonly code?: string };
+
+    if (maybeError.code !== "ENOENT") {
+      throw error;
+    }
+
+    existing = null;
+  }
+
+  const nextContent = existing
+    ? replaceAutoImplementationPlanningIssueSequenceState(existing, input.run)
+    : planningIssueSequenceTrackerMarkdown({
+        run: input.run,
+        planningPlanRelativePath: null
+      });
+
+  await writeIfChanged(
+    resolvedWorkspaceRoot,
+    sequenceTrackerPath,
+    nextContent
   );
 }
 

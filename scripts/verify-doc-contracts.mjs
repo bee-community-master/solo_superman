@@ -916,6 +916,7 @@ function checkContributorDocsSnippets() {
     "planning-readiness-gates",
     "Composite score is 85 or higher",
     "Most confidence axes are 75 or higher",
+    "Core ambiguity dimensions are 75 or higher",
     "browser-service-boundary",
     "auto-implementation-review-loop",
     "technical-preview-release-guardrails",

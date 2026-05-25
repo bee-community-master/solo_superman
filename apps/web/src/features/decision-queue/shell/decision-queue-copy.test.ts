@@ -94,7 +94,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.research.terminalOutcomeLabels.risk_accepted).toBe("Accept risk");
     expect(DECISION_QUEUE_COPY.ko.research.terminalOutcomeLabels.risk_accepted).toBe("리스크 수용");
     expect(DECISION_QUEUE_COPY.en.research.balanceStatusLabels.missing_con_evidence).toBe("Missing counter-evidence");
-    expect(DECISION_QUEUE_COPY.ko.research.balanceStatusLabels.missing_con_evidence).toBe("반대 근거 부족");
+    expect(DECISION_QUEUE_COPY.ko.research.balanceStatusLabels.missing_con_evidence).toBe("다른 관점 부족");
     expect(DECISION_QUEUE_COPY.en.research.gateCheckCodeLabels.source_reliability).toBe("Source reliability");
     expect(DECISION_QUEUE_COPY.ko.research.gateCheckStatusLabels.passed).toBe("통과");
     expect(DECISION_QUEUE_COPY.ko.questions.refreshQuestionList).toBe("질문 목록 새로고침");
@@ -102,7 +102,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ko.questions.questionBatchSizeLabel).toBe("한 번에 볼 질문 수");
     expect(DECISION_QUEUE_COPY.en.questions.questionBatchSizeOption(4)).toBe("4 questions");
     expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.open_text).toBe("주관식/서술형 답변");
-    expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.binary_choice).toBe("찬성/반대 선택");
+    expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.binary_choice).toBe("진행/보류 선택");
     expect(DECISION_QUEUE_COPY.ko.questions.answerFormatLabels.multi_select).toBe("하나 이상 선택");
     expect(DECISION_QUEUE_COPY.en.questions.suggestedAnswersRankedHelp).toContain("priority order");
     expect(DECISION_QUEUE_COPY.ko.questions.suggestedAnswersRankedHelp).toContain("우선순위");

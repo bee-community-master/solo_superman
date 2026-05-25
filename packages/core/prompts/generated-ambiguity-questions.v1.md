@@ -1,0 +1,69 @@
+---
+ref: prompt-template:generated-ambiguity-questions:v1
+schemaVersion: solo-superman-generated-ambiguity-questions.v1
+artifact: generated-ambiguity-questions.v1.md
+---
+
+You generate the first ambiguity questions for Solo Superman.
+Do not use a fixed question template. Read the idea and generate domain-fit questions for the provided review axes.
+Use the ambiguity-reduction algorithm: preserve the original idea, treat ambiguity as an unresolved judgment, split it into dimensions, separate fact-checking/current research/human judgment, pick the weakest execution-changing dimension, ask one judgment per question, and define what research must find before the next decision.
+Return JSON only. No markdown, comments, or prose outside JSON.
+
+Prompt artifact: generated-ambiguity-questions.v1.md
+Schema version: {{schemaVersion}}
+Project purpose mode: {{projectPurposeMode}}
+Idea: {{rawIdea}}
+User goal/intake: {{intakeGoal}}
+Review axes: {{reviewAxes}}
+
+JSON shape:
+{
+  "schemaVersion": "{{schemaVersion}}",
+  "sourceSummary": "<short domain-specific idea summary>",
+  "questions": [
+    {
+      "sectionRef": "<one canonical initial spec section>",
+      "topicKey": "<stable_snake_case_key>",
+      "uncertaintyType": "missing|vague|unsupported|conflict|decision_required|missing_con_evidence",
+      "severity": "high|medium|low",
+      "summary": "<short user-facing issue summary>",
+      "whyItMatters": "<why this matters in plain language>",
+      "questionText": "<natural question tailored to the idea>",
+      "expectedAnswerType": "choice|text|rank|evidence|experiment",
+      "answerSelectionMode": "single|multiple|ranked",
+      "answerOptions": [
+        {
+          "id": "<stable_option_id>",
+          "label": "<short user-facing choice>",
+          "value": "<answer sentence to submit if selected>",
+          "primaryDetail": "<what this choice decides>",
+          "secondaryDetail": "<what remains uncertain>"
+        }
+      ],
+      "decisionItUnlocks": "<what this answer decides>",
+      "ambiguityDimension": "goal|scope|constraints|success_criteria|context|decision_authority|assumption_pressure",
+      "ambiguityRoutingPath": "human_judgment|existing_fact_check|current_research",
+      "researchQuestion": "<what public evidence or existing facts must be checked before this answer becomes implementation-ready>",
+      "possibleRoutes": ["question", "decision_candidate"],
+      "suggestedResearchTask": "<concrete source-seeking task, if research can reduce this ambiguity>"
+    }
+  ]
+}
+
+Rules:
+- Generate 3-15 questions.
+- Use the review-axis metadata to decide what to ask first: first customer segment, buyer/user split, problem intensity, value proposition, first validation, risks, and open uncertainty are examples, not a fixed list.
+- Do not ask from a prefixed template. Generate questions from the specific idea, its missing judgments, and the provided review axes.
+- Prefer the weakest execution-changing dimension. If tied, prioritize goal, scope/non-goals, decision authority, and success criteria before lower-impact context.
+- Every question must include ambiguityDimension and ambiguityRoutingPath. These fields are required, not optional.
+- Ask exactly one execution-changing judgment per question. Do not combine customer, scope, and success criteria into one compound question.
+- Treat non-goals, decision authority, constraints, and success criteria as floor gates: if any of these would change implementation, ask that before softer context questions.
+- Use assumption_pressure when a question tests what would make the idea weaker, what tradeoff the user accepts, or what must be given up.
+- Mark human_judgment when the founder must choose a value, priority, excluded scope, or success threshold. Mark existing_fact_check when existing docs/data can answer it. Mark current_research when market, policy, price, competitor, or user evidence may have changed.
+- For current_research questions, possibleRoutes must include "research_needed".
+- researchQuestion and suggestedResearchTask must state exactly what to look for, what source area to check, what would weaken the current assumption, and what uncertainty should remain for the user. Do not emit generic tasks like "do more research" or "additional research needed".
+- Include 3-10 answerOptions only for choice, rank, evidence, or experiment questions.
+- For text/open narrative questions, omit answerOptions or return an empty array.
+- Options must match the idea's domain. For a pet lifecycle app, ask about guardians, senior or chronic-care pets, medical records, insurance, food/care routines, or end-of-life planning; do not use generic founder, builder, or team-lead personas.
+- Avoid jargon such as primary customer, MVP, planning-ready, high-impact gate, pro/con, or quality-gate in user-facing fields.
+- Keep all user-facing strings in the user's language.

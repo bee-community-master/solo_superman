@@ -17,6 +17,7 @@ import {
   type AutoImplementationGitHubIssuePlan,
   type AutoImplementationIssueDocument,
   type AutoImplementationIssueMode,
+  type AutoImplementationPlanningIssueDocument,
   type AutoImplementationIssueStatusSummary,
   type AutoImplementationPullRequestMutationRecord,
   type AutoImplementationRemoteStatus,
@@ -72,6 +73,17 @@ interface AutoImplementationWorkerPlanView {
   readonly evidenceRefs: readonly string[];
 }
 
+interface AutoImplementationWorkerLedgerEvidenceView {
+  readonly stepId: string;
+  readonly status: ImplementationStepRecord["status"];
+  readonly codeReviewStreakLabels: readonly string[];
+  readonly cleanCodeReviewStreakLabels: readonly string[];
+  readonly missingTestAuditLabel: string;
+  readonly testEvidenceLabel: string;
+  readonly missingEvidenceLabel: string;
+  readonly evidenceRefsLabel: string;
+}
+
 interface AutoImplementationStageProgressView {
   readonly completedStageCount: number;
   readonly totalStageCount: number;
@@ -83,6 +95,12 @@ interface AutoImplementationReviewLoopProgressView {
   readonly completedReviewLoopCount: number;
   readonly totalReviewLoopCount: number;
   readonly nextReviewLoopStage: AutoImplementationStage | null;
+}
+
+export interface AutoImplementationPlanningIssueRowView {
+  readonly issue: AutoImplementationPlanningIssueDocument;
+  readonly statusLabel: string;
+  readonly taskIdsLabel: string;
 }
 
 export interface AutoImplementationIssueRowView {
@@ -125,6 +143,8 @@ export interface AutoImplementationRunViewModel {
   readonly stages: readonly AutoImplementationStageRecord[];
   readonly issueDocs: readonly AutoImplementationIssueDocument[];
   readonly issueRows: readonly AutoImplementationIssueRowView[];
+  readonly planningIssueRows: readonly AutoImplementationPlanningIssueRowView[];
+  readonly planningIssueSequenceTrackerPath: string | null;
   readonly planningIssueFiles: readonly string[];
   readonly deliveryGates: readonly string[];
   readonly stageReviewGates: readonly AutoImplementationStageReviewGate[];
@@ -141,6 +161,7 @@ export interface AutoImplementationRunViewModel {
   readonly workerStageAdvanceBlockerLabel: string | null;
   readonly workerRuntimeReadiness: AutoImplementationWorkerRuntimeView | null;
   readonly latestWorkerPlan: AutoImplementationWorkerPlanView | null;
+  readonly latestWorkerLedgerEvidence: AutoImplementationWorkerLedgerEvidenceView | null;
   readonly canPlanWorkerJob: boolean;
   readonly canRecordStageTick: boolean;
   readonly canStartStage: boolean;
@@ -400,6 +421,116 @@ function hasRequiredWorkerAdvanceLedgerEvidence(input: {
   );
 }
 
+function ledgerStepForWorkerJob(
+  ledger: ImplementationStepLedgerProjection | null,
+  workerJob: AutoImplementationWorkerJob | null
+) {
+  if (!ledger || !workerJob) {
+    return null;
+  }
+
+  return [...ledger.steps].reverse().find((step) =>
+    step.stepDoc.stepId === workerJob.executionPlan.ledgerStepDoc.stepId
+  ) ?? null;
+}
+
+function reviewStreakLabel(input: {
+  readonly label: string;
+  readonly currentNoFindingPasses: number;
+  readonly requiredNoFindingPasses: number;
+  readonly satisfied: boolean;
+  readonly latestReviewIds: readonly string[];
+}) {
+  const status = input.satisfied ? "satisfied" : "missing";
+  const refs = inlineList(input.latestReviewIds, "no review refs");
+
+  return `${input.label}: ${input.currentNoFindingPasses}/${input.requiredNoFindingPasses} no-finding passes ${status} (${refs})`;
+}
+
+function workerLedgerEvidenceView(
+  step: ImplementationStepRecord | null
+): AutoImplementationWorkerLedgerEvidenceView | null {
+  if (!step) {
+    return null;
+  }
+
+  const missingTestAuditLabel = step.missingTestAuditRecord
+    ? `missing-test audit gaps: ${step.missingTestAuditRecord.missingTestGaps.length} (${inlineList(
+        step.missingTestAuditRecord.evidenceRefs,
+        "no audit refs"
+      )})`
+    : "missing-test audit not recorded";
+  const testEvidenceLabel = step.testEvidenceRecord
+    ? `tests ${step.testEvidenceRecord.outcome}: ${step.testEvidenceRecord.commands.join(" | ")} · passed ${step.testEvidenceRecord.passedTestCount} / failed ${step.testEvidenceRecord.failedTestCount}`
+    : "test evidence not recorded";
+
+  return {
+    stepId: step.stepDoc.stepId,
+    status: step.status,
+    codeReviewStreakLabels: step.codeReviewStreaks.map((streak) =>
+      reviewStreakLabel({
+        label: `${streak.reviewScope} code review`,
+        currentNoFindingPasses: streak.currentNoFindingPasses,
+        requiredNoFindingPasses: streak.requiredNoFindingPasses,
+        satisfied: streak.satisfied,
+        latestReviewIds: streak.latestReviewIds
+      })
+    ),
+    cleanCodeReviewStreakLabels: step.cleanCodeReviewStreaks.map((streak) =>
+      reviewStreakLabel({
+        label: `${streak.reviewScope} clean-code review`,
+        currentNoFindingPasses: streak.currentNoFindingPasses,
+        requiredNoFindingPasses: streak.requiredNoFindingPasses,
+        satisfied: streak.satisfied,
+        latestReviewIds: streak.latestReviewIds
+      })
+    ),
+    missingTestAuditLabel,
+    testEvidenceLabel,
+    missingEvidenceLabel: inlineList(step.missingEvidence.map(userFacingAutoImplementationTaskText), "none"),
+    evidenceRefsLabel: inlineList(step.evidenceRefs, "none")
+  };
+}
+
+function stageLedgerEvidenceSummaryLabels(stage: AutoImplementationStageRecord) {
+  const ledgerEvidence = stage.ledgerEvidence;
+
+  if (!ledgerEvidence) {
+    return [];
+  }
+
+  return [
+    ...(ledgerEvidence.codeReviewStreaks?.map((streak) =>
+      reviewStreakLabel({
+        label: `${streak.reviewScope} code review`,
+        currentNoFindingPasses: streak.currentNoFindingPasses,
+        requiredNoFindingPasses: streak.requiredNoFindingPasses,
+        satisfied: streak.satisfied,
+        latestReviewIds: streak.latestReviewIds
+      })
+    ) ?? []),
+    ...(ledgerEvidence.cleanCodeReviewStreaks?.map((streak) =>
+      reviewStreakLabel({
+        label: `${streak.reviewScope} clean-code review`,
+        currentNoFindingPasses: streak.currentNoFindingPasses,
+        requiredNoFindingPasses: streak.requiredNoFindingPasses,
+        satisfied: streak.satisfied,
+        latestReviewIds: streak.latestReviewIds
+      })
+    ) ?? []),
+    ...(ledgerEvidence.missingTestAuditSummary
+      ? [
+          `missing-test audit gaps: ${ledgerEvidence.missingTestAuditSummary.missingTestGapCount} (${ledgerEvidence.missingTestAuditSummary.satisfied ? "satisfied" : "missing"})`
+        ]
+      : []),
+    ...(ledgerEvidence.testEvidenceSummary
+      ? [
+          `tests ${ledgerEvidence.testEvidenceSummary.outcome}: passed ${ledgerEvidence.testEvidenceSummary.passedTestCount} / failed ${ledgerEvidence.testEvidenceSummary.failedTestCount}; not-tested gaps ${ledgerEvidence.testEvidenceSummary.notTestedGapCount}`
+        ]
+      : [])
+  ];
+}
+
 function workerStageAdvanceBlockerLabel(input: {
   readonly run: AutoImplementationRun;
   readonly ledger: ImplementationStepLedgerProjection | null;
@@ -428,6 +559,16 @@ function workerStageAdvanceBlockerLabel(input: {
   }
 
   return null;
+}
+
+function autoImplementationPlanningIssueRowView(
+  issue: AutoImplementationPlanningIssueDocument
+): AutoImplementationPlanningIssueRowView {
+  return {
+    issue,
+    statusLabel: issue.status,
+    taskIdsLabel: inlineList(issue.includedTaskIds, "none")
+  };
 }
 
 function autoImplementationIssueRowView(
@@ -486,6 +627,8 @@ export function autoImplementationRunViewModel(
       stages: [],
       issueDocs: [],
       issueRows: [],
+      planningIssueRows: [],
+      planningIssueSequenceTrackerPath: null,
       planningIssueFiles: [],
       deliveryGates: [],
       stageReviewGates: [],
@@ -511,6 +654,7 @@ export function autoImplementationRunViewModel(
       workerStageAdvanceBlockerLabel: null,
       workerRuntimeReadiness: null,
       latestWorkerPlan: null,
+      latestWorkerLedgerEvidence: null,
       canPlanWorkerJob: false,
       canRecordStageTick: false,
       canStartStage: false,
@@ -544,6 +688,9 @@ export function autoImplementationRunViewModel(
     ? (pullRequestMutationState as { readonly latestRecord: AutoImplementationPullRequestMutationRecord }).latestRecord
     : pullRequestMutationRecords.at(-1) ?? null;
   const latestWorkerJob = latestCurrentStageAutoImplementationWorkerJob(run);
+  const latestWorkerLedgerEvidence = workerLedgerEvidenceView(
+    ledgerStepForWorkerJob(implementationStepLedger, latestWorkerJob)
+  );
   const currentStageRecord = run.stagePlan.find((stage) => stage.stage === run.currentStage) ?? null;
   const latestWorkerPlan = latestWorkerJob
     ? (() => {
@@ -627,6 +774,8 @@ export function autoImplementationRunViewModel(
     stages: run.stagePlan,
     issueDocs: run.issueManagement.issueDocs,
     issueRows: run.issueManagement.issueDocs.map((issue) => autoImplementationIssueRowView(run, issue)),
+    planningIssueRows: run.issueManagement.planningIssueDocs.map(autoImplementationPlanningIssueRowView),
+    planningIssueSequenceTrackerPath: run.issueManagement.planningIssueSequenceTrackerRelativePath,
     planningIssueFiles,
     deliveryGates: run.reviewProtocol.deliveryGates,
     stageReviewGates: run.reviewProtocol.stageGates,
@@ -647,6 +796,7 @@ export function autoImplementationRunViewModel(
     workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
     workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
     latestWorkerPlan,
+    latestWorkerLedgerEvidence,
     canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),
     canRecordStageTick: run.status !== "completed",
     canStartStage: run.status !== "completed" &&
@@ -827,6 +977,11 @@ export function AutoImplementationRunPanel({
   const remoteNextAction = copy.autoImplementation.remoteNextActionLabel(run.remoteNextAction);
   const remoteWarning = run.remoteWarning
     ? copy.autoImplementation.remoteWarningLabel(run.remoteWarning)
+    : null;
+  const activePlanningIssueRow = run.planningIssueRows.find((row) => row.issue.status === "active") ?? null;
+  const completedPlanningIssueCount = run.planningIssueRows.filter((row) => row.issue.status === "completed").length;
+  const activePlanningIssueLabel = activePlanningIssueRow
+    ? `${activePlanningIssueRow.issue.issueId}: ${activePlanningIssueRow.issue.title}`
     : null;
 
   return (
@@ -1126,18 +1281,71 @@ export function AutoImplementationRunPanel({
         </>
       ) : null}
 
+      {run.latestWorkerLedgerEvidence ? (
+        <>
+          <h3>{copy.autoImplementation.workerLedgerEvidence}</h3>
+          <article className="operations-card">
+            <dl className="readiness-grid">
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceStep}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.stepId}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceStatus}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.status}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceCodeReview}</dt>
+                <dd>{inlineList(run.latestWorkerLedgerEvidence.codeReviewStreakLabels, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceCleanCode}</dt>
+                <dd>{inlineList(run.latestWorkerLedgerEvidence.cleanCodeReviewStreakLabels, copy.autoImplementation.none)}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceMissingTestAudit}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.missingTestAuditLabel}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceTests}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.testEvidenceLabel}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceMissingEvidence}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.missingEvidenceLabel}</dd>
+              </div>
+              <div>
+                <dt>{copy.autoImplementation.workerLedgerEvidenceRefs}</dt>
+                <dd>{run.latestWorkerLedgerEvidence.evidenceRefsLabel}</dd>
+              </div>
+            </dl>
+          </article>
+        </>
+      ) : null}
+
       <h3>{copy.autoImplementation.stagePlan}</h3>
       {run.stages.length ? (
         <ol>
-          {run.stages.map((stage) => (
-            <li key={stage.stage}>
-              {copy.autoImplementation.stageLabels[stage.stage]}: {copy.autoImplementation.stageStatusLabels[stage.status]}
-              {stage.nextScheduledAt ? ` · ${stage.nextScheduledAt}` : ""}
-              {stage.tickRecords.length ? ` · ${copy.autoImplementation.stagePlanTicks} ${stage.tickRecords.length}` : ""}
-              {stage.ledgerEvidence ? ` · ${copy.autoImplementation.stagePlanLedger} ${stage.ledgerEvidence.implementationStepId}` : ""}
-              {stage.blocker ? ` · ${copy.autoImplementation.stagePlanBlocker}: ${stage.blocker.reason}` : ""}
-            </li>
-          ))}
+          {run.stages.map((stage) => {
+            const ledgerSummaryLabels = stageLedgerEvidenceSummaryLabels(stage);
+
+            return (
+              <li key={stage.stage}>
+                {copy.autoImplementation.stageLabels[stage.stage]}: {copy.autoImplementation.stageStatusLabels[stage.status]}
+                {stage.nextScheduledAt ? ` · ${stage.nextScheduledAt}` : ""}
+                {stage.tickRecords.length ? ` · ${copy.autoImplementation.stagePlanTicks} ${stage.tickRecords.length}` : ""}
+                {stage.ledgerEvidence ? ` · ${copy.autoImplementation.stagePlanLedger} ${stage.ledgerEvidence.implementationStepId}` : ""}
+                {stage.blocker ? ` · ${copy.autoImplementation.stagePlanBlocker}: ${stage.blocker.reason}` : ""}
+                {ledgerSummaryLabels.length ? (
+                  <ul>
+                    {ledgerSummaryLabels.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
         </ol>
       ) : (
         <p className="empty-state">{copy.autoImplementation.noStages}</p>
@@ -1169,7 +1377,29 @@ export function AutoImplementationRunPanel({
       ) : null}
 
       <h3>{copy.autoImplementation.planningIssueFiles}</h3>
-      {run.planningIssueFiles.length ? (
+      {run.planningIssueSequenceTrackerPath ? (
+        <p>{copy.autoImplementation.planningIssueSequenceTracker}: {run.planningIssueSequenceTrackerPath}</p>
+      ) : null}
+      {run.planningIssueRows.length ? (
+        <>
+          <p className="mode-summary">
+            {copy.autoImplementation.planningIssueSequenceSummary(
+              completedPlanningIssueCount,
+              run.planningIssueRows.length,
+              activePlanningIssueLabel
+            )}
+          </p>
+          <ul>
+            {run.planningIssueRows.map((row) => (
+              <li key={row.issue.relativePath}>
+                {row.issue.issueId}: {row.issue.title} — {copy.autoImplementation.planningIssueRowStatus}:{" "}
+                {copy.autoImplementation.planningIssueStatusLabels[row.issue.status]} ({row.issue.relativePath};{" "}
+                {copy.autoImplementation.planningIssueRowTasks}: {row.taskIdsLabel})
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : run.planningIssueFiles.length ? (
         <ul>
           {run.planningIssueFiles.map((path) => (
             <li key={path}>{path}</li>

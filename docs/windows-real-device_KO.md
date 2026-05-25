@@ -8,7 +8,7 @@
 
 - Windows evidence contract: [`windows-real-device.example.json`](windows-real-device.example.json)와 `pnpm verify:windows-real-device`가 one-line installer부터 first-screen arrival까지의 device evidence gate를 검증합니다.
 - Installer dry-run: `pnpm verify:windows-installer:dry-run`이 UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, safe rerun update, prod-smoke log, support bundle 안내 marker가 유지되는지 credential-free로 검증합니다.
-- Release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 Windows evidence를 signed package, packaged update rollback gate와 함께 broad release blocker로 유지합니다.
+- Release readiness: [`release-readiness_KO.md`](release-readiness_KO.md)와 `pnpm verify:release-readiness`가 Windows evidence를 packaged update rollback gate와 함께 broad release blocker로 유지하며, signed package evidence는 optional hardening으로 따로 표시합니다.
 
 ## 기본 검증
 

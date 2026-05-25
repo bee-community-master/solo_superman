@@ -2,7 +2,7 @@
 
 언어: 한국어 | [English](release-channel_EN.md)
 
-이 문서는 one-line installer의 git checkout 재실행 업데이트와 나중의 패키지 앱 자동 업데이트를 분리합니다. 현재 제품은 technical preview이며, 이 문서와 `pnpm verify:release-channel`은 **업데이트 채널 계약과 검증 예시**를 고정합니다. 실제 패키지 앱 updater를 켜려면 signed macOS/Windows installer package, 배포 signing credential, 그리고 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과하는 device rollback evidence가 먼저 준비되어야 합니다.
+이 문서는 one-line installer의 git checkout 재실행 업데이트와 나중의 패키지 앱 자동 업데이트를 분리합니다. 현재 제품은 technical preview이며, 이 문서와 `pnpm verify:release-channel`은 **업데이트 채널 계약과 검증 예시**를 고정합니다. 실제 패키지 앱 updater를 켜려면 macOS/Windows packaged artifact와 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과하는 device rollback evidence가 먼저 준비되어야 합니다. signed artifact/signing credential은 스토어가 아닌 direct 배포에서는 optional hardening입니다.
 
 ## 채널 구분
 
@@ -51,10 +51,10 @@ pnpm verify:release-channel
 
 이 채널 계약은 packaged updater 구현의 선행 안전장치입니다. 실제 자동 업데이트 적용은 다음이 완료되기 전까지 deferred 상태입니다.
 
-1. macOS/Windows signed package format 결정.
-2. Developer ID/notarization 또는 Windows Authenticode signing credential 운영 절차.
-3. Release hosting, manifest signing key rotation, revoked-release 처리 절차.
-4. [`signed-package-release_KO.md`](signed-package-release_KO.md)의 `pnpm verify:signed-package-release -- --require-release-evidence`가 통과할 수 있는 macOS/Windows signing 및 release manifest evidence.
+1. macOS/Windows packaged artifact format 결정.
+2. Release hosting, manifest signing key rotation, revoked-release 처리 절차.
+3. Optional signed-artifact hardening을 주장할 경우 Developer ID/notarization 또는 Windows Authenticode signing credential 운영 절차.
+4. Optional signed-artifact hardening을 주장할 경우 [`signed-package-release_KO.md`](signed-package-release_KO.md)의 `pnpm verify:signed-package-release -- --require-release-evidence`가 통과할 수 있는 macOS/Windows signing 및 release manifest evidence.
 5. [`windows-real-device_KO.md`](windows-real-device_KO.md)의 `pnpm verify:windows-real-device -- --require-device-evidence`가 통과할 수 있는 Windows 한 줄 설치부터 첫 화면 도달까지의 실기기/VM verification.
 6. [`packaged-update-rollback_KO.md`](packaged-update-rollback_KO.md)의 `pnpm verify:packaged-update-rollback -- --require-device-evidence`가 통과할 수 있는 macOS/Windows 실제 설치·업데이트·rollback device verification.
 7. [`release-readiness_KO.md`](release-readiness_KO.md)의 `pnpm verify:release-readiness -- --require-ready` gate 통과.

@@ -8,7 +8,7 @@ This document defines the `solo-superman-windows-real-device.v1` evidence contra
 
 - Windows evidence contract: [`windows-real-device.example.json`](windows-real-device.example.json) plus `pnpm verify:windows-real-device` verify the device evidence gate from one-line installer to first-screen arrival.
 - Installer dry-run: `pnpm verify:windows-installer:dry-run` credential-free checks that UAC, Node/Git/Corepack/pnpm, WSL/Ubuntu/Codex CLI, Visual C++ runtime, desktop shortcut, safe rerun update, prod-smoke log, and support-bundle guidance markers remain present.
-- Release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) plus `pnpm verify:release-readiness` keep Windows evidence grouped with the signed package and packaged update rollback broad-release blockers.
+- Release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) plus `pnpm verify:release-readiness` keep Windows evidence grouped with the packaged update rollback broad-release blockers; signed package evidence remains optional hardening.
 
 ## Default verification
 

@@ -155,16 +155,16 @@ describe("answer follow-up variety", () => {
     expect(followUp.answerOptions).toEqual([]);
   });
 
-  it("uses explicit agree/disagree choices only when the follow-up asks for a stance", () => {
+  it("uses explicit proceed-or-hold choices only when the follow-up asks for a stance", () => {
     const followUp = submitAnswerAndReadFollowUp(2);
 
-    expect(followUp.questionText).toContain("찬성/반대 중 어느 쪽");
+    expect(followUp.questionText).toContain("진행 후보로 둘지");
     expect(followUp.expectedAnswerType).toBe("choice");
     expect(followUp.answerSelectionMode).toBe("single");
     expect(followUp.answerOptions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "찬성 / 조건부 진행" }),
-        expect.objectContaining({ label: "반대 / 보류" }),
+        expect.objectContaining({ label: "진행 후보로 둔다" }),
+        expect.objectContaining({ label: "보류하거나 좁힌다" }),
         expect.objectContaining({ label: "더 설명한 뒤 판단" })
       ])
     );
@@ -207,14 +207,14 @@ describe("answer follow-up variety", () => {
   it("keeps missing-counter-evidence follow-ups in evidence judgment form instead of applying every mode", () => {
     const followUp = submitAnswerAndReadFollowUp(0, "missing_con_evidence");
 
-    expect(followUp.questionText).toContain("반대 사례나 한계");
+    expect(followUp.questionText).toContain("반례나 한계");
     expect(followUp.expectedAnswerType).toBe("evidence");
     expect(followUp.answerSelectionMode).toBe("single");
     expect(followUp.answerOptions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "찬성 근거 우세" }),
-        expect.objectContaining({ label: "반대 근거 우세" }),
-        expect.objectContaining({ label: "근거 불충분" })
+        expect.objectContaining({ label: "이 방향을 우선 후보로 둔다" }),
+        expect.objectContaining({ label: "범위 축소나 방향 전환을 검토한다" }),
+        expect.objectContaining({ label: "추가 리서치로 근거자료를 더 보강한다" })
       ])
     );
   });

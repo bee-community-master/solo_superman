@@ -214,6 +214,183 @@ describe("research follow-up answer shape", () => {
     );
   });
 
+  it("uses pet lifecycle customer choices when the source idea is about pet all-life management", () => {
+    const input = {
+      question: "고객 후보를 하나 선택해주세요.",
+      researchTask: task("첫 고객 세그먼트 구체화"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice",
+        questionText:
+          "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에서 관리하는 앱의 첫 고객은 누구인가요?"
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(classifyResearchFollowUpAnswerShape(input)).toBe("single_choice");
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "첫 반려동물을 키우는 보호자" }),
+        expect.objectContaining({ label: "노령·만성질환 반려동물 보호자" }),
+        expect.objectContaining({ label: "보험·의료비 관리가 필요한 보호자" })
+      ])
+    );
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ label: "팀 리더/운영 담당자" })
+      ])
+    );
+  });
+
+  it("overrides stale generic builder candidates when pet context is available from the source question", () => {
+    const input = {
+      question:
+        "고객 성향 후보는 1인 창업자, 도메인 전문 1인 빌더, 팀 리더/운영 담당자입니다. 어느 성향의 고객에 집중하시겠습니까?",
+      researchTask: task("첫 고객 세그먼트 구체화"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice",
+        questionText:
+          "반려동물 의료, 급여, 일상, 보험, 장례 정보를 통합 관리하는 앱의 첫 고객 세그먼트를 좁혀주세요."
+      }),
+      evidenceMatrix: evidenceMatrix()
+    };
+
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "첫 반려동물을 키우는 보호자" }),
+        expect.objectContaining({ label: "여러 마리를 함께 키우는 가구" })
+      ])
+    );
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "도메인 전문 1인 빌더" })])
+    );
+  });
+
+  it("overrides stale generic builder candidates when pet context is available only from research evidence", () => {
+    const input = {
+      question:
+        "고객 후보는 혼자 만드는 초기 창업자, 도메인 전문 1인 빌더, 팀 리더/운영 담당자입니다. 어느 성향의 고객에 집중하시겠습니까?",
+      researchTask: task("첫 고객 세그먼트가 너무 넓음"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "primary_customer_narrowing",
+        expectedAnswerType: "choice",
+        questionText: "첫 고객 세그먼트를 좁혀주세요."
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_pet_only_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary:
+              "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에서 관리하려는 보호자 문제"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertainty_pet_only_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "노령·보험·장례 구간 중 어디서 먼저 시작할지는 추가 확인 필요"
+          }
+        ]
+      })
+    };
+
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "첫 반려동물을 키우는 보호자" }),
+        expect.objectContaining({ label: "노령·만성질환 반려동물 보호자" }),
+        expect.objectContaining({ label: "보험·의료비 관리가 필요한 보호자" })
+      ])
+    );
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "도메인 전문 1인 빌더" }),
+        expect.objectContaining({ label: "팀 리더/운영 담당자" })
+      ])
+    );
+  });
+
+  it.each([
+    {
+      caseKey: "education",
+      sourceQuestionText: "AI 학습 코치 앱의 첫 학습자/교육 사용자 유형을 좁혀주세요.",
+      expectedLabels: ["시험을 준비하는 학습자", "직무 전환·업스킬 학습자", "소규모 교육 운영자"]
+    },
+    {
+      caseKey: "local_commerce",
+      sourceQuestionText: "동네 식당과 카페의 예약, 픽업 주문, 단골 혜택 앱의 첫 고객/운영자 유형을 좁혀주세요.",
+      expectedLabels: ["소규모 매장 운영자", "반복 방문하는 단골 고객", "픽업·배달을 자주 쓰는 고객"]
+    }
+  ])(
+    "overrides stale generic builder candidates when $caseKey context is available from the source question",
+    ({ sourceQuestionText, expectedLabels }) => {
+      const input = {
+        question:
+          "고객 성향 후보는 1인 창업자, 도메인 전문 1인 빌더, 팀 리더/운영 담당자입니다. 어느 성향의 고객에 집중하시겠습니까?",
+        researchTask: task("첫 고객 세그먼트 구체화"),
+        sourceQuestion: sourceQuestion({
+          topicKey: "primary_customer_narrowing",
+          expectedAnswerType: "choice",
+          questionText: sourceQuestionText
+        }),
+        evidenceMatrix: evidenceMatrix()
+      };
+
+      const labels = researchFollowUpAnswerOptions(input).map((option) => option.label);
+
+      expect(labels).toEqual(expect.arrayContaining(expectedLabels));
+      expect(labels).not.toEqual(
+        expect.arrayContaining(["1인 창업자", "도메인 전문 1인 빌더", "팀 리더/운영 담당자"])
+      );
+    }
+  );
+
+  it("uses natural buyer/user decision labels instead of pro/con evidence labels", () => {
+    const input = {
+      question:
+        "구매자와 실제 사용자가 같은지 확인되지 않음을 조금 더 구체화하기 위해 리서치 결과를 모아보니 가족 보호자와 실제 기록 작성자가 다를 수 있다는 단서가 나타났습니다.\n\n어느 방향으로 판단하시겠습니까?",
+      researchTask: task("구매자와 실제 사용자가 같은지 확인"),
+      sourceQuestion: sourceQuestion({
+        topicKey: "buyer_user_split",
+        expectedAnswerType: "choice"
+      }),
+      evidenceMatrix: evidenceMatrix({
+        proEvidence: [
+          {
+            evidenceItemId: "evidence_pro_buyer_user_answer_shape" as EvidenceItemId,
+            kind: "pro",
+            summary: "보호자가 직접 구매하고 기록도 남기는 사례가 있음"
+          }
+        ],
+        uncertainties: [
+          {
+            evidenceItemId: "evidence_uncertainty_buyer_user_answer_shape" as EvidenceItemId,
+            kind: "uncertainty",
+            summary: "가족 구성원 간 역할 분리는 추가 확인 필요"
+          }
+        ]
+      })
+    };
+
+    expect(researchFollowUpAnswerOptions(input)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "구매자와 실제 사용자가 같다" }),
+        expect.objectContaining({ label: "구매자와 실제 사용자가 다르다" }),
+        expect.objectContaining({ label: "추가 리서치로 근거자료를 더 보강한다" }),
+        expect.objectContaining({ label: "지금은 스펙을 확정하기 어렵다" })
+      ])
+    );
+    expect(researchFollowUpAnswerOptions(input)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "찬성 근거가 더 강함" }),
+        expect.objectContaining({ label: "반대 근거를 더 찾기" }),
+        expect.objectContaining({ label: "검증 후 결정" })
+      ])
+    );
+  });
+
   it("uses concrete follow-up candidates before older source choices", () => {
     const input = {
       question: "후보는 개인 창업자, 팀 리더입니다. 어느 후보를 선택하시겠습니까?",
@@ -405,8 +582,8 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerSelectionMode(input)).toBe("single");
     expect(researchFollowUpAnswerOptions(input)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "agree_or_continue", label: expect.stringContaining("찬성") }),
-        expect.objectContaining({ id: "disagree_or_stop", label: expect.stringContaining("반대") })
+        expect.objectContaining({ id: "agree_or_continue", label: "진행 후보로 둔다" }),
+        expect.objectContaining({ id: "disagree_or_stop", label: "보류하거나 좁힌다" })
       ])
     );
   });
@@ -988,8 +1165,8 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerSelectionMode(binaryChoiceInput)).toBe("single");
     expect(researchFollowUpAnswerOptions(binaryChoiceInput)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "찬성 / 진행" }),
-        expect.objectContaining({ label: "반대 / 보류" })
+        expect.objectContaining({ label: "진행 후보로 둔다" }),
+        expect.objectContaining({ label: "보류하거나 좁힌다" })
       ])
     );
 

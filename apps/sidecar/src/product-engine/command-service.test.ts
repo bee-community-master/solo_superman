@@ -246,6 +246,7 @@ describe("ProductEngine command service research memory persistence", () => {
           allowlistId,
           connectorId: "public_search" as ResearchConnectorId,
           sourceCategory: "public_web",
+          adapterKind: "local_fake_readonly",
           researchObjective: "Broaden research beyond existing notes for founder urgency",
           productCategory: "Founder workflow assistant",
           customerProblemHypothesis: "Early founders need safer validation research.",

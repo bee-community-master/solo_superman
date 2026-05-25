@@ -2,14 +2,14 @@
 
 Language: [한국어](release-channel_KO.md) | English
 
-This document separates the one-line installer's git-checkout rerun update path from a later packaged-app automatic update path. The product is still a technical preview; this document and `pnpm verify:release-channel` lock the **update channel contract and verification example**. A real packaged updater must wait until signed macOS/Windows installer packages, release signing credentials, and device rollback evidence that passes `pnpm verify:packaged-update-rollback -- --require-device-evidence` exist.
+This document separates the one-line installer's git-checkout rerun update path from a later packaged-app automatic update path. The product is still a technical preview; this document and `pnpm verify:release-channel` lock the **update channel contract and verification example**. A real packaged updater must wait until packaged macOS/Windows artifacts and device rollback evidence that passes `pnpm verify:packaged-update-rollback -- --require-device-evidence` exist.
 
 ## Channel split
 
 | Path | Current meaning | Allowed update behavior |
 | --- | --- | --- |
 | Git checkout technical preview | The README one-line installer creates a repository checkout and runs `pnpm start:local`. | It may attempt a safe fast-forward update to `origin/main` only when the existing install folder is a clean checkout on the default branch with no local changes, untracked files, or divergence. |
-| Packaged app release | Future distribution path where a signed macOS/Windows package updates app binaries and release metadata. | It must not apply until the signed manifest, artifact checksum, artifact signature, user consent/deferral, retry, and rollback boundaries all verify. |
+| Packaged app release | Future distribution path where a macOS/Windows packaged-artifact updates app binaries and release metadata. | It must not apply until the manifest, artifact checksum, optional artifact signature, user consent/deferral, retry, and rollback boundaries all verify. |
 
 The git-checkout update is a development/technical-preview convenience. It is not a packaged app updater, and it has no authority to clean up or overwrite local user data, credentials, generated workspaces, or operator files.
 
@@ -51,10 +51,10 @@ The verifier requires these conditions by default:
 
 This channel contract is a prerequisite safety guard for a future packaged updater implementation. Applying real automatic updates remains deferred until the following exist:
 
-1. macOS/Windows signed package format decisions.
-2. Developer ID/notarization or Windows Authenticode signing credential operations.
-3. Release hosting, manifest signing key rotation, and revoked-release handling.
-4. macOS/Windows signing and release manifest evidence strong enough for `pnpm verify:signed-package-release -- --require-release-evidence` from [`signed-package-release_EN.md`](signed-package-release_EN.md).
+1. macOS/Windows packaged artifact format decisions.
+2. Release hosting, manifest signing key rotation, and revoked-release handling.
+3. Developer ID/notarization or Windows Authenticode signing credential operations only when optional signed-artifact hardening is claimed.
+4. macOS/Windows signing and release manifest evidence strong enough for `pnpm verify:signed-package-release -- --require-release-evidence` from [`signed-package-release_EN.md`](signed-package-release_EN.md) only when optional signed-artifact hardening is claimed.
 5. Windows real-device or VM verification from one-line install through first-screen arrival strong enough for `pnpm verify:windows-real-device -- --require-device-evidence` from [`windows-real-device_EN.md`](windows-real-device_EN.md).
 6. macOS/Windows real install, update, and rollback device verification strong enough for `pnpm verify:packaged-update-rollback -- --require-device-evidence` from [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md).
 7. Passing the `pnpm verify:release-readiness -- --require-ready` gate from [`release-readiness_EN.md`](release-readiness_EN.md).

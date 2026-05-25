@@ -3,6 +3,8 @@ import type {
   AmbiguityExpectedAnswerType,
   AmbiguityAnswerOption,
   AmbiguityAnswerSelectionMode,
+  AmbiguityReductionDimension,
+  AmbiguityRoutingPath,
   AmbiguityIssueSeverity,
   AmbiguityPossibleRoute,
   BusinessCriticalQuestionCategory,
@@ -87,6 +89,10 @@ export interface QueueItemProjection {
   readonly severity?: AmbiguityIssueSeverity;
   readonly whyItMatters?: string;
   readonly decisionItUnlocks?: string;
+  readonly ambiguityDimension?: AmbiguityReductionDimension;
+  readonly ambiguityRoutingPath?: AmbiguityRoutingPath;
+  readonly researchQuestion?: string;
+  readonly suggestedResearchTask?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
   readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;
   readonly answerOptions?: readonly AmbiguityAnswerOption[];

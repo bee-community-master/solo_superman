@@ -1,5 +1,6 @@
 import type {
   CreateResearchAllowlistRequest,
+  LivingSpecProjection,
   ResearchAllowlistGovernanceProjection,
   ResearchConnectorId,
   ResearchEvidenceProjection
@@ -41,14 +42,28 @@ export function activeWebPublicResearchAllowlist(
 interface WebResearchRunRequestInput {
   readonly allowlist: ResearchAllowlistProjection;
   readonly specTitle?: string | undefined;
+  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
   readonly task: ResearchTaskProjection;
+}
+
+function compactResearchContextFromSpec(spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined) {
+  return [spec?.title, ...(spec?.sections ?? [])]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 900);
 }
 
 export function buildWebResearchRunRequest({
   allowlist,
+  spec,
   specTitle,
   task
 }: WebResearchRunRequestInput): StartResearchRunInput {
+  const publicContext = compactResearchContextFromSpec(spec);
+  const productCategory = spec?.title ?? specTitle ?? (publicContext ? "Product idea validation" : "Public product research");
+
   return {
     researchTaskId: task.researchTaskId,
     allowlistId: allowlist.allowlistId,
@@ -56,8 +71,11 @@ export function buildWebResearchRunRequest({
     sourceCategory: "public_web",
     adapterKind: "web_search_readonly",
     researchObjective: task.objective,
-    productCategory: specTitle ?? "Founder workflow assistant",
-    customerProblemHypothesis: "Founder needs public-safe evidence before execution preparation notes.",
+    productCategory,
+    customerProblemHypothesis:
+      publicContext ||
+      "Validate the product idea and customer problem with public web evidence before execution planning.",
+    ...(publicContext ? { highLevelContext: publicContext } : {}),
     contextHash: `${task.researchTaskId}_${allowlist.version}_web`,
     sourceRefs: [task.sourceQueueItemId ?? task.researchTaskId]
   };

@@ -3,6 +3,7 @@ import type {
   AutoImplementationIssueDocument,
   AutoImplementationIssueMode,
   AutoImplementationIssueStatusSummary,
+  AutoImplementationPlanningIssueDocument,
   AutoImplementationPullRequestMutationAction,
   AutoImplementationPullRequestMutationRequestMode,
   AutoImplementationPullRequestMutationStatus,
@@ -379,7 +380,7 @@ const EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "The first question batch is already being created.",
-      chatgpt_login: "Confirm that you signed in to ChatGPT directly before starting.",
+      chatgpt_login: "Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.",
       codex_login:
         "Local Codex CLI login must be confirmed before backend questions or research prep can start.",
       sidecar_connection: "Local service is not connected.",
@@ -435,6 +436,7 @@ const EN_COPY = {
       loadNextQuestions: "Load next questions",
       carryAsKnownRisk: "Carry as Known Risk",
       importResearchResult: "Import research result",
+      recordVisibleChatGptResearchResultImport: "Record visible ChatGPT result import gate",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `Resolve research card: ${outcome}`
     },
     sessionActionReasons: {
@@ -447,6 +449,9 @@ const EN_COPY = {
       businessCriticKnownRiskDeferred: "User carried the business critic item as a Known Risk.",
       manualResearchSourceTitle: "Manual desk research",
       manualResearchLimitationNotes: "Manual import from founder-provided source.",
+      chatGptResearchSourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      chatGptResearchLimitationNotes:
+        "Imported from a visible user-owned ChatGPT session; verify cited sources, uncertainty, counterpoints, and freshness before planning.",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
         `${outcome} from Research card: ${title}`,
       researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -492,6 +497,26 @@ const EN_COPY = {
       }
     ],
     initialResearchPermissionHelp: "This only controls public, read-only research sources. It never grants write, credential, account, or paid-service access.",
+    initialResearchAutomationPermission: "Automated research assistance",
+    initialResearchAutomationPermissionOptions: [
+      {
+        permission: "manual_only" as const,
+        label: "Use local questions only",
+        description: "Create the first batch with the local ambiguity algorithm and do not ask Codex or ChatGPT to prepare research."
+      },
+      {
+        permission: "allow_codex" as const,
+        label: "Allow Codex research preview",
+        description: "Let Codex generate idea-specific questions and research prompts, with local deterministic fallback if Codex is unavailable."
+      },
+      {
+        permission: "allow_codex_and_chatgpt_visible" as const,
+        label: "Allow Codex + visible ChatGPT Pro/Deep Research",
+        description: "Let Codex prepare the research handoff and allow ChatGPT Pro/Deep Research only as visible delegation in your own browser."
+      }
+    ],
+    initialResearchAutomationPermissionHelp:
+      "ChatGPT Pro/Deep Research is never fully headless here: login, CAPTCHA, usage limits, and final submission stay visible and user-owned.",
     businessCriticIntensity: "Business review intensity",
     intensityReason: "Reason for this intensity",
     intensityReasonPlaceholder: "Note why this level of challenge fits the project.",
@@ -734,6 +759,14 @@ const EN_COPY = {
     rationale: "Rationale",
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
+    visibleChatGptImportHint:
+      "A visible ChatGPT Pro/Deep Research handoff is prepared for this task. Paste the user-reviewed result here; Solo Superman will import it as source-traced evidence and keep uncertainty/counterpoint/freshness review visible.",
+    visibleChatGptHandoffTitle: "Visible ChatGPT research handoff",
+    visibleChatGptOpen: "Open ChatGPT",
+    visibleChatGptPromptLabel: "Prompt to paste into ChatGPT/Deep Research",
+    visibleChatGptChecklistLabel: "Before importing the result",
+    visibleChatGptHandoffBoundary:
+      "This is a user-visible handoff, not account sharing or backend ChatGPT automation. Review the prompt, run it in your own browser session, then paste only the reviewed result and public source refs below.",
     startReadOnlyRun: "Start public web run",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0
@@ -782,6 +815,7 @@ const EN_COPY = {
       planPublicSafeResearchTask: "Plan public-safe research task",
       updateMaxConcurrentRuns: "Update research run limit",
       updateMaxSessionRuns: "Update session research limit",
+      prepareVisibleChatGptResearchDelegation: "Prepare visible ChatGPT research handoff",
       startPublicWebResearchRun: "Start public web research run",
       startBackgroundPublicWebResearchRun: "Start background public web research run",
       cancelRun: "Cancel research run",
@@ -820,6 +854,13 @@ const EN_COPY = {
     noEvidenceItems: "No evidence items",
     additionalQuestions: "Research-generated follow-up questions",
     sourceTrace: "Source trace",
+    importedResultPendingTitle: "Imported result is being turned into evidence",
+    importedResultPendingDescription:
+      "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared.",
+    importedResultSummary: "Imported result summary",
+    importedResultLimitations: "Limits and uncertainties",
+    importedResultQuestionRef: "Question or handoff reference",
+    importedResultImplicationScope: "What this can decide",
     noResearchTasks: "No research tasks yet.",
     planningBlockedSuffix: "blocks Planning-ready",
     routeOutcomeLabels: {
@@ -992,6 +1033,7 @@ const EN_COPY = {
       : "No auto implementation workspace has been prepared yet.",
     create: "Create workspace run",
     reprepare: "Ensure workspace run",
+    prepareContextAndCreate: "Prepare context and create run",
     planWorkerJob: "Plan approved local Codex task",
     recordStageTick: "Record current stage check-in",
     startStage: "Start current stage",
@@ -1124,6 +1166,15 @@ const EN_COPY = {
     workerPlanBlocker: "Blocker",
     workerPlanMissingEvidence: "Missing evidence",
     workerPlanEvidenceRefs: "Task evidence refs",
+    workerLedgerEvidence: "Imported implementation evidence",
+    workerLedgerEvidenceStep: "Implementation step",
+    workerLedgerEvidenceStatus: "Step status",
+    workerLedgerEvidenceCodeReview: "Code-review streaks",
+    workerLedgerEvidenceCleanCode: "Clean-code streaks",
+    workerLedgerEvidenceMissingTestAudit: "Missing-test audit",
+    workerLedgerEvidenceTests: "Test evidence",
+    workerLedgerEvidenceMissingEvidence: "Remaining missing evidence",
+    workerLedgerEvidenceRefs: "Imported evidence refs",
     missingExecutionAuthority: "Missing ExecutionAuthorityRecord",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
@@ -1157,6 +1208,19 @@ const EN_COPY = {
       "Update the PR body with scope, review streak evidence, missing-test audit evidence, test evidence, remaining gaps, and merge readiness before merging."
     ],
     planningIssueFiles: "Planning-derived PR/issue files",
+    planningIssueSequenceTracker: "Sequence tracker",
+    planningIssueSequenceSummary: (completed: number, total: number, activeLabel: string | null) =>
+      activeLabel
+        ? `${completed}/${total} planning PR slice(s) completed · active slice: ${activeLabel}`
+        : `${completed}/${total} planning PR slice(s) completed · no active slice selected`,
+    planningIssueStatusLabels: {
+      planned: "planned",
+      active: "active",
+      completed: "completed",
+      blocked: "blocked"
+    } satisfies Record<AutoImplementationPlanningIssueDocument["status"], string>,
+    planningIssueRowStatus: "slice status",
+    planningIssueRowTasks: "planning tasks",
     issueDocs: "Issue documents",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
       ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`
@@ -1529,12 +1593,15 @@ const EN_COPY = {
     planningActionErrors: {
       activeSessionRequiredScoreCompleteness: "An active session is required before scoring completeness.",
       activeSessionRequiredFounderBrief: "An active session is required before preparing a Founder Brief.",
-      activeSessionRequiredPlanningHandoff: "An active session is required before running the Planning Handoff gate."
+      activeSessionRequiredPlanningHandoff: "An active session is required before running the Planning Handoff gate.",
+      activeSessionRequiredPrepareImplementationContext:
+        "An active session is required before preparing implementation context."
     },
     planningActionLabels: {
       scoreCompleteness: "Score completeness",
       prepareFounderBrief: "Prepare Founder Brief",
-      runPlanningHandoffGate: "Run Planning Handoff gate"
+      runPlanningHandoffGate: "Run Planning Handoff gate",
+      prepareImplementationContext: "Prepare implementation context"
     }
   },
   permissions: {
@@ -1789,7 +1856,7 @@ const JA_COPY: typeof EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "最初の質問セットはすでに作成中です。",
-      chatgpt_login: "開始前にChatGPTへ直接ログインしたことを確認してください。",
+      chatgpt_login: "見えるChatGPT Pro/Deep Research引き継ぎを許可する前に、ChatGPTへ直接ログインしたことを確認してください。",
       codex_login:
         "バックエンド質問またはリサーチ準備を始める前に、ローカルCodex CLIログインを確認する必要があります。",
       sidecar_connection: "ローカルサービスが接続されていません。",
@@ -1842,6 +1909,7 @@ const JA_COPY: typeof EN_COPY = {
       loadNextQuestions: "次の質問を読み込み",
       carryAsKnownRisk: "Known Riskとして残す",
       importResearchResult: "リサーチ結果を取り込み",
+      recordVisibleChatGptResearchResultImport: "見えるChatGPT結果取り込みゲートを記録",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `リサーチカードを解決: ${outcome}`
     },
     sessionActionReasons: {
@@ -1853,6 +1921,9 @@ const JA_COPY: typeof EN_COPY = {
       businessCriticKnownRiskDeferred: "ユーザーがbusiness critic項目をKnown Riskに移しました。",
       manualResearchSourceTitle: "手動デスクリサーチ",
       manualResearchLimitationNotes: "創業者が提供した情報源からの手動取り込みです。",
+      chatGptResearchSourceTitle: "ユーザー提供のChatGPT Pro/Deep Research結果",
+      chatGptResearchLimitationNotes:
+        "ユーザー所有の見えるChatGPTセッションから取り込みました。計画に使う前に引用元、不確実性、反証、鮮度を確認してください。",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
         `リサーチカード「${title}」を${outcome}として処理しました。`,
       researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -1898,6 +1969,26 @@ const JA_COPY: typeof EN_COPY = {
       }
     ],
     initialResearchPermissionHelp: "これは公開・読み取り専用リサーチソースだけの設定です。書き込み、認証情報、アカウント、有料サービスへのアクセスは許可しません。",
+    initialResearchAutomationPermission: "自動リサーチ補助",
+    initialResearchAutomationPermissionOptions: [
+      {
+        permission: "manual_only" as const,
+        label: "ローカル質問だけを使う",
+        description: "最初の質問セットはローカルの曖昧さ削減アルゴリズムで作り、CodexやChatGPTにはリサーチ準備を依頼しません。"
+      },
+      {
+        permission: "allow_codex" as const,
+        label: "Codexのリサーチpreviewを許可",
+        description: "Codexでアイデアに合わせた質問とリサーチpromptを生成し、利用できない場合はローカル決定的フローに戻します。"
+      },
+      {
+        permission: "allow_codex_and_chatgpt_visible" as const,
+        label: "Codex + 見えるChatGPT Pro/Deep Researchを許可",
+        description: "Codexでリサーチ引き継ぎを準備し、ChatGPT Pro/Deep Researchは自分のブラウザで見える委任としてのみ使います。"
+      }
+    ],
+    initialResearchAutomationPermissionHelp:
+      "ここではChatGPT Pro/Deep Researchを完全headless化しません。ログイン、CAPTCHA、利用制限、最終送信は見える状態でユーザーが所有します。",
     businessCriticIntensity: "事業レビューの強さ",
     intensityReason: "この強さを選ぶ理由",
     intensityReasonPlaceholder: "この問い直しの強さが合う理由を書いてください。",
@@ -2138,6 +2229,14 @@ const JA_COPY: typeof EN_COPY = {
     rationale: "根拠",
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
+    visibleChatGptImportHint:
+      "このタスクには見えるChatGPT Pro/Deep Research引き継ぎが準備されています。ユーザーが確認した結果をここに貼り付けると、Solo Supermanは出典付き証拠として取り込み、不確実性・反証・鮮度確認を見える状態に保ちます。",
+    visibleChatGptHandoffTitle: "表示可能な ChatGPT リサーチ引き継ぎ",
+    visibleChatGptOpen: "ChatGPT を開く",
+    visibleChatGptPromptLabel: "ChatGPT/Deep Research に貼り付けるプロンプト",
+    visibleChatGptChecklistLabel: "結果を取り込む前に",
+    visibleChatGptHandoffBoundary:
+      "これはユーザーが見える形の引き継ぎであり、アカウント共有やバックエンド ChatGPT 自動化ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
@@ -2183,6 +2282,7 @@ const JA_COPY: typeof EN_COPY = {
       planPublicSafeResearchTask: "公開安全リサーチtaskを計画",
       updateMaxConcurrentRuns: "リサーチ実行上限を更新",
       updateMaxSessionRuns: "セッションリサーチ上限を更新",
+      prepareVisibleChatGptResearchDelegation: "見えるChatGPTリサーチ引き継ぎを準備",
       startPublicWebResearchRun: "公開Webリサーチrunを開始",
       startBackgroundPublicWebResearchRun: "バックグラウンド公開Webリサーチrunを開始",
       cancelRun: "リサーチrunをキャンセル",
@@ -2220,6 +2320,13 @@ const JA_COPY: typeof EN_COPY = {
     noEvidenceItems: "エビデンス項目なし",
     additionalQuestions: "リサーチが生成した追加質問",
     sourceTrace: "参照元トレース",
+    importedResultPendingTitle: "取り込んだ結果を根拠に変換しています",
+    importedResultPendingDescription:
+      "貼り付けたリサーチ結果は、エビデンスマトリクス・追加質問・品質確認が準備されるまでここに保持されます。",
+    importedResultSummary: "取り込んだ結果の要約",
+    importedResultLimitations: "制約と不確実性",
+    importedResultQuestionRef: "質問または引き継ぎ参照",
+    importedResultImplicationScope: "この結果で判断できること",
     noResearchTasks: "リサーチタスクはまだありません。",
     planningBlockedSuffix: "Planning-readyをブロック",
     routeOutcomeLabels: {
@@ -2392,6 +2499,7 @@ const JA_COPY: typeof EN_COPY = {
       : "自動実装ワークスペースはまだ準備されていません。",
     create: "ワークスペース実行を作成",
     reprepare: "ワークスペース実行を確認",
+    prepareContextAndCreate: "コンテキストを準備して実行を作成",
     planWorkerJob: "承認済みローカルCodex作業を計画",
     recordStageTick: "現在段階の進捗確認を記録",
     startStage: "現在段階を開始",
@@ -2515,6 +2623,15 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanBlocker: "ブロッカー",
     workerPlanMissingEvidence: "不足している根拠",
     workerPlanEvidenceRefs: "作業確認資料",
+    workerLedgerEvidence: "取り込み済み実装根拠",
+    workerLedgerEvidenceStep: "実装ステップ",
+    workerLedgerEvidenceStatus: "ステップ状態",
+    workerLedgerEvidenceCodeReview: "コードレビュー連続通過",
+    workerLedgerEvidenceCleanCode: "クリーンコード連続通過",
+    workerLedgerEvidenceMissingTestAudit: "不足テスト監査",
+    workerLedgerEvidenceTests: "テスト根拠",
+    workerLedgerEvidenceMissingEvidence: "残っている不足根拠",
+    workerLedgerEvidenceRefs: "取り込み済み根拠参照",
     missingExecutionAuthority: "ExecutionAuthorityRecord未作成",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `Workspace: ${workspacePath}`
@@ -2548,6 +2665,19 @@ const JA_COPY: typeof EN_COPY = {
       "merge前に、範囲、レビュー連続通過、テスト不足確認、テスト結果、残りgap、merge準備状態をPR本文へ反映します。"
     ],
     planningIssueFiles: "計画由来のPR/Issueファイル",
+    planningIssueSequenceTracker: "シーケンストラッカー",
+    planningIssueSequenceSummary: (completed: number, total: number, activeLabel: string | null) =>
+      activeLabel
+        ? `計画PR単位 ${completed}/${total} 件完了 · 現在の単位: ${activeLabel}`
+        : `計画PR単位 ${completed}/${total} 件完了 · 現在の単位は未選択`,
+    planningIssueStatusLabels: {
+      planned: "計画済み",
+      active: "進行中",
+      completed: "完了",
+      blocked: "ブロック中"
+    },
+    planningIssueRowStatus: "単位の状態",
+    planningIssueRowTasks: "計画タスク",
     issueDocs: "Issue文書",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
       ? `Issue状態の要約: 完了 ${summary.completed}件 / ブロック ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
@@ -2940,12 +3070,15 @@ const JA_COPY: typeof EN_COPY = {
     planningActionErrors: {
       activeSessionRequiredScoreCompleteness: "完成度を採点するにはアクティブなセッションが必要です。",
       activeSessionRequiredFounderBrief: "Founder Briefを準備するにはアクティブなセッションが必要です。",
-      activeSessionRequiredPlanningHandoff: "計画引き継ぎゲートを実行するにはアクティブなセッションが必要です。"
+      activeSessionRequiredPlanningHandoff: "計画引き継ぎゲートを実行するにはアクティブなセッションが必要です。",
+      activeSessionRequiredPrepareImplementationContext:
+        "実装コンテキストを準備するにはアクティブなセッションが必要です。"
     },
     planningActionLabels: {
       scoreCompleteness: "完成度を採点",
       prepareFounderBrief: "Founder Briefを準備",
-      runPlanningHandoffGate: "計画引き継ぎゲートを実行"
+      runPlanningHandoffGate: "計画引き継ぎゲートを実行",
+      prepareImplementationContext: "実装コンテキストを準備"
     }
   },
   permissions: {
@@ -3200,7 +3333,7 @@ const KO_COPY: typeof EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "첫 질문 묶음을 이미 생성 중입니다.",
-      chatgpt_login: "시작 전에 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
+      chatgpt_login: "보이는 ChatGPT Pro/Deep Research 위임을 허용하려면 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
       codex_login:
         "backend 질문 또는 리서치 준비를 시작하기 전에 로컬 Codex CLI 로그인이 확인되어야 합니다.",
       sidecar_connection: "로컬 서비스가 연결되어 있지 않습니다.",
@@ -3252,6 +3385,7 @@ const KO_COPY: typeof EN_COPY = {
       loadNextQuestions: "다음 질문 불러오기",
       carryAsKnownRisk: "Known Risk로 이관",
       importResearchResult: "리서치 결과 가져오기",
+      recordVisibleChatGptResearchResultImport: "보이는 ChatGPT 결과 가져오기 게이트 기록",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `리서치 카드 해결: ${outcome}`
     },
     sessionActionReasons: {
@@ -3264,6 +3398,9 @@ const KO_COPY: typeof EN_COPY = {
       businessCriticKnownRiskDeferred: "사용자가 business critic 항목을 Known Risk로 이관했습니다.",
       manualResearchSourceTitle: "수동 데스크 리서치",
       manualResearchLimitationNotes: "창업자가 제공한 출처에서 수동으로 가져왔습니다.",
+      chatGptResearchSourceTitle: "사용자가 제공한 ChatGPT Pro/Deep Research 결과",
+      chatGptResearchLimitationNotes:
+        "사용자 소유의 보이는 ChatGPT 세션에서 가져왔습니다. 계획에 사용하기 전에 인용 출처, 불확실성, 반례, 최신성을 확인하세요.",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
         `리서치 카드 '${title}'을(를) ${outcome} 처리했습니다.`,
       researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -3309,6 +3446,26 @@ const KO_COPY: typeof EN_COPY = {
       }
     ],
     initialResearchPermissionHelp: "이 설정은 공개·읽기 전용 리서치 소스만 허용합니다. 쓰기, 계정, credential, 유료 서비스 접근은 허용하지 않습니다.",
+    initialResearchAutomationPermission: "자동화 리서치 보조",
+    initialResearchAutomationPermissionOptions: [
+      {
+        permission: "manual_only" as const,
+        label: "로컬 질문만 사용",
+        description: "첫 질문 묶음은 로컬 모호함 축소 알고리즘으로 만들고 Codex나 ChatGPT에는 리서치 준비를 맡기지 않습니다."
+      },
+      {
+        permission: "allow_codex" as const,
+        label: "Codex 리서치 preview 허용",
+        description: "Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 하고, 사용할 수 없으면 로컬 결정적 흐름으로 돌아갑니다."
+      },
+      {
+        permission: "allow_codex_and_chatgpt_visible" as const,
+        label: "Codex + 보이는 ChatGPT Pro/Deep Research 허용",
+        description: "Codex가 리서치 전달을 준비하고 ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 사용합니다."
+      }
+    ],
+    initialResearchAutomationPermissionHelp:
+      "여기서는 ChatGPT Pro/Deep Research를 완전 headless로 돌리지 않습니다. 로그인, CAPTCHA, 사용량 제한, 최종 제출은 모두 사용자에게 보이는 상태로 유지합니다.",
     businessCriticIntensity: "사업 리뷰 강도",
     intensityReason: "이 강도를 선택한 이유",
     intensityReasonPlaceholder: "이 정도로 되묻는 것이 프로젝트에 맞는 이유를 적어주세요.",
@@ -3360,29 +3517,29 @@ const KO_COPY: typeof EN_COPY = {
     researchFollowUpSourceTrace: "소스 추적",
     answerFormatLabels: {
       open_text: "주관식/서술형 답변",
-      binary_choice: "찬성/반대 선택",
+      binary_choice: "진행/보류 선택",
       single_choice: "하나 선택",
       multi_select: "하나 이상 선택",
       ranked_choice: "우선순위/순위 답변",
-      evidence_judgment: "근거 판단",
+      evidence_judgment: "다음 판단 선택",
       experiment_plan: "검증 방법 답변"
     },
     answerFormatDescriptions: {
       open_text: "선택지 없이 상황, 이유, 제약을 본인 말로 적는 질문입니다.",
-      binary_choice: "가장 가까운 입장을 고르고, 조건부라면 아래 입력칸에 조건을 함께 적어주세요.",
+      binary_choice: "진행, 보류, 조건부 진행 중 가장 가까운 입장을 고르고 필요하면 아래 입력칸에 조건을 적어주세요.",
       single_choice: "지금 아이디어에 가장 맞는 후보 하나를 고르거나 더 맞는 답을 직접 적어주세요.",
       multi_select: "계속 가져갈 후보를 모두 선택할 수 있습니다. 여러 선택을 묶은 답을 직접 적어도 됩니다.",
       ranked_choice: "선택지가 보이면 우선순위를 정하는 방식으로 쓰고, 실제 순서를 직접 적어도 됩니다.",
-      evidence_judgment: "선택지가 보이면 근거 판단을 고르고, 아직 불확실한 점을 직접 적어도 됩니다.",
+      evidence_judgment: "현재 정보로 결정, 보류, 추가 확인 중 가장 맞는 다음 행동을 고르고 이유를 덧붙일 수 있습니다.",
       experiment_plan: "선택지가 보이면 검증 방법을 고르고, 다른 실험 계획을 직접 적어도 됩니다."
     },
     answerChoiceLabels: {
       open_text: "답변",
-      binary_choice: "찬반 선택지",
+      binary_choice: "진행/보류 선택지",
       single_choice: "답변 선택지",
       multi_select: "선택 가능한 답변",
       ranked_choice: "우선순위 선택지",
-      evidence_judgment: "근거 판단 선택지",
+      evidence_judgment: "다음 행동 선택지",
       experiment_plan: "검증 선택지"
     },
     businessCriticCategoryLabels: {
@@ -3415,7 +3572,7 @@ const KO_COPY: typeof EN_COPY = {
       single_choice: { primary: "정해지는 후보", secondary: "추가 확인할 점" },
       multi_select: { primary: "함께 가져갈 내용", secondary: "주의할 조합" },
       ranked_choice: { primary: "우선순위 영향", secondary: "트레이드오프" },
-      evidence_judgment: { primary: "근거 판단", secondary: "한계·불확실성" },
+      evidence_judgment: { primary: "선택하면 정해지는 내용", secondary: "추가 확인할 점" },
       experiment_plan: { primary: "검증할 내용", secondary: "검증 한계" }
     },
     customAnswer: "선택 이유를 덧붙이거나 다른 답변 작성",
@@ -3549,6 +3706,14 @@ const KO_COPY: typeof EN_COPY = {
     rationale: "근거",
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
+    visibleChatGptImportHint:
+      "이 작업에는 보이는 ChatGPT Pro/Deep Research 전달이 준비되어 있습니다. 사용자가 검토한 결과를 여기에 붙여 넣으면 Solo Superman이 출처 추적 리서치로 가져오고 불확실성·반례·최신성 검토를 계속 보이게 유지합니다.",
+    visibleChatGptHandoffTitle: "보이는 ChatGPT 리서치 인계",
+    visibleChatGptOpen: "ChatGPT 열기",
+    visibleChatGptPromptLabel: "ChatGPT/Deep Research에 붙여 넣을 프롬프트",
+    visibleChatGptChecklistLabel: "결과를 가져오기 전에",
+    visibleChatGptHandoffBoundary:
+      "이 경로는 사용자가 볼 수 있는 인계이며 계정 공유나 백엔드 ChatGPT 자동화가 아닙니다. 본인 브라우저 세션에서 프롬프트를 검토·실행한 뒤, 검토한 결과와 공개 출처 참조만 아래에 붙여 넣으세요.",
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
@@ -3592,6 +3757,7 @@ const KO_COPY: typeof EN_COPY = {
       planPublicSafeResearchTask: "공개 안전 리서치 task 계획",
       updateMaxConcurrentRuns: "리서치 실행 제한 업데이트",
       updateMaxSessionRuns: "세션 리서치 제한 업데이트",
+      prepareVisibleChatGptResearchDelegation: "보이는 ChatGPT 리서치 위임 준비",
       startPublicWebResearchRun: "공개 웹 리서치 run 시작",
       startBackgroundPublicWebResearchRun: "백그라운드 공개 웹 리서치 run 시작",
       cancelRun: "리서치 run 취소",
@@ -3621,19 +3787,26 @@ const KO_COPY: typeof EN_COPY = {
     balanceStatus: "균형 상태",
     decisionBlocked: "Planning 차단됨",
     decisionReady: "Planning 차단 없음",
-    proEvidence: "찬성 근거",
-    conEvidence: "반대 근거",
+    proEvidence: "확인된 단서",
+    conEvidence: "다른 관점/반례",
     uncertainties: "불확실성",
-    missingConEvidenceReason: "반대 근거 부족 이유",
+    missingConEvidenceReason: "다른 관점 부족 이유",
     knownRisk: "알려진 리스크",
     noEvidenceItems: "근거 항목 없음",
     additionalQuestions: "리서치가 생성한 후속 질문",
     sourceTrace: "출처 추적",
+    importedResultPendingTitle: "가져온 결과를 근거로 바꾸는 중",
+    importedResultPendingDescription:
+      "붙여 넣은 리서치 결과는 근거 매트릭스, 후속 질문, 품질 확인이 준비될 때까지 여기에서 유지됩니다.",
+    importedResultSummary: "가져온 결과 요약",
+    importedResultLimitations: "한계와 불확실성",
+    importedResultQuestionRef: "질문 또는 인계 참조",
+    importedResultImplicationScope: "이 결과로 판단할 수 있는 범위",
     noResearchTasks: "아직 리서치 작업이 없습니다.",
     planningBlockedSuffix: "Planning-ready 차단",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
-      missing_con_evidence: "반대 근거 필요"
+      missing_con_evidence: "반례 확인 필요"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "계획됨",
@@ -3686,10 +3859,10 @@ const KO_COPY: typeof EN_COPY = {
     balanceStatusLabels: {
       unknown: "근거 균형 알 수 없음",
       balanced: "근거 균형 충분",
-      needs_con_evidence: "반대 근거 필요",
-      missing_con_evidence: "반대 근거 부족",
+      needs_con_evidence: "반례 확인 필요",
+      missing_con_evidence: "다른 관점 부족",
       source_quality_insufficient: "출처 품질 부족",
-      blocked_by_con_evidence: "반대 근거로 차단"
+      blocked_by_con_evidence: "반례로 차단"
     } satisfies Record<EvidenceBalanceStatus, string>,
     sourceReliabilityLabels: {
       high: "높은 신뢰도",
@@ -3801,6 +3974,7 @@ const KO_COPY: typeof EN_COPY = {
       : "아직 자동 구현 작업공간이 준비되지 않았습니다.",
     create: "작업공간 실행 만들기",
     reprepare: "작업공간 실행 확인",
+    prepareContextAndCreate: "컨텍스트 준비 후 실행 만들기",
     planWorkerJob: "승인된 로컬 Codex 작업 계획",
     recordStageTick: "현재 단계 진행 확인 기록",
     startStage: "현재 단계 시작",
@@ -3924,6 +4098,15 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanBlocker: "차단 항목",
     workerPlanMissingEvidence: "누락된 근거",
     workerPlanEvidenceRefs: "작업 근거 참조",
+    workerLedgerEvidence: "가져온 구현 근거",
+    workerLedgerEvidenceStep: "구현 단계",
+    workerLedgerEvidenceStatus: "단계 상태",
+    workerLedgerEvidenceCodeReview: "코드 리뷰 연속 통과",
+    workerLedgerEvidenceCleanCode: "클린 코드 연속 통과",
+    workerLedgerEvidenceMissingTestAudit: "부족한 테스트 감사",
+    workerLedgerEvidenceTests: "테스트 근거",
+    workerLedgerEvidenceMissingEvidence: "남은 누락 근거",
+    workerLedgerEvidenceRefs: "가져온 근거 참조",
     missingExecutionAuthority: "ExecutionAuthorityRecord 누락",
     workspaceLabel: (workspacePath: string | null): string => workspacePath
       ? `작업공간: ${workspacePath}`
@@ -3957,6 +4140,19 @@ const KO_COPY: typeof EN_COPY = {
       "merge 전에 범위, 리뷰 연속 통과, 부족 테스트 확인, 테스트 결과, 남은 gap, merge 준비 상태를 PR 본문에 반영합니다."
     ],
     planningIssueFiles: "계획에서 나온 PR/이슈 파일",
+    planningIssueSequenceTracker: "순서 추적 파일",
+    planningIssueSequenceSummary: (completed: number, total: number, activeLabel: string | null) =>
+      activeLabel
+        ? `계획 PR 단위 ${total}개 중 ${completed}개 완료 · 현재 단위: ${activeLabel}`
+        : `계획 PR 단위 ${total}개 중 ${completed}개 완료 · 현재 선택된 단위 없음`,
+    planningIssueStatusLabels: {
+      planned: "계획됨",
+      active: "진행 중",
+      completed: "완료",
+      blocked: "차단됨"
+    },
+    planningIssueRowStatus: "단위 상태",
+    planningIssueRowTasks: "계획 작업",
     issueDocs: "이슈 문서",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
       ? `이슈 상태 요약: 완료 ${summary.completed}개 / 차단 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
@@ -4349,12 +4545,14 @@ const KO_COPY: typeof EN_COPY = {
     planningActionErrors: {
       activeSessionRequiredScoreCompleteness: "완성도를 채점하려면 활성 세션이 필요합니다.",
       activeSessionRequiredFounderBrief: "Founder Brief를 준비하려면 활성 세션이 필요합니다.",
-      activeSessionRequiredPlanningHandoff: "계획 인계 게이트를 실행하려면 활성 세션이 필요합니다."
+      activeSessionRequiredPlanningHandoff: "계획 인계 게이트를 실행하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredPrepareImplementationContext: "구현 컨텍스트를 준비하려면 활성 세션이 필요합니다."
     },
     planningActionLabels: {
       scoreCompleteness: "완성도 채점",
       prepareFounderBrief: "Founder Brief 준비",
-      runPlanningHandoffGate: "계획 인계 게이트 실행"
+      runPlanningHandoffGate: "계획 인계 게이트 실행",
+      prepareImplementationContext: "구현 컨텍스트 준비"
     }
   },
   permissions: {
@@ -4427,8 +4625,8 @@ const KO_COPY: typeof EN_COPY = {
         noSourceRefs: "출처 참조 없음",
         uncertainty: (status: string, refs: string) => `불확실성: ${status} (${refs})`,
         noUncertaintyRefs: "불확실성 참조 없음",
-        conEvidence: (status: string, refs: string) => `반대 근거: ${status} (${refs})`,
-        noConEvidenceRefs: "반대 근거 참조 없음",
+        conEvidence: (status: string, refs: string) => `다른 관점/반례: ${status} (${refs})`,
+        noConEvidenceRefs: "다른 관점/반례 참조 없음",
         staleRisk: (status: string, refs: string) => `신선도 리스크: ${status} (${refs})`,
         noStaleRiskRefs: "신선도 리스크 참조 없음",
         importRationale: (rationale: string) => `가져오기 근거: ${rationale}`

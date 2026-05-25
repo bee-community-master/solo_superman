@@ -1,6 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import {
+  CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE,
+  CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE
+} from "@solo-superman/contracts";
 import type {
   CommandId,
   CommandResponse,
@@ -9,8 +13,10 @@ import type {
   ProjectId,
   ProjectionVersion,
   QueueItemId,
+  ResearchResultId,
   ResearchTaskId,
   SessionId,
+  SessionShellProjection,
   StateVersion
 } from "@solo-superman/contracts";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
@@ -264,6 +270,247 @@ describe("queueShouldAutoActivateNextQuestionBatch", () => {
 });
 
 describe("useDecisionQueueSessionActions", () => {
+  it("passes prompt-template generated question JSON into the initial ambiguity analysis command", async () => {
+    const projectId = "proj_generated_initial_questions" as ProjectId;
+    const sessionId = "sess_generated_initial_questions" as SessionId;
+    const generatedQuestionSet = {
+      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+      questions: [
+        {
+          topicKey: "pet_lifecycle_guardian_focus"
+        }
+      ]
+    };
+    const sessionProjection: SessionShellProjection = {
+      kind: "SessionShellProjection",
+      projectId,
+      sessionId,
+      version: 1 as ProjectionVersion,
+      phase: "intake",
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "Business validation",
+      projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+    };
+    const queueProjection: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 5 as ProjectionVersion,
+      active: [],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const commandResponse = <TProjection,>(
+      index: number,
+      immediateProjection?: TProjection
+    ): CommandResponse<TProjection> => ({
+      category: immediateProjection ? "accepted_with_projection" : "accepted",
+      commandId: `cmd_generated_initial_questions_${index}` as CommandId,
+      correlationId: "corr_generated_initial_questions" as CorrelationId,
+      stateVersionBefore: (index - 1) as StateVersion,
+      stateVersionAfter: index as StateVersion,
+      ...(immediateProjection ? { immediateProjection } : {})
+    } as CommandResponse<TProjection>);
+    const createProject = vi.fn(async () => commandResponse(1, sessionProjection));
+    const captureIntake = vi.fn(async () => commandResponse(2));
+    const draftInitialSpec = vi.fn(async () => commandResponse(3));
+    const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
+    const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
+    const generateInitialQuestionSet = vi.fn(async () => ({
+      status: "generated" as const,
+      promptTemplateRef: "prompt-template:generated-ambiguity-questions:v1",
+      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+      source: "codex_runtime_preview" as const,
+      generatedQuestionSet
+    }));
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand: async (_label, response) => response,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          createProject,
+          captureIntake,
+          draftInitialSpec,
+          generateInitialQuestionSet,
+          analyzeAmbiguity,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "A pet lifecycle management app",
+        initialResearchPermission: "not_now",
+        initialResearchAutomationPermission: "allow_codex",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Use natural questions tailored to pet guardians.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: emptyProjectionState(),
+        purposeModeChangeReason: "",
+        questionBatchSize: 5,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn()
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
+      typeof actions.runInitialQueueFlow
+    >[0]);
+
+    expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
+      initialResearchAutomationPermission: "allow_codex"
+    }));
+    expect(generateInitialQuestionSet).toHaveBeenCalledWith({
+      sessionId,
+      expectedStateVersion: 3,
+      rawIdea: "A pet lifecycle management app",
+      intakeGoal: "Use natural questions tailored to pet guardians.",
+      projectPurposeMode: "business",
+      businessCriticIntensity: "balanced"
+    });
+    expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", generatedQuestionSet);
+  });
+
+  it("skips Codex prompt-template generation when onboarding keeps automated research manual-only", async () => {
+    const projectId = "proj_manual_only_initial_questions" as ProjectId;
+    const sessionId = "sess_manual_only_initial_questions" as SessionId;
+    const sessionProjection: SessionShellProjection = {
+      kind: "SessionShellProjection",
+      projectId,
+      sessionId,
+      version: 1 as ProjectionVersion,
+      phase: "intake",
+      projectPurposeMode: "personal",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "Personal workflow build",
+      projectPurposeModeEffect: "Personal mode keeps workflow questions active."
+    };
+    const queueProjection: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 5 as ProjectionVersion,
+      active: [],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const commandResponse = <TProjection,>(
+      index: number,
+      immediateProjection?: TProjection
+    ): CommandResponse<TProjection> => ({
+      category: immediateProjection ? "accepted_with_projection" : "accepted",
+      commandId: `cmd_manual_only_initial_questions_${index}` as CommandId,
+      correlationId: "corr_manual_only_initial_questions" as CorrelationId,
+      stateVersionBefore: (index - 1) as StateVersion,
+      stateVersionAfter: index as StateVersion,
+      ...(immediateProjection ? { immediateProjection } : {})
+    } as CommandResponse<TProjection>);
+    const createProject = vi.fn(async () => commandResponse(1, sessionProjection));
+    const captureIntake = vi.fn(async () => commandResponse(2));
+    const draftInitialSpec = vi.fn(async () => commandResponse(3));
+    const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
+    const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
+    const generateInitialQuestionSet = vi.fn(async () => {
+      throw new Error("manual-only onboarding must not call Codex generation");
+    });
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand: async (_label, response) => response,
+        businessCriticIntensity: null,
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: false,
+        codexLoginAuthenticated: false,
+        client: {
+          createProject,
+          captureIntake,
+          draftInitialSpec,
+          analyzeAmbiguity,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "A private journaling workflow",
+        initialResearchPermission: "not_now",
+        initialResearchAutomationPermission: "manual_only",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Keep the first questions local and deterministic.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "personal",
+        projections: emptyProjectionState(),
+        purposeModeChangeReason: "",
+        questionBatchSize: 5,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        generateInitialQuestionSet
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
+      typeof actions.runInitialQueueFlow
+    >[0]);
+
+    expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
+      initialResearchAutomationPermission: "manual_only"
+    }));
+    expect(generateInitialQuestionSet).not.toHaveBeenCalled();
+    expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", undefined);
+  });
+
   it("submits an answer without waiting for background research starts to finish", async () => {
     const projectId = "proj_answer_nonblocking" as ProjectId;
     const sessionId = "sess_answer_nonblocking" as SessionId;
@@ -319,6 +566,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Non-blocking answer flow",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Keep the queue moving.",
         isBusy: false,
@@ -463,6 +711,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Auto-continue questions",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "The next batch should appear automatically.",
         isBusy: false,
@@ -659,6 +908,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Auto-continue with server fallback",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Question debt remains even when the visible next list is short.",
         isBusy: false,
@@ -806,6 +1056,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Keep loading question batches",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Research review is active but the next question should still load.",
         isBusy: false,
@@ -950,6 +1201,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Known risk should not stop the question loop",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "When a question is carried as risk, the next one should keep flowing.",
         isBusy: false,
@@ -1118,6 +1370,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Research cards should feed the next questions",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Follow-up questions should appear after research review resolution.",
         isBusy: false,
@@ -1281,6 +1534,7 @@ describe("useDecisionQueueSessionActions", () => {
         copy: DECISION_QUEUE_COPY.en,
         idea: "Manual research should feed the question loop",
         initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Manual evidence can also generate follow-up questions.",
         isBusy: false,
@@ -1359,5 +1613,268 @@ describe("useDecisionQueueSessionActions", () => {
       [nextQuestionId]
     );
     expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports visible ChatGPT research with provenance and records the result-import gate when authority is ready", async () => {
+    const projectId = "proj_chatgpt_research_import" as ProjectId;
+    const sessionId = "sess_chatgpt_research_import" as SessionId;
+    const researchTaskId = CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.researchTaskId;
+    const resultImportRef = "research_result_visible_chatgpt_import" as ResearchResultId;
+    const importResponse: CommandResponse<unknown> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_visible_chatgpt_import" as CommandId,
+      correlationId: "corr_visible_chatgpt_import" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: {
+        kind: "ResearchEvidenceProjection",
+        version: 2
+      },
+      deterministicOutputs: [
+        {
+          outputType: "reducer_deterministic_output",
+          outputRef: resultImportRef,
+          payload: {
+            researchTaskId,
+            synthesisVersion: 1
+          }
+        }
+      ]
+    };
+    const delegationResponse: CommandResponse<unknown> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_visible_chatgpt_gate" as CommandId,
+      correlationId: "corr_visible_chatgpt_gate" as CorrelationId,
+      stateVersionBefore: 2 as StateVersion,
+      stateVersionAfter: 3 as StateVersion,
+      immediateProjection: {
+        kind: "ChatGptBrowserDelegationProjection",
+        sessionId,
+        version: 3,
+        currentStatus: "completed",
+        runs: [],
+        latestRun: {
+          resultImportRef
+        }
+      }
+    };
+    const appendCommandCalls = vi.fn();
+    const appendCommand: Parameters<typeof useDecisionQueueSessionActions>[0]["appendCommand"] = async (
+      label,
+      commandResponse
+    ) => {
+      appendCommandCalls(label, commandResponse);
+
+      return commandResponse;
+    };
+    const importResearchResult = vi.fn(async () => importResponse);
+    const createChatGptBrowserDelegationRun = vi.fn(async () => delegationResponse);
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          importResearchResult,
+          createChatGptBrowserDelegationRun
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Visible ChatGPT result should feed research evidence",
+        initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Paste a Deep Research result after reviewing it.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "validation",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active.",
+            initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+          },
+          chatGptDelegation: {
+            ...CHATGPT_BROWSER_DELEGATION_READY_PROJECTION_FIXTURE,
+            sessionId
+          }
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {
+          [researchTaskId]: "ChatGPT Deep Research result with cited sources and remaining caveats."
+        },
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        startReadyReadOnlyResearchRunsAfterAnswer: vi.fn(async () => undefined)
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.importResearchResult(researchTaskId);
+
+    expect(importResearchResult).toHaveBeenCalledWith(expect.objectContaining({
+      researchTaskId,
+      result: "ChatGPT Deep Research result with cited sources and remaining caveats.",
+      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceReliability: "unknown",
+      questionRef: CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.promptPreviewRef,
+      implicationScope: "visible_chatgpt_deep_research_import",
+      staleSensitive: true
+    }));
+    expect(createChatGptBrowserDelegationRun).toHaveBeenCalledWith(expect.objectContaining({
+      expectedStateVersion: 2,
+      researchTaskId,
+      status: "completed",
+      resultImportRef,
+      resultImportGate: expect.objectContaining({
+        sourceProvenanceStatus: "pass",
+        uncertaintyStatus: "pass",
+        conEvidenceStatus: "pass",
+        staleRiskStatus: "pass"
+      })
+    }));
+    expect(appendCommandCalls).toHaveBeenCalledWith(
+      "Record visible ChatGPT result import gate",
+      delegationResponse
+    );
+  });
+
+  it("imports onboarding-only visible ChatGPT handoff results with ChatGPT provenance without recording an authority gate", async () => {
+    const projectId = "proj_chatgpt_handoff_only_import" as ProjectId;
+    const sessionId = "sess_chatgpt_handoff_only_import" as SessionId;
+    const researchTaskId = "research_task_chatgpt_handoff_only" as ResearchTaskId;
+    const importResponse: CommandResponse<unknown> = {
+      category: "accepted_with_projection",
+      commandId: "cmd_visible_chatgpt_handoff_only_import" as CommandId,
+      correlationId: "corr_visible_chatgpt_handoff_only_import" as CorrelationId,
+      stateVersionBefore: 1 as StateVersion,
+      stateVersionAfter: 2 as StateVersion,
+      immediateProjection: {
+        kind: "ResearchEvidenceProjection",
+        version: 2
+      }
+    };
+    const importResearchResult = vi.fn(async () => importResponse);
+    const createChatGptBrowserDelegationRun = vi.fn();
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand: async (_label, commandResponse) => commandResponse,
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          importResearchResult,
+          createChatGptBrowserDelegationRun
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Onboarding-only visible ChatGPT handoff should preserve provenance",
+        initialResearchPermission: "allow_public_web",
+        initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Paste a user-reviewed Deep Research result.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "validation",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active.",
+            initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+          },
+          chatGptDelegation: null
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 3,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {
+          [researchTaskId]: "User-reviewed ChatGPT Deep Research result with cited public sources."
+        },
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError: vi.fn(),
+        startReadyReadOnlyResearchRunsAfterAnswer: vi.fn(async () => undefined)
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.importResearchResult(researchTaskId);
+
+    expect(importResearchResult).toHaveBeenCalledWith(expect.objectContaining({
+      researchTaskId,
+      result: "User-reviewed ChatGPT Deep Research result with cited public sources.",
+      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceReliability: "unknown",
+      questionRef: `visible_chatgpt_handoff:${researchTaskId}`,
+      implicationScope: "visible_chatgpt_deep_research_import",
+      staleSensitive: true
+    }));
+    expect(createChatGptBrowserDelegationRun).not.toHaveBeenCalled();
   });
 });

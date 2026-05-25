@@ -120,7 +120,7 @@ describe("Decision-linked research quality gate", () => {
         expect.stringContaining("paid founder urgency를 조금 더 구체화")
       ]
     });
-    expect(matrix.additionalQuestions[0]).toContain("찬성쪽 근거");
+    expect(matrix.additionalQuestions[0]).toContain("같은 단서가 확인되었습니다");
     expect(matrix.additionalQuestions[0]).toContain("한계와 불확실성");
     expect(matrix.additionalQuestions[0]).not.toContain("What evidence would resolve");
     expect(pack).toMatchObject({
@@ -165,6 +165,79 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
   });
 
+  it("uses pet-lifecycle customer candidates instead of generic builder segments for pet app ideas", () => {
+    const researchTask = task({
+      objective:
+        "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에서 관리하는 앱의 첫 고객 세그먼트가 너무 넓음을 구체화하기"
+    });
+    const researchResult = result({
+      result:
+        "Pro: 반려동물 보호자는 의료 기록, 급여 기록, 보험 청구, 장례 준비 정보를 여러 곳에 나눠 관리한다.",
+      limitationNotes: "노령 반려동물 보호자와 첫 반려동물 보호자의 우선순위 차이는 추가 확인이 필요하다."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.additionalQuestions[0]).toContain("- 첫 반려동물을 키우는 보호자");
+    expect(matrix.additionalQuestions[0]).toContain("- 노령·만성질환 반려동물 보호자");
+    expect(matrix.additionalQuestions[0]).toContain("- 보험·의료비 관리가 필요한 보호자");
+    expect(matrix.additionalQuestions[0]).not.toContain("1인 빌더");
+    expect(matrix.additionalQuestions[0]).not.toContain("팀 리더");
+  });
+
+  it("removes browser adapter meta text before creating user-facing research follow-up questions", () => {
+    const researchTask = task({
+      objective: "첫 고객 세그먼트가 너무 넓음을 조금 더 구체화하기"
+    });
+    const researchResult = result({
+      result: [
+        "Public source notes for research_task_meta.",
+        "Query: Validate evidence for customer segment",
+        "Sources reviewed: 1",
+        "1. Public pet care report — https://example.com/pet-care",
+        "   Pro: 반려동물 보호자는 의료 기록과 보험 서류를 반복해서 찾는다. Page body could not be fetched before timeout; search-result snippet retained for review.",
+        "rch-result snippet retained for review. Pro: At least one public source was reachable through a read-only browser search. Limitation: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance.",
+        "Pro: At least one public source was reachable through a read-only browser search.",
+        "Limitation: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance."
+      ].join("\n"),
+      limitationNotes:
+        "Browser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used. Source snippets and fetched page text require quality-gate review before accepted 근거."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const question = matrix.additionalQuestions[0] ?? "";
+
+    expect(question).toContain("반려동물 보호자는 의료 기록과 보험 서류를 반복해서 찾는다");
+    expect(question).not.toContain("snippet retained for review");
+    expect(question).not.toContain("rch-result");
+    expect(question).not.toContain("quality-gate review");
+    expect(question).not.toContain("accepted 근거");
+    expect(question).not.toContain("Browser-based public web search only");
+    expect(question).not.toContain("At least one public source was reachable");
+  });
+
+  it("uses the source idea context when customer-segment research results are otherwise generic", () => {
+    const researchTask = task({
+      objective: "첫 고객 세그먼트가 너무 넓음"
+    });
+    const researchResult = result({
+      result: "Pro: 공개 자료에서는 통합 기록과 비용 관리 문제를 함께 확인해야 한다는 단서가 있다.",
+      limitationNotes: "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다."
+    });
+    const matrix = synthesizeEvidenceMatrix({
+      researchTask,
+      researchResult,
+      synthesisVersion: 1,
+      contextText:
+        "반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에서 관리하는 앱"
+    });
+    const question = matrix.additionalQuestions[0] ?? "";
+
+    expect(question).toContain("첫 반려동물을 키우는 보호자");
+    expect(question).toContain("노령·만성질환 반려동물 보호자");
+    expect(question).toContain("보험·의료비 관리가 필요한 보호자");
+    expect(question).not.toContain("도메인 전문 1인 빌더");
+    expect(question).not.toContain("팀 리더/운영 담당자");
+  });
+
   it("turns problem-context evidence gaps into open narrative prompts", () => {
     const researchTask = task({
       objective: "사용자가 어떤 상황에서 문제를 겪는지 맥락 설명"
@@ -199,7 +272,7 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
-    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("진행 후보로 둘지");
   });
 
   it("keeps customer-context narrative questions open instead of turning every customer mention into segment choice", () => {
@@ -235,7 +308,7 @@ describe("Decision-linked research quality gate", () => {
       additionalQuestions: [expect.stringContaining("본인 말로 3~5문장으로 서술")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
-    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("진행 후보로 둘지");
   });
 
   it("keeps no-choice narrative wording open even when it mentions choices", () => {
@@ -435,7 +508,7 @@ describe("Decision-linked research quality gate", () => {
       balanceStatus: "missing_con_evidence",
       additionalQuestions: [expect.stringContaining("질문마다 답변 형식을 달리")]
     });
-    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 진행·보류 판단, 하나 선택, 여러 개 선택, 우선순위");
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
     expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
     expect(matrix.additionalQuestions[0]).not.toContain("- 객관식으로 찬성");
@@ -453,7 +526,7 @@ describe("Decision-linked research quality gate", () => {
     const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
 
     expect(matrix.additionalQuestions[0]).toContain("질문마다 답변 형식을 달리");
-    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 진행·보류 판단, 하나 선택, 여러 개 선택, 우선순위");
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
     expect(matrix.additionalQuestions[0]).not.toContain("하나 이상 선택");
@@ -471,7 +544,7 @@ describe("Decision-linked research quality gate", () => {
     const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
 
     expect(matrix.additionalQuestions[0]).toContain("질문마다 답변 형식을 달리");
-    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위");
+    expect(matrix.additionalQuestions[0]).toContain("주관식/서술형, 진행·보류 판단, 하나 선택, 여러 개 선택, 우선순위");
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
     expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
   });
@@ -580,7 +653,7 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
-  it("turns proceed-or-hold evidence gaps into explicit agree/disagree prompts", () => {
+  it("turns proceed-or-hold evidence gaps into explicit proceed-or-hold prompts", () => {
     const researchTask = task({
       objective: "이 방향을 스펙에 반영할지 여부 결정"
     });
@@ -592,7 +665,7 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+      additionalQuestions: [expect.stringContaining("진행 후보로 둘지")]
     });
   });
 
@@ -610,7 +683,7 @@ describe("Decision-linked research quality gate", () => {
       balanceStatus: "missing_con_evidence",
       additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
     });
-    expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
+    expect(matrix.additionalQuestions[0]).not.toContain("진행 후보로 둘지");
     expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
     expect(matrix.additionalQuestions[0]).toContain("individual founders mention repeated planning pain");
   });
@@ -651,7 +724,7 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.additionalQuestions[0]).not.toContain("찬성/반대 중 어느 쪽");
   });
 
-  it("lets explicit objective wording ask for a binary agree/disagree answer even when an explanation is needed", () => {
+  it("lets explicit objective wording ask for a binary proceed-or-hold answer even when an explanation is needed", () => {
     const researchTask = task({
       objective: "객관식으로 찬성/반대 중 하나를 선택하고 이유는 직접 설명"
     });
@@ -663,12 +736,12 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+      additionalQuestions: [expect.stringContaining("진행 후보로 둘지")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
   });
 
-  it("recognizes agree/disagree object wording as a binary answer form", () => {
+  it("recognizes agree/disagree object wording as a binary answer form with natural copy", () => {
     const researchTask = task({
       objective: "객관식으로 찬성/반대를 할 수도 있고 이유는 직접 설명"
     });
@@ -680,13 +753,13 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+      additionalQuestions: [expect.stringContaining("진행 후보로 둘지")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");
     expect(matrix.additionalQuestions[0]).not.toContain("본인 말로 3~5문장으로 서술");
   });
 
-  it("keeps explicit agree/disagree customer-topic objectives as binary instead of candidate choice", () => {
+  it("keeps explicit agree/disagree customer-topic objectives as proceed-or-hold instead of candidate choice", () => {
     const researchTask = task({
       objective: "초기 고객 세그먼트 방향을 유지할지 말지 객관식으로 찬성/반대 중 하나를 선택"
     });
@@ -698,7 +771,7 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("찬성/반대 중 어느 쪽")]
+      additionalQuestions: [expect.stringContaining("진행 후보로 둘지")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
     expect(matrix.additionalQuestions[0]).not.toContain("하나의 선택지");

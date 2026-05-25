@@ -2,7 +2,7 @@
 
 Language: [한국어](signed-packages_KO.md) | English
 
-This document plans the signed package path needed after the one-line installer technical preview. The current repo/local environment does not contain Apple Developer ID, notarization account, or Windows code-signing certificate material, so it does not perform real signing. Instead, `pnpm verify:signed-package-preflight` and `pnpm verify:signed-package-release:dry-run` verify the credential-free dry-run contract, release evidence shape, and exactly why the signing gate is still blocked.
+This document plans optional signed-artifact hardening that is not required for direct/non-store distribution, but is required before claiming signed artifacts. The current repo/local environment does not contain Apple Developer ID, notarization account, or Windows code-signing certificate material, so it does not perform real signing. Instead, `pnpm verify:signed-package-preflight` and `pnpm verify:signed-package-release:dry-run` verify the credential-free dry-run contract, release evidence shape, and exactly why the signing gate is still blocked.
 
 ## Current state
 
@@ -20,7 +20,7 @@ This document plans the signed package path needed after the one-line installer 
 | macOS | `macos-dmg`, `macos-pkg` | Developer ID Application/Installer certificate, Apple notarization, stapling | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest verification, signed-package preflight contract verification, signed-package release dry-run evidence shape verification |
 | Windows | `windows-msi`, `windows-exe` | Authenticode certificate, timestamp server | `pnpm build`, `pnpm verify:prod-bundle`, release channel manifest verification, signed-package preflight contract verification, signed-package release dry-run evidence shape verification |
 
-The package format decision must account for installer UX, updater integration, rollback support, and enterprise policy compatibility. Whichever format is chosen, signed artifact checksum/signature references must flow into the release update manifest.
+The package format decision must account for installer UX, updater integration, rollback support, and enterprise policy compatibility. Whichever format is chosen, artifact checksum and any optional signature references must flow into the release update manifest.
 
 ## Credential/secret separation
 
@@ -30,7 +30,7 @@ Secret values must not appear in docs, PR bodies, support bundles, release manif
 | --- | --- | --- |
 | `macos-developer-id` | `APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64`, `APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `APPLE_NOTARYTOOL_APPLE_ID`, `APPLE_NOTARYTOOL_TEAM_ID`, `APPLE_NOTARYTOOL_PASSWORD` | macOS DMG/PKG signing, notarization, stapling |
 | `windows-authenticode` | `WINDOWS_CODESIGN_CERTIFICATE_PFX_BASE64`, `WINDOWS_CODESIGN_CERTIFICATE_PASSWORD`, `WINDOWS_CODESIGN_TIMESTAMP_URL` | Windows MSI/EXE Authenticode signing and timestamping |
-| `release-manifest-signing` | `SOLO_RELEASE_MANIFEST_PRIVATE_KEY_REF`, `SOLO_RELEASE_MANIFEST_PUBLIC_KEY_ID` | Release update manifest signing after signed artifact checksum/signature refs are final |
+| `release-manifest-signing` | `SOLO_RELEASE_MANIFEST_PRIVATE_KEY_REF`, `SOLO_RELEASE_MANIFEST_PUBLIC_KEY_ID` | Release update manifest signing after artifact checksum and optional signature refs are final |
 
 ## Verification commands
 
@@ -48,15 +48,15 @@ pnpm verify:signed-package-preflight -- --require-credentials
 
 `pnpm verify` includes the credential-free default preflight, `pnpm verify:signed-package-release`, `pnpm verify:signed-package-release:dry-run`, `pnpm verify:windows-real-device`, `pnpm verify:packaged-update-rollback`, and `pnpm verify:release-readiness`, so local contributors can catch both release planning contract drift and general-release blocker drift without signing secrets.
 
-## Real release gate
+## Optional signed-artifact hardening gate
 
-A real signed package PR or release job must carry all of this evidence:
+Direct/non-store broad release does not require signed packages. A PR or release job that claims signed artifacts or signing hardening must carry all of this evidence:
 
 1. macOS artifacts pass `codesign`, `pkgutil`/`spctl`, notarization status, and stapling evidence.
 2. Windows artifacts pass Authenticode signature and timestamp verification.
 3. The release update manifest contains final artifact SHA-256, package size, and signature refs, then passes manifest signature verification.
 4. macOS/Windows devices verify install, update deferral, retry, rollback, and launch behavior.
 5. Rollback changes only packaged app binaries and release metadata; it does not touch local DBs, generated workspaces, support bundles, or credentials.
-6. `pnpm verify:signed-package-release -- --require-release-evidence` verifies structured `evidenceBundle` data for macOS/Windows artifacts and the release manifest, while `pnpm verify:windows-real-device -- --require-device-evidence`, `pnpm verify:packaged-update-rollback -- --require-device-evidence`, and `pnpm verify:release-readiness -- --require-ready` confirm that signed package, packaged updater rollback, and Windows real-device gates are all passed.
+6. `pnpm verify:signed-package-release -- --require-release-evidence` verifies structured `evidenceBundle` data for macOS/Windows artifacts and the release manifest, and `pnpm verify:ready-release -- --include-signed-package` includes signed-package hardening alongside the #259/#267 general-release evidence when needed. The default `pnpm verify:release-readiness -- --require-ready` checks packaged updater rollback and Windows real-device gates as general-release blockers while reporting signed packages separately as optional hardening.
 
-`pnpm verify:signed-package-release:dry-run` verifies only fixture artifact checksum/size/signature ref/manifest evidence shape; without those gates, the project must not claim broad-release signed packages or packaged automatic updates are complete.
+`pnpm verify:signed-package-release:dry-run` verifies only fixture artifact checksum/size/signature ref/manifest evidence shape; without those gates, the project must not claim signed-package hardening is complete. Packaged automatic-update claims still require separate packaged artifact rollback and Windows real-device evidence.

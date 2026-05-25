@@ -7,7 +7,10 @@ import type {
   ResearchTaskProjection
 } from "@solo-superman/contracts";
 import { describesAnswerFormPolicy } from "../answer-form-policy";
-import { answerOptionsForQuestion } from "./answer-options";
+import {
+  answerOptionsForQuestion,
+  primaryCustomerContextProfileForText
+} from "./answer-options";
 
 export type ResearchFollowUpAnswerShape =
   | "open_text"
@@ -65,6 +68,56 @@ const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
     "이번 답변만으로는 넓은 원래 질문이 바로 닫히지 않을 수 있습니다."
   )
 ] as const;
+
+function petLifecycleCustomerAnswerOptions(): readonly AmbiguityAnswerOption[] {
+  return [
+    researchFollowUpAnswerOption(
+      "first_pet_guardians",
+      "첫 반려동물을 키우는 보호자",
+      "첫 반려동물 보호자를 가장 먼저 테스트한다.",
+      "의료, 급여, 일상 기록을 한 번에 정리해야 하는 초보 보호자 흐름에 맞춰 인터뷰할 수 있습니다.",
+      "노령·질환·보험·장례처럼 복잡한 생애 후반 문제는 첫 검증에서 약하게 보일 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "senior_or_chronic_pet_guardians",
+      "노령·만성질환 반려동물 보호자",
+      "노령이거나 만성질환이 있는 반려동물 보호자를 가장 먼저 테스트한다.",
+      "병원 기록, 약/급여, 보험, 비용 관리 니즈가 강해 통합 관리 앱의 가치가 선명해질 수 있습니다.",
+      "초기 사용자가 무거운 케이스로 치우쳐 일상 관리 기능의 대중성은 따로 확인해야 합니다."
+    ),
+    researchFollowUpAnswerOption(
+      "multi_pet_households",
+      "여러 마리를 함께 키우는 가구",
+      "여러 반려동물을 함께 키우는 가구를 첫 검증 대상으로 둔다.",
+      "동물별 의료·급여·보험·일상 기록을 한 곳에서 구분 관리해야 하는 문제가 분명합니다.",
+      "한 마리만 키우는 보호자의 단순한 사용 흐름은 과하게 복잡해질 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "insurance_cost_sensitive_guardians",
+      "보험·의료비 관리가 필요한 보호자",
+      "보험 청구와 의료비 관리 부담이 큰 보호자를 먼저 테스트한다.",
+      "지불 의향과 반복 사용 신호를 의료비·보험 서류 관리에서 빠르게 확인할 수 있습니다.",
+      "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
+    ),
+    researchFollowUpAnswerOption(
+      "end_of_life_care_guardians",
+      "장례·말기 케어까지 준비하는 보호자",
+      "장례와 말기 케어까지 고민하는 보호자를 별도 후보로 검증한다.",
+      "전생애주기라는 아이디어의 차별점이 가장 강하게 드러나는 구간입니다.",
+      "정서적으로 민감한 문제라 인터뷰 접근 방식과 표현을 신중히 설계해야 합니다."
+    )
+  ];
+}
+
+function domainSpecificCustomerAnswerOptions(contextText: string) {
+  const profile = primaryCustomerContextProfileForText(contextText);
+
+  if (!profile) {
+    return [];
+  }
+
+  return profile.id === "pet_lifecycle" ? petLifecycleCustomerAnswerOptions() : profile.answerOptions;
+}
 
 function boundedResearchFollowUpAnswerOptions(
   options: readonly AmbiguityAnswerOption[],
@@ -223,6 +276,14 @@ function candidateAnswerOptionsFromQuestion(question: string): readonly Ambiguit
   );
 }
 
+function looksLikeGenericBuilderSegmentOptions(options: readonly AmbiguityAnswerOption[]) {
+  const labels = options.map((option) => option.label).join(" ");
+
+  return /(?:1인\s*창업자|초기\s*창업자|solo\s*founder|도메인\s*전문|1인\s*빌더|팀\s*리더|운영\s*담당자|team\s*lead)/iu.test(
+    labels
+  );
+}
+
 function normalizedQuestionContext(input: ResearchFollowUpAnswerInput) {
   return [
     input.question,
@@ -230,6 +291,21 @@ function normalizedQuestionContext(input: ResearchFollowUpAnswerInput) {
     input.sourceQuestion?.summary,
     input.sourceQuestion?.questionText,
     input.evidenceMatrix.knownRisk
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function domainSpecificQuestionContext(input: ResearchFollowUpAnswerInput) {
+  return [
+    input.researchTask.objective,
+    input.sourceQuestion?.summary,
+    input.sourceQuestion?.questionText,
+    input.evidenceMatrix.knownRisk,
+    ...input.evidenceMatrix.proEvidence.map((item) => item.summary),
+    ...input.evidenceMatrix.conEvidence.map((item) => item.summary),
+    ...input.evidenceMatrix.uncertainties.map((item) => item.summary)
   ]
     .filter(Boolean)
     .join(" ")
@@ -267,7 +343,7 @@ function hasExplicitNarrativeAnswerInstruction(question: string) {
 }
 
 function rejectsChoiceOptions(question: string) {
-  return /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(
+  return /(?:선택지\s*없이|선택지(?:가|는)?\s*아니라|선택(?:이|은|는)?\s*아니라|객관식(?:이|은)?\s*아니라|선택형(?:이|은)?\s*아니라|고르지\s*말고|선택하지\s*말고|without\s+choices?|no\s+choices?|not\s+(?:a\s+)?(?:choice|multiple[-\s]?choice|single[-\s]?choice))/iu.test(
     question
   );
 }
@@ -309,7 +385,7 @@ function hasRankedChoiceCue(question: string) {
 }
 
 function hasForcedChoiceCue(question: string) {
-  return /(?:객관식|선택형|선택|고르|골라|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단|객관식)|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
+  return /(?:객관식|선택형|선택|고르|골라|판단하시겠|어느\s*방향으로\s*판단|중\s*(?:하나|한\s*가지)|하나(?:를|만)?\s*(?:선택|고르)|하나\s*(?:혹은|또는)?\s*여러\s*개|하나\s*이상|복수|다중|(?:찬성\s*[/·또는과]*\s*반대|반대\s*[/·또는과]*\s*찬성|찬반|동의\s*[/·또는과]*\s*비동의|예\s*[/·또는과]*\s*아니오)\s*(?:중|중에|중에서|여부|선택|고르|판단|객관식)|(?:찬성|동의|진행|반영|채택)\s*여부|(?:할지|갈지|진행할지|반영할지)\s*말지|양자\s*택일|양자택일|choose|pick|select|single[-\s]?choice|multi[-\s]?select|one\s+or\s+more|select\s+all|yes\s*[/ ]?no|agree\s*[/ ]?disagree|support\s*[/ ]?oppose)/iu.test(
     question
   );
 }
@@ -343,7 +419,10 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "open_text";
   }
 
-  if (hasOpenTextCue(input.question) && (rejectsChoiceOptions(input.question) || !hasForcedChoiceCue(input.question))) {
+  if (
+    hasOpenTextCue(input.question) &&
+    (rejectsChoiceOptions(input.question) || !hasForcedChoiceCue(input.question))
+  ) {
     return "open_text";
   }
 
@@ -363,7 +442,7 @@ export function classifyResearchFollowUpAnswerShape(input: ResearchFollowUpAnswe
     return "single_choice";
   }
 
-  if (hasOpenTextCue(input.question)) {
+  if (hasOpenTextCue(input.question) && !hasForcedChoiceCue(input.question)) {
     return "open_text";
   }
 
@@ -458,12 +537,20 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: Re
   const questionCandidateOptions = candidateAnswerOptionsFromQuestion(input.question);
   const questionTopicKey = choiceTopicKeyForText(input.question);
   const contextualTopicKey = choiceTopicKeyForQuestion(input);
+  const domainSpecificOptions = domainSpecificCustomerAnswerOptions(domainSpecificQuestionContext(input));
   const questionTopicOptions = questionTopicKey
     ? answerOptionsForQuestion(questionTopicKey, researchFollowUpExpectedAnswerType(input))
     : undefined;
 
-  if (questionCandidateOptions.length) {
+  if (
+    questionCandidateOptions.length &&
+    !(domainSpecificOptions.length && looksLikeGenericBuilderSegmentOptions(questionCandidateOptions))
+  ) {
     return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
+  }
+
+  if (domainSpecificOptions.length && contextualTopicKey === "primary_customer_narrowing") {
+    return boundedChoiceAnswerOptions(domainSpecificOptions, answerShape);
   }
 
   if (questionTopicOptions?.length) {
@@ -488,29 +575,29 @@ function binaryChoiceAnswerOptions() {
   return boundedResearchFollowUpAnswerOptions([
     researchFollowUpAnswerOption(
       "agree_or_continue",
-      "찬성 / 진행",
-      "현재 근거로는 이 방향에 찬성하고 다음 스펙 또는 검증 단계로 진행한다.",
+      "진행 후보로 둔다",
+      "현재 단서로는 이 방향을 다음 스펙 또는 검증 후보에 올린다.",
       "결정이 닫혀 다음 작업으로 넘어가기 쉽습니다.",
       "숨은 반례가 있으면 너무 빠른 확정이 될 수 있습니다."
     ),
     researchFollowUpAnswerOption(
       "disagree_or_stop",
-      "반대 / 보류",
-      "현재 근거로는 이 방향에 반대하거나 보류하고 범위 축소 또는 방향 전환을 검토한다.",
+      "보류하거나 좁힌다",
+      "현재 단서로는 바로 진행하지 않고 범위 축소 또는 방향 전환을 검토한다.",
       "잘못된 가정에 계속 투자하는 일을 줄입니다.",
       "실제로는 유효한 기회를 너무 일찍 버릴 수 있습니다."
     ),
     researchFollowUpAnswerOption(
       "conditional_yes",
-      "조건부 찬성",
+      "조건을 붙여 진행한다",
       "특정 조건이나 추가 확인이 충족되면 진행하고, 그 조건을 답변에 함께 적는다.",
       "찬반을 단순화하지 않고 실행 조건까지 남길 수 있습니다.",
       "조건이 흐리면 다음 질문이나 리서치가 한 번 더 필요합니다."
     ),
     researchFollowUpAnswerOption(
       "need_more_research",
-      "추가 근거 필요",
-      "찬성/반대를 정하기 전에 더 넓은 근거와 반례를 먼저 확인한다.",
+      "추가 리서치로 보강한다",
+      "결정을 내리기 전에 더 넓은 자료와 반례를 먼저 확인한다.",
       "중요한 결정을 더 안전하게 만들 수 있습니다.",
       "결정 완료와 구현 시작이 늦어집니다."
     )
@@ -521,16 +608,51 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
   const hasProEvidence = input.evidenceMatrix.proEvidence.length > 0;
   const hasConEvidence = input.evidenceMatrix.conEvidence.length > 0;
   const hasUncertainty = input.evidenceMatrix.uncertainties.length > 0;
+  const context = normalizedQuestionContext(input);
+
+  if (/(?:구매자|결제자|실제\s*사용자|사용자가\s*같|사용자가\s*다르|buyer|payer|end\s*user)/iu.test(context)) {
+    return boundedResearchFollowUpAnswerOptions([
+      researchFollowUpAnswerOption(
+        "buyer_user_same",
+        "구매자와 실제 사용자가 같다",
+        "구매자와 실제 사용자가 같은 사람이라고 보고 인터뷰와 첫 스펙을 맞춘다.",
+        "첫 인터뷰, 결제 의향 질문, 제품 화면을 같은 보호자/담당자 기준으로 정합니다.",
+        "가족, 병원, 보호자처럼 역할이 나뉘는 경우는 별도 확인이 필요합니다."
+      ),
+      researchFollowUpAnswerOption(
+        "buyer_user_different",
+        "구매자와 실제 사용자가 다르다",
+        "구매 의사결정자와 매일 쓰는 사용자를 분리해 검증한다.",
+        "가격·결제 질문과 실제 사용 흐름 질문을 따로 설계합니다.",
+        "초기 인터뷰 수가 늘어나고 첫 스펙 범위가 커질 수 있습니다."
+      ),
+      researchFollowUpAnswerOption(
+        "need_more_research",
+        "추가 리서치로 근거자료를 더 보강한다",
+        "구매자와 실제 사용자 관계를 확정하기 전에 더 넓은 자료와 사례를 확인한다.",
+        "역할을 잘못 정해 제품/가격 판단이 어긋나는 일을 줄입니다.",
+        "결정 완료와 구현 시작이 늦어집니다."
+      ),
+      researchFollowUpAnswerOption(
+        "spec_not_ready",
+        "지금은 스펙을 확정하기 어렵다",
+        "역할 구분이 불명확하므로 스펙 확정을 보류하고 리스크로 남긴다.",
+        "불확실한 가정을 숨기지 않고 다음 확인 항목으로 남깁니다.",
+        "당장 구현할 화면과 온보딩 문구는 좁게 정하기 어렵습니다."
+      )
+    ]);
+  }
+
   const options: AmbiguityAnswerOption[] = [];
 
   if (hasProEvidence) {
     options.push(
       researchFollowUpAnswerOption(
         "pro_evidence_stronger",
-        "찬성 근거가 더 강함",
-        "현재 리서치에서는 찬성 근거가 더 강하므로 이 방향을 결정 후보로 둔다.",
-        "다음 스펙/구현 판단으로 빠르게 연결할 수 있습니다.",
-        "반대 근거가 부족하면 중요한 결정에서는 과신이 될 수 있습니다."
+        "이 방향을 우선 후보로 둔다",
+        "현재 확인된 단서로는 이 방향을 다음 결정 후보에 올린다.",
+        "다음 스펙/검증 판단으로 빠르게 연결할 수 있습니다.",
+        "다른 관점의 사례가 부족하면 과신이 될 수 있습니다."
       )
     );
   }
@@ -539,8 +661,8 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
     options.push(
       researchFollowUpAnswerOption(
         "con_evidence_stronger",
-        "반대 근거가 더 강함",
-        "현재 리서치에서는 반대 근거가 더 강하므로 범위 축소나 방향 전환 후보로 본다.",
+        "범위 축소나 방향 전환을 검토한다",
+        "현재 확인된 다른 관점 때문에 범위를 줄이거나 다른 방향을 함께 본다.",
         "실패 가능성을 일찍 드러내고 낭비를 줄입니다.",
         "너무 이른 축소로 좋은 기회를 놓칠 수 있습니다."
       )
@@ -551,8 +673,8 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
     options.push(
       researchFollowUpAnswerOption(
         "find_counter_evidence",
-        "반대 근거를 더 찾기",
-        "아직 반대 근거가 부족하므로 결론을 미루고 반례와 한계를 더 조사한다.",
+        "반례와 한계를 더 확인한다",
+        "아직 다른 관점의 사례가 부족하므로 결론을 미루고 한계를 더 조사한다.",
         "중요한 결정을 더 안전하게 만들 수 있습니다.",
         "질문/리서치 루프가 한 번 더 길어집니다."
       )
@@ -563,9 +685,9 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
     options.push(
       researchFollowUpAnswerOption(
         "resolve_uncertainty_first",
-        "불확실성부터 줄이기",
-        "한계와 불확실성이 큰 부분을 먼저 확인한 뒤 판단한다.",
-        "근거의 빈틈을 숨기지 않고 다음 행동으로 바꿉니다.",
+        "불확실한 조건부터 확인한다",
+        "아직 불명확한 조건을 먼저 확인한 뒤 판단한다.",
+        "빈틈을 숨기지 않고 다음 행동으로 바꿉니다.",
         "즉시 스펙을 확정하기는 어렵습니다."
       )
     );
@@ -574,24 +696,24 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
   options.push(
     researchFollowUpAnswerOption(
       "narrow_scope",
-      "범위를 좁혀 진행",
+      "작게 좁혀서 먼저 검증한다",
       "전체 결론을 확정하지 않고 더 작은 고객/기능/검증 범위로 좁혀 진행한다.",
       "다음 실험과 구현 범위가 작아집니다.",
       "큰 시장 또는 넓은 사용 사례 검증은 뒤로 밀릴 수 있습니다."
     ),
     researchFollowUpAnswerOption(
       "need_more_research",
-      "추가 리서치 필요",
-      "지금 답하기에는 근거가 부족하므로 더 넓은 자료를 모은다.",
+      "추가 리서치로 근거자료를 더 보강한다",
+      "지금 답하기에는 자료가 부족하므로 더 넓은 자료를 모은다.",
       "성급한 결정을 줄입니다.",
       "결정 완료와 구현 시작이 늦어집니다."
     ),
     researchFollowUpAnswerOption(
-      "decide_after_validation",
-      "검증 후 결정",
+      "spec_not_ready",
+      "지금은 스펙을 확정하기 어렵다",
       "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
       "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
-      "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
+      "구현을 바로 시작하기에는 결정 기준이 부족합니다."
     )
   );
 

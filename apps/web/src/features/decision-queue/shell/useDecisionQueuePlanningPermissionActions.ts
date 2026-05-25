@@ -11,7 +11,7 @@ import type {
   ServicePageUsePermissionProjection,
   SessionShellProjection
 } from "@solo-superman/contracts";
-import { requiredCommandProjection } from "../../../shared/api/command-response-helpers";
+import { commandResponseVersion, requiredCommandProjection } from "../../../shared/api/command-response-helpers";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
 import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
 import { buildPlanningHandoffRequest } from "../phase2-planning-handoff-request";
@@ -57,6 +57,19 @@ export function useDecisionQueuePlanningPermissionActions({
   const { planningActionErrors, planningActionLabels } = copy.handoff;
   const { permissionActionErrors, permissionActionLabels, permissionActionReasons } = copy.permissions;
 
+  const queueProjectionFromResponse = useCallback((response: CommandResponse<unknown>) => {
+    const maybeQueueProjection = response.queueProjection;
+
+    return (
+      maybeQueueProjection &&
+      typeof maybeQueueProjection === "object" &&
+      "kind" in maybeQueueProjection &&
+      maybeQueueProjection.kind === "DecisionQueueProjection"
+        ? (maybeQueueProjection as DecisionQueueProjection)
+        : null
+    );
+  }, []);
+
   const scoreCompleteness = useCallback(async () => {
     if (!client || !projections.session) {
       setWorkflowError(planningActionErrors.activeSessionRequiredScoreCompleteness);
@@ -78,25 +91,19 @@ export function useDecisionQueuePlanningPermissionActions({
         response,
         "ConfidenceCompletionProjection"
       );
-      const maybeQueueProjection = (response as CommandResponse<unknown>).queueProjection;
+      const queue = queueProjectionFromResponse(response);
 
       setProjections((current) => ({
         ...current,
         confidence,
-        queue:
-          maybeQueueProjection &&
-          typeof maybeQueueProjection === "object" &&
-          "kind" in maybeQueueProjection &&
-          maybeQueueProjection.kind === "DecisionQueueProjection"
-            ? (maybeQueueProjection as DecisionQueueProjection)
-            : current.queue
+        queue: queue ?? current.queue
       }));
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
       setIsBusy(false);
     }
-  }, [appendCommand, client, planningActionErrors, projections]);
+  }, [appendCommand, client, planningActionErrors, projections, queueProjectionFromResponse]);
 
   const prepareFounderBrief = useCallback(async () => {
     if (!client || !projections.session) {
@@ -163,6 +170,96 @@ export function useDecisionQueuePlanningPermissionActions({
       setIsBusy(false);
     }
   }, [appendCommand, client, phase15bReadiness, planningActionErrors, projections, refreshProjections]);
+
+  const prepareImplementationContext = useCallback(async () => {
+    if (!client || !projections.session) {
+      setWorkflowError(planningActionErrors.activeSessionRequiredPrepareImplementationContext);
+      return;
+    }
+
+    setIsBusy(true);
+    setWorkflowError(null);
+
+    try {
+      const scoreResponse = await appendCommand(
+        planningActionLabels.scoreCompleteness,
+        await client.scoreCompleteness({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: latestCommandBackedProjectionVersion(projections)
+        })
+      );
+      const confidence = requiredCommandProjection<ConfidenceCompletionProjection>(
+        scoreResponse,
+        "ConfidenceCompletionProjection"
+      );
+      const queue = queueProjectionFromResponse(scoreResponse);
+      const projectionsAfterScore = {
+        ...projections,
+        confidence,
+        queue: queue ?? projections.queue
+      };
+
+      const founderBriefResponse = await appendCommand(
+        planningActionLabels.prepareFounderBrief,
+        await client.prepareFounderBriefExport({
+          sessionId: projections.session.sessionId,
+          expectedStateVersion: commandResponseVersion(scoreResponse),
+          requestedFormat: "markdown"
+        })
+      );
+      const founderBrief = requiredCommandProjection<FounderBriefProjection>(
+        founderBriefResponse,
+        "FounderBriefProjection"
+      );
+      const projectionsAfterFounderBrief = {
+        ...projectionsAfterScore,
+        founderBrief
+      };
+      const handoffRequest = buildPlanningHandoffRequest({
+        session: projections.session,
+        spec: projectionsAfterFounderBrief.spec,
+        queue: projectionsAfterFounderBrief.queue,
+        research: projectionsAfterFounderBrief.research,
+        confidence: projectionsAfterFounderBrief.confidence,
+        founderBrief: projectionsAfterFounderBrief.founderBrief,
+        phase15bReadiness,
+        expectedStateVersion: commandResponseVersion(founderBriefResponse)
+      });
+      const handoffResponse = await appendCommand(
+        planningActionLabels.runPlanningHandoffGate,
+        await client.createPlanningHandoff(handoffRequest)
+      );
+      const planningHandoff = requiredCommandProjection<PlanningHandoffProjection>(
+        handoffResponse,
+        "PlanningHandoffProjection"
+      );
+
+      setProjections((current) => ({
+        ...current,
+        confidence,
+        queue: queue ?? current.queue,
+        founderBrief,
+        planningHandoff
+      }));
+      await refreshProjections(projections.session.projectId, projections.session.sessionId);
+
+      return planningHandoff;
+    } catch (error) {
+      setWorkflowError(displayError(error));
+      return null;
+    } finally {
+      setIsBusy(false);
+    }
+  }, [
+    appendCommand,
+    client,
+    phase15bReadiness,
+    planningActionErrors,
+    planningActionLabels,
+    projections,
+    queueProjectionFromResponse,
+    refreshProjections
+  ]);
 
   const revokeChatGptDelegation = useCallback(
     async (runId: string) => {
@@ -356,6 +453,7 @@ export function useDecisionQueuePlanningPermissionActions({
     scoreCompleteness,
     prepareFounderBrief,
     runPlanningHandoffGate,
+    prepareImplementationContext,
     revokeChatGptDelegation,
     revokeServicePageUsePermission,
     exportServicePageArtifacts,

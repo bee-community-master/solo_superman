@@ -43,6 +43,8 @@ import {
   POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
   POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS,
   POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  GENERATED_QUESTION_JSON_ROUTE_IDS,
+  GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
 } from "./routes";
 
@@ -633,7 +635,18 @@ describe("API route catalog", () => {
       ...POST_PHASE3_PR06_MOUNTED_PRODUCT_API_ROUTE_IDS,
       ...POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS
     ]);
-    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(GENERATED_QUESTION_JSON_ROUTE_IDS).toEqual(["generateInitialQuestionSet"]);
+    expect(GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual([
+      ...POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
+      ...GENERATED_QUESTION_JSON_ROUTE_IDS
+    ]);
+    expect(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS).toEqual(GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS);
+    expect(routeById.get("generateInitialQuestionSet")).toMatchObject({
+      method: "POST",
+      path: "/api/v1/sessions/:sessionId/questions/generate",
+      commandType: "none",
+      implementedInPr01: false
+    });
     expect(routeById.get("createAutoImplementationRun")).toMatchObject({
       method: "POST",
       path: "/api/v1/sessions/:sessionId/auto-implementation-runs",

@@ -21,6 +21,7 @@ const READY_INITIAL_QUEUE_START_INPUT = {
   codexLoginAuthenticated: true,
   connectionStatus: "connected",
   hasClient: true,
+  initialResearchAutomationPermission: "allow_codex",
   projectPurposeMode: "personal",
   businessCriticIntensity: null,
   idea: "A focused founder brief generator",
@@ -129,15 +130,31 @@ describe("decision queue shell model", () => {
     ).toThrow("ResearchRunControlProjection was not returned");
   });
 
-  it("requires explicit ChatGPT direct-login acknowledgement before starting onboarding", () => {
+  it("requires explicit ChatGPT direct-login acknowledgement only when visible ChatGPT research is enabled", () => {
     expect(canStartInitialQueueFlow(READY_INITIAL_QUEUE_START_INPUT)).toBe(true);
-    expect(canStartInitialQueueFlow(readyStartInput({ chatGptLoginAcknowledged: false }))).toBe(false);
-    expectStartBlocker({ chatGptLoginAcknowledged: false }, "chatgpt_login");
+    expect(canStartInitialQueueFlow(readyStartInput({ chatGptLoginAcknowledged: false }))).toBe(true);
+    expect(canStartInitialQueueFlow(
+      readyStartInput({
+        chatGptLoginAcknowledged: false,
+        initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+      })
+    )).toBe(false);
+    expectStartBlocker(
+      {
+        chatGptLoginAcknowledged: false,
+        initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+      },
+      "chatgpt_login"
+    );
   });
 
-  it("requires backend-visible Codex CLI login before starting onboarding", () => {
+  it("requires backend-visible Codex CLI login only when Codex research automation is enabled", () => {
     expect(canStartInitialQueueFlow(readyStartInput({ codexLoginAuthenticated: false }))).toBe(false);
     expectStartBlocker({ codexLoginAuthenticated: false }, "codex_login");
+    expect(canStartInitialQueueFlow(readyStartInput({
+      codexLoginAuthenticated: false,
+      initialResearchAutomationPermission: "manual_only"
+    }))).toBe(true);
   });
 
   it("keeps the business critic intensity gate after ChatGPT login is acknowledged", () => {
@@ -166,6 +183,7 @@ describe("decision queue shell model", () => {
         readyStartInput({
           chatGptLoginAcknowledged: false,
           codexLoginAuthenticated: false,
+          initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible",
           connectionStatus: "unavailable",
           projectPurposeMode: null,
           idea: " ",

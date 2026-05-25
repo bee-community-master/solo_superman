@@ -88,19 +88,16 @@ describe("release evidence checklist", () => {
     expect(checklist.generatedAt).toBe("2026-05-24T00:00:00.000Z");
     expect(checklist.status).toBe("blocked");
     expect(checklist.summary).toMatchObject({
-      totalItems: 9,
-      blockedItems: 9,
+      totalItems: 5,
+      blockedItems: 5,
       readyItems: 0,
-      blockerIssueNumbers: ["266", "267", "259"]
+      blockerIssueNumbers: ["267", "259"]
     });
     expect(checklist.openBlockerIssues).toEqual([
-      "https://github.com/bee-community-master/solo_superman/issues/266",
       "https://github.com/bee-community-master/solo_superman/issues/267",
       "https://github.com/bee-community-master/solo_superman/issues/259"
     ]);
     expect(checklist.readyReleaseCommands).toEqual(expect.arrayContaining([
-      "pnpm verify:signed-package-preflight -- --require-credentials",
-      "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
@@ -124,7 +121,7 @@ describe("release evidence checklist", () => {
     ]);
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:packaged-update-rollback:dry-run");
     expect(checklist.credentialFreeCommands).toContain("pnpm verify:windows-installer:dry-run");
-    expect(checklist.credentialFreeCommands).toContain("pnpm verify:signed-package-release:dry-run");
+    expect(checklist.credentialFreeCommands).not.toContain("pnpm verify:signed-package-release:dry-run");
     expect(releaseLabCommandPlansForChecklist(checklist)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         issueNumber: 259,
@@ -135,14 +132,6 @@ describe("release evidence checklist", () => {
         ])
       }),
       expect.objectContaining({
-        issueNumber: 266,
-        credentialFreeCommands: expect.arrayContaining(["pnpm verify:signed-package-release:dry-run"]),
-        evidenceCommands: expect.arrayContaining([
-          "pnpm verify:signed-package-preflight -- --require-credentials",
-          "pnpm verify:signed-package-release -- --require-release-evidence"
-        ])
-      }),
-      expect.objectContaining({
         issueNumber: 267,
         credentialFreeCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback:dry-run"]),
         evidenceCommands: expect.arrayContaining(["pnpm verify:packaged-update-rollback -- --require-device-evidence"])
@@ -150,8 +139,10 @@ describe("release evidence checklist", () => {
     ]));
     expect(checklist.checklistItems).toEqual(expect.arrayContaining([
       expect.objectContaining({ itemId: "windows-one-line-install-first-screen", gateId: "windows-real-device" }),
-      expect.objectContaining({ itemId: "macos-signed-package-release", gateId: "signed-packages" }),
       expect.objectContaining({ itemId: "windows-packaged-update-rollback", gateId: "packaged-update-rollback" })
+    ]));
+    expect(checklist.checklistItems).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemId: "macos-signed-package-release", gateId: "signed-packages" })
     ]));
     expect(checklist.issues).toEqual([]);
   });
@@ -229,7 +220,8 @@ describe("release evidence checklist", () => {
 
   it("builds redacted evidence templates for issue-filtered release blocker work", async () => {
     const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
-      now: new Date("2026-05-24T00:00:00.000Z")
+      now: new Date("2026-05-24T00:00:00.000Z"),
+      includeSignedPackage: true
     });
     const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
     const template = buildReleaseEvidenceTemplate(issue266Checklist);
@@ -305,7 +297,13 @@ describe("release evidence checklist", () => {
       requiredPassedChecks: expect.arrayContaining(["reach_first_screen"])
     });
 
-    const issue266Template = buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(checklist, 266));
+    const issue266Template = buildReleaseEvidenceTemplate(filterReleaseEvidenceChecklistByIssue(
+      buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
+        now: new Date("2026-05-24T00:00:00.000Z"),
+        includeSignedPackage: true
+      }),
+      266
+    ));
     const manifestRun = issue266Template.items.find((item) => item.itemId === "release-manifest-signing");
     expect(manifestRun?.evidenceBundleShape).toMatchObject({
       kind: "release-manifest-signing",
@@ -337,7 +335,8 @@ describe("release evidence checklist", () => {
 
   it("validates filled release evidence templates without accepting placeholders", async () => {
     const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
-      now: new Date("2026-05-24T00:00:00.000Z")
+      now: new Date("2026-05-24T00:00:00.000Z"),
+      includeSignedPackage: true
     });
     const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
     const template = buildReleaseEvidenceTemplate(issue266Checklist);
@@ -478,13 +477,12 @@ describe("release evidence checklist", () => {
       status: "passed",
       mode: "credential-free-fixture",
       filterIssueNumber: "all",
-      issueNumbers: [259, 266, 267],
-      itemCount: 9,
+      issueNumbers: [259, 267],
+      itemCount: 5,
       issues: []
     });
     expect(validation.templateValidations).toEqual([
       expect.objectContaining({ issueNumber: 259, status: "passed", filterIssueNumber: "259", itemCount: 2 }),
-      expect.objectContaining({ issueNumber: 266, status: "passed", filterIssueNumber: "266", itemCount: 4 }),
       expect.objectContaining({ issueNumber: 267, status: "passed", filterIssueNumber: "267", itemCount: 3 })
     ]);
   });
@@ -508,7 +506,7 @@ describe("release evidence checklist", () => {
       expect(validation).toMatchObject({
         status: "passed",
         filterIssueNumber: undefined,
-        itemCount: 9,
+        itemCount: 5,
         issues: []
       });
 
@@ -536,7 +534,8 @@ describe("release evidence checklist", () => {
 
   it("rejects filled release evidence templates that contain secret-shaped evidence", async () => {
     const checklist = buildReleaseEvidenceChecklist(await loadReleaseEvidenceContracts(), {
-      now: new Date("2026-05-24T00:00:00.000Z")
+      now: new Date("2026-05-24T00:00:00.000Z"),
+      includeSignedPackage: true
     });
     const issue266Checklist = filterReleaseEvidenceChecklistByIssue(checklist, 266);
     const filledTemplate = buildFilledReleaseEvidenceTemplateFixture(buildReleaseEvidenceTemplate(issue266Checklist));
@@ -595,37 +594,46 @@ describe("release evidence checklist", () => {
         outputPath,
         format: "json",
         issueNumber: undefined,
-        bundleDir: undefined
+        bundleDir: undefined,
+        includeSignedPackage: false
       });
       expect(parseReleaseEvidenceChecklistArgs(["--", "--output", outputPath], {})).toEqual({
         outputPath,
         format: "json",
         issueNumber: undefined,
-        bundleDir: undefined
+        bundleDir: undefined,
+        includeSignedPackage: false
       });
       expect(parseReleaseEvidenceChecklistArgs([`--output=${outputPath}`], {})).toEqual({
         outputPath,
         format: "json",
         issueNumber: undefined,
-        bundleDir: undefined
+        bundleDir: undefined,
+        includeSignedPackage: false
       });
       expect(parseReleaseEvidenceChecklistArgs(["--format", "markdown", "--issue", "266"], {})).toEqual({
         outputPath: undefined,
         format: "markdown",
         issueNumber: 266,
-        bundleDir: undefined
+        bundleDir: undefined,
+        includeSignedPackage: false
       });
       expect(parseReleaseEvidenceChecklistArgs(["--format", "comment", "--issue", "267"], {})).toEqual({
         outputPath: undefined,
         format: "comment",
         issueNumber: 267,
-        bundleDir: undefined
+        bundleDir: undefined,
+        includeSignedPackage: false
       });
       expect(parseReleaseEvidenceChecklistArgs(["--bundle-dir", "--", dir], {})).toMatchObject({
         outputPath: undefined,
         format: "json",
         issueNumber: undefined,
-        bundleDir: dir
+        bundleDir: dir,
+        includeSignedPackage: false
+      });
+      expect(parseReleaseEvidenceChecklistArgs(["--include-signed-package"], {})).toMatchObject({
+        includeSignedPackage: true
       });
       expect(() => parseReleaseEvidenceChecklistArgs(["--output"], {})).toThrow("--output requires a path value");
       expect(() => parseReleaseEvidenceChecklistArgs(["--format", "yaml"], {})).toThrow("--format must be one of");
@@ -820,8 +828,8 @@ describe("release evidence checklist", () => {
         status: "passed",
         checklistStatus: "blocked",
         bundleDir,
-        issueNumbers: [259, 266, 267],
-        summary: { totalItems: 9, blockedItems: 9 },
+        issueNumbers: [259, 267],
+        summary: { totalItems: 5, blockedItems: 5 },
         issues: []
       });
       expect(bundle.files.map((file) => file.path)).toEqual(expect.arrayContaining([
@@ -833,9 +841,6 @@ describe("release evidence checklist", () => {
         "issue-259-checklist.md",
         "issue-259-template.json",
         "issue-259-comment.md",
-        "issue-266-checklist.md",
-        "issue-266-template.json",
-        "issue-266-comment.md",
         "issue-267-checklist.md",
         "issue-267-template.json",
         "issue-267-comment.md"
@@ -844,17 +849,17 @@ describe("release evidence checklist", () => {
       const manifest = JSON.parse(await readFile(join(bundleDir, "manifest.json"), "utf8"));
       expect(manifest).toMatchObject({
         schemaVersion: RELEASE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
-        issueNumbers: [259, 266, 267],
+        issueNumbers: [259, 267],
         checklistStatus: "blocked",
-        summary: { totalItems: 9 },
+        summary: { totalItems: 5 },
         releaseEvidenceBlockerSummary: {
           status: "blocked",
-          issueNumbers: [259, 266, 267],
-          blockedIssueNumbers: [259, 266, 267],
-          issueCount: 3,
-          blockedIssueCount: 3,
-          totalItemCount: 9,
-          blockedItemCount: 9,
+          issueNumbers: [259, 267],
+          blockedIssueNumbers: [259, 267],
+          issueCount: 2,
+          blockedIssueCount: 2,
+          totalItemCount: 5,
+          blockedItemCount: 5,
           nextAction: expect.stringContaining("Fill each blocked issue template")
         },
         releaseEvidenceIssueSummaries: expect.arrayContaining([
@@ -881,23 +886,6 @@ describe("release evidence checklist", () => {
             ])
           }),
           expect.objectContaining({
-            issueNumber: 266,
-            itemCount: 4,
-            blockedItems: 4,
-            checklistItems: expect.arrayContaining([
-              expect.objectContaining({
-                itemId: "release-manifest-signing",
-                gateId: "signed-packages",
-                requiredCheckCount: 4,
-                requiredEvidenceCount: 4,
-                unblockCriteriaCount: 3,
-                evidenceBundleShapeKind: "release-manifest-signing",
-                evidenceBundleRequiredFieldCount: 11,
-                evidenceBundleRequiredPassedCheckCount: 4
-              })
-            ])
-          }),
-          expect.objectContaining({
             issueNumber: 267,
             itemCount: 3,
             blockedItems: 3,
@@ -919,13 +907,7 @@ describe("release evidence checklist", () => {
       expect(fullTemplate.filterIssueNumber).toBeUndefined();
       expect(fullTemplate).toMatchObject({
         schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
-        summary: { totalItems: 9, pendingItems: 9 }
-      });
-      const issue266Template = JSON.parse(await readFile(join(bundleDir, "issue-266-template.json"), "utf8"));
-      expect(issue266Template).toMatchObject({
-        schemaVersion: RELEASE_EVIDENCE_TEMPLATE_SCHEMA_VERSION,
-        filterIssueNumber: "266",
-        summary: { totalItems: 4, pendingItems: 4 }
+        summary: { totalItems: 5, pendingItems: 5 }
       });
       const issue259Comment = await readFile(join(bundleDir, "issue-259-comment.md"), "utf8");
       expect(issue259Comment).toContain("**Structured evidenceBundle shape**");
@@ -937,16 +919,6 @@ describe("release evidence checklist", () => {
       expect(issue259Comment).toContain("`reach_first_screen`");
       expect(issue259Comment).toContain("Allowed evidence refs:");
       expect(issue259Comment).toContain("`urn:solo-superman-*`");
-      const issue266Comment = await readFile(join(bundleDir, "issue-266-comment.md"), "utf8");
-      expect(issue266Comment).toContain("# Release evidence update for #266");
-      expect(issue266Comment).toContain("pnpm verify:release-evidence-template -- --input <filled-template.json> --issue 266");
-      expect(issue266Comment).toContain("pnpm verify:ready-release -- --evidence-bundle-dir <bundle-dir>");
-      expect(issue266Comment).toContain("aggregate `commandBlockers`");
-      expect(issue266Comment).toContain("`verification.readyReleaseResult.status`");
-      expect(issue266Comment).toContain("Template readyReleaseResult");
-      expect(issue266Comment).toContain("Kind: `release-manifest-signing`");
-      expect(issue266Comment).toContain("Required artifact scopes:");
-      expect(issue266Comment).toContain("`artifactRefs[].signatureRef`");
       const issue267Comment = await readFile(join(bundleDir, "issue-267-comment.md"), "utf8");
       expect(issue267Comment).toContain("Kind: `macos-packaged-update-rollback`");
       expect(issue267Comment).toContain("Required protected-path evidence refs:");
@@ -954,8 +926,8 @@ describe("release evidence checklist", () => {
       const readme = await readFile(join(bundleDir, "README.md"), "utf8");
       expect(readme).toContain("#259");
       expect(readme).toContain("## Release blocker summary");
-      expect(readme).toContain("Blocked issues: `3 / 3` (#259, #266, #267)");
-      expect(readme).toContain("Blocked evidence items: `9 / 9`");
+      expect(readme).toContain("Blocked issues: `2 / 2` (#259, #267)");
+      expect(readme).toContain("Blocked evidence items: `5 / 5`");
       expect(readme).toContain("Fill each blocked issue template with redacted release-lab evidence");
       expect(readme).toContain("Use each item's `evidenceBundleShape`");
       expect(readme).toContain("structured `evidenceBundle` fields");
@@ -964,9 +936,7 @@ describe("release evidence checklist", () => {
       expect(readme).toContain(
         "`windows-real-device` (release-readiness, blocked; checks 0, evidence 4, unblock 3, shape none fields 0, passed-checks 0)"
       );
-      expect(readme).toContain(
-        "`release-manifest-signing` (signed-packages, blocked; checks 4, evidence 4, unblock 3, shape release-manifest-signing fields 11, passed-checks 4)"
-      );
+      expect(readme).not.toContain("release-manifest-signing");
       expect(readme).toContain(
         "`windows-one-line-install-first-screen` (windows-real-device, blocked; checks 11, evidence 4, unblock 3, shape windows-real-device fields 22, passed-checks 11)"
       );

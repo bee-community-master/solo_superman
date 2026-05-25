@@ -21,8 +21,8 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 | Review packaged release update channel contracts | [`release-channel_EN.md`](release-channel_EN.md) |
 | Review packaged update rollback evidence | [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md) |
 | Review Windows real-device install evidence | [`windows-real-device_EN.md`](windows-real-device_EN.md) |
-| Review signed macOS/Windows package preflight | [`signed-packages_EN.md`](signed-packages_EN.md) |
-| Review signed package release evidence | [`signed-package-release_EN.md`](signed-package-release_EN.md) |
+| Review optional signed macOS/Windows package preflight | [`signed-packages_EN.md`](signed-packages_EN.md) |
+| Review optional signed package release evidence | [`signed-package-release_EN.md`](signed-package-release_EN.md) |
 | Review product capability readiness gates | [`product-capability-readiness_EN.md`](product-capability-readiness_EN.md) |
 | Review general release readiness gates | [`release-readiness_EN.md`](release-readiness_EN.md) |
 | Troubleshoot install and local run | [`troubleshooting_EN.md`](troubleshooting_EN.md) |
@@ -30,13 +30,13 @@ This `docs/` folder is optimized for contributor onboarding and code-backed cont
 ## Current posture
 
 - Release channel: limited-beta-style technical preview.
-- Packaged update channel: [`release-channel_EN.md`](release-channel_EN.md) locks only the manifest/signature/checksum/retry/rollback contract; a real packaged updater waits for signed macOS/Windows packages.
+- Packaged update channel: [`release-channel_EN.md`](release-channel_EN.md) locks the manifest/checksum/retry/rollback contract; a real packaged updater waits for packaged macOS/Windows artifact device evidence, while signed packages are optional hardening.
 - Packaged update rollback evidence: [`packaged-update-rollback_EN.md`](packaged-update-rollback_EN.md) and `pnpm verify:packaged-update-rollback` keep macOS/Windows device rollback evidence tied to #267.
 - Windows real-device evidence: [`windows-real-device_EN.md`](windows-real-device_EN.md) and `pnpm verify:windows-real-device` keep Windows one-line install evidence tied to #259.
 - Signed packages: [`signed-packages_EN.md`](signed-packages_EN.md) and `pnpm verify:signed-package-preflight` lock the credential-free preflight and missing signing credential gate.
 - Signed package release evidence: [`signed-package-release_EN.md`](signed-package-release_EN.md) and `pnpm verify:signed-package-release` keep actual signing/notarization/timestamp/manifest evidence tied to #266.
 - Product capability readiness: [`product-capability-readiness_EN.md`](product-capability-readiness_EN.md) and `pnpm verify:product-capability-readiness` lock the code-backed posture for questions, research, readiness, browser/service boundaries, and the auto implementation loop.
-- General release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) and `pnpm verify:release-readiness` keep broad release blocked until signed package, packaged updater rollback, and Windows real-device gates are ready.
+- General release readiness: [`release-readiness_EN.md`](release-readiness_EN.md) and `pnpm verify:release-readiness` keep broad release blocked until packaged updater rollback and Windows real-device gates are ready, while signed packages are reported separately as optional hardening.
 - Runtime shape: local-first web app + local Node/Hono service.
 - Default topology: Local Web Frontend -> Local Node/Hono Service -> ProductEngine/contracts/db.
 - Storage: local embedded libSQL with Drizzle; remote sync config does not enable remote storage today and remains inert until a later explicit sync contract exists.
@@ -65,8 +65,8 @@ The old numbered planning docs acted as an implementation contract ledger, with 
 - `release-channel_EN.md` for packaged update channel manifests and safety gates.
 - `packaged-update-rollback_EN.md` for packaged update rollback device evidence contracts.
 - `windows-real-device_EN.md` for Windows one-line install device evidence contracts.
-- `signed-packages_EN.md` for signed installer package candidates and signing credential gates.
-- `signed-package-release_EN.md` for signed package release evidence contracts.
+- `signed-packages_EN.md` for optional signed installer package candidates and signing credential gates.
+- `signed-package-release_EN.md` for optional signed package release evidence contracts.
 - `product-capability-readiness_EN.md` for core product loop capabilities and verifier command gates.
 - `release-readiness_EN.md` for broad/general release blockers and ready-release gates.
 

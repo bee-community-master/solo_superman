@@ -1,5 +1,7 @@
 import type { ProjectionVersion, SessionId } from "../ids";
 import type {
+  AmbiguityReductionDimension,
+  AmbiguityRoutingPath,
   BusinessCriticIntensity,
   BusinessCriticIntensitySelectionStatus,
   ProjectPurposeMode,
@@ -15,6 +17,7 @@ export type CompletionGateId =
   | "business_critic_pressure"
   | "score_threshold"
   | "confidence_axes"
+  | "ambiguity_dimension_floor"
   | "question_debt"
   | "evidence_balance"
   | "research_queue_cards"
@@ -42,6 +45,18 @@ export interface CompletionGateStatus {
   readonly label: string;
   readonly passed: boolean;
   readonly blockingReason?: string;
+}
+
+export interface AmbiguityDimensionCoverageScore {
+  readonly dimension: AmbiguityReductionDimension;
+  readonly label: string;
+  readonly score: number;
+  readonly rationale: string;
+  readonly routingPaths: readonly AmbiguityRoutingPath[];
+  readonly openIssueCount: number;
+  readonly answeredIssueCount: number;
+  readonly researchQuestionRefs: readonly string[];
+  readonly requiredForImplementation: boolean;
 }
 
 export interface TopRiskCardProjection {
@@ -82,6 +97,7 @@ export interface ConfidenceCompletionProjection {
   readonly compositeScore: number;
   readonly readinessLabel: ReadinessLabel;
   readonly axes: readonly ConfidenceAxisScore[];
+  readonly ambiguityDimensionCoverage?: readonly AmbiguityDimensionCoverageScore[];
   readonly scoreBreakdown: CompletenessScoreBreakdown;
   readonly gates: readonly CompletionGateStatus[];
   readonly topRisks: readonly string[];

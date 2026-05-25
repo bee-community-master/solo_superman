@@ -1,10 +1,14 @@
 import {
+  AMBIGUITY_REDUCTION_DIMENSIONS,
   BUSINESS_CRITIC_INTENSITY_EFFECTS,
   BUSINESS_CRITIC_INTENSITY_LABELS,
   BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODE_LABELS,
   PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
   PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES,
+  type AmbiguityDimensionCoverageScore,
+  type AmbiguityReductionDimension,
+  type AmbiguityRoutingPath,
   type CompletionGateStatus,
   type ConfidenceAxisScore,
   type ConfidenceCompletionProjection,
@@ -102,6 +106,23 @@ const REQUIRED_DECISION_REFS: readonly RequiredDecisionRef[] = [
 ] as const;
 const CONFIDENCE_AXIS_READY_THRESHOLD = 75;
 const MIN_READY_CONFIDENCE_AXIS_COUNT = 4;
+const AMBIGUITY_DIMENSION_READY_THRESHOLD = 75;
+const IMPLEMENTATION_CORE_AMBIGUITY_DIMENSIONS = [
+  "goal",
+  "scope",
+  "success_criteria",
+  "decision_authority"
+] as const satisfies readonly AmbiguityReductionDimension[];
+
+const AMBIGUITY_DIMENSION_LABELS = {
+  goal: "Goal clarity",
+  scope: "Scope/non-goal clarity",
+  constraints: "Constraint clarity",
+  success_criteria: "Success-criteria clarity",
+  context: "Context/source clarity",
+  decision_authority: "Decision-authority clarity",
+  assumption_pressure: "Assumption-pressure clarity"
+} as const satisfies Record<AmbiguityReductionDimension, string>;
 
 const RISK_SEVERITY_RANK = {
   high: 0,
@@ -121,13 +142,27 @@ function uniqueStrings(values: readonly string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+function normalizedSpecSections(state: ProductEngineStateSnapshot) {
+  return (state.currentSpec.sections ?? []).map((section) => section.toLowerCase());
+}
+
+function sectionHasKeywordGroup(
+  state: ProductEngineStateSnapshot,
+  keywordGroups: readonly (readonly string[])[]
+) {
+  const sections = normalizedSpecSections(state);
+
+  return keywordGroups.some((keywords) =>
+    sections.some((section) => keywords.every((keyword) => section.includes(keyword.toLowerCase())))
+  );
+}
+
 function sectionCompletenessScore(state: ProductEngineStateSnapshot) {
   if (!state.project.projectPurposeMode) {
     return 0;
   }
 
-  const sections = state.currentSpec.sections ?? [];
-  const normalizedSections = sections.map((section) => section.toLowerCase());
+  const normalizedSections = normalizedSpecSections(state);
   const requiredSectionKeywords =
     state.project.projectPurposeMode === "personal" ? PERSONAL_REQUIRED_SECTION_KEYWORDS : REQUIRED_SECTION_KEYWORDS;
   const matched = requiredSectionKeywords.filter((keywords) =>
@@ -135,6 +170,242 @@ function sectionCompletenessScore(state: ProductEngineStateSnapshot) {
   ).length;
 
   return clampScore((matched / requiredSectionKeywords.length) * 100);
+}
+
+function approvedDecisionRatio(state: ProductEngineStateSnapshot, refs: readonly RequiredDecisionRef[]) {
+  const approvedRefs = new Set(
+    state.decisions
+      .filter((decision) => decision.status === "approved" || decision.status === "risk_accepted")
+      .map((decision) => decision.requiredDecisionRef)
+  );
+  const approvedCount = refs.filter((ref) => approvedRefs.has(ref)).length;
+
+  return clampScore((approvedCount / refs.length) * 100);
+}
+
+function ambiguityIssuePenalty(issue: ProductEngineStateSnapshot["openIssues"][number]) {
+  if (issue.status === "open") {
+    switch (issue.severity) {
+      case "low":
+        return 15;
+      case "medium":
+        return 30;
+      case "high":
+      default:
+        return 50;
+    }
+  }
+
+  if (issue.status === "deferred" && !issue.knownRiskAccepted) {
+    return 20;
+  }
+
+  return 0;
+}
+
+function ambiguityDimensionOpenIssueCount(
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  return issues.filter((issue) => issue.status === "open").length;
+}
+
+function ambiguityDimensionAnsweredIssueCount(
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  return issues.filter((issue) => issue.status === "answered" || issue.status === "resolved").length;
+}
+
+function ambiguityDimensionRoutingPaths(
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  return uniqueStrings(
+    issues.flatMap((issue) => (issue.ambiguityRoutingPath ? [issue.ambiguityRoutingPath] : []))
+  ) as readonly AmbiguityRoutingPath[];
+}
+
+function ambiguityDimensionResearchQuestionRefs(
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  return uniqueStrings(
+    issues.flatMap((issue) => [
+      ...(issue.researchQuestion ? [issue.researchQuestion] : []),
+      ...(issue.suggestedResearchTask ? [issue.suggestedResearchTask] : [])
+    ])
+  ).slice(0, 3);
+}
+
+function dimensionScoreWithIssuePenalty(
+  baseScore: number,
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  const penalty = issues.reduce((total, issue) => total + ambiguityIssuePenalty(issue), 0);
+
+  return clampScore(baseScore - penalty);
+}
+
+function ambiguityDimensionBaseScore(
+  state: ProductEngineStateSnapshot,
+  dimension: AmbiguityReductionDimension,
+  scoreBreakdown: ConfidenceCompletionProjection["scoreBreakdown"]
+) {
+  switch (dimension) {
+    case "goal":
+      if (state.project.projectPurposeMode === "personal") {
+        return clampScore(
+          average([
+            state.currentSpec.title || state.project.rawIdeaText ? 100 : 0,
+            sectionHasKeywordGroup(state, [["workflow"]]) ? 100 : 0,
+            sectionHasKeywordGroup(state, [["output"], ["implementation"]]) ? 100 : 0
+          ])
+        );
+      }
+
+      return clampScore(
+        average([
+          state.currentSpec.title || state.project.rawIdeaText ? 100 : 0,
+          sectionHasKeywordGroup(state, [["problem"]]) ? 100 : 0,
+          sectionHasKeywordGroup(state, [["value"], ["proposition"]]) ? 100 : 0,
+          approvedDecisionRatio(state, ["problem", "value"])
+        ])
+      );
+    case "scope":
+      if (state.project.projectPurposeMode === "personal") {
+        return clampScore(
+          average([
+            sectionHasKeywordGroup(state, [["gui"], ["implementation"], ["local", "data"]]) ? 100 : 0,
+            sectionHasKeywordGroup(state, [["maintainability"], ["security"]]) ? 100 : 0,
+            scoreBreakdown.questionDebtResolution
+          ])
+        );
+      }
+
+      return clampScore(
+        average([
+          sectionHasKeywordGroup(state, [["mvp"], ["scope"]]) ? 100 : 0,
+          approvedDecisionRatio(state, ["mvp_scope"]),
+          scoreBreakdown.questionDebtResolution
+        ])
+      );
+    case "constraints":
+      if (state.project.projectPurposeMode === "personal") {
+        return clampScore(
+          average([
+            sectionHasKeywordGroup(state, [["local", "data"], ["security"], ["maintainability"]]) ? 100 : 50,
+            scoreBreakdown.consistencyAndConflict
+          ])
+        );
+      }
+
+      return clampScore(
+        average([
+          sectionHasKeywordGroup(state, [
+            ["constraint"],
+            ["legal"],
+            ["security"],
+            ["privacy"],
+            ["operation"],
+            ["ops"],
+            ["local", "data"]
+          ])
+            ? 100
+            : 50,
+          scoreBreakdown.consistencyAndConflict
+        ])
+      );
+    case "success_criteria":
+      return clampScore(
+        average([
+          sectionHasKeywordGroup(state, [["success", "criteria"], ["metric"], ["validation"]]) ? 100 : 0,
+          approvedDecisionRatio(state, ["success_criteria", "validation_plan"]),
+          state.researchState.nextValidationActions.length ? 100 : 0
+        ])
+      );
+    case "context":
+      if (state.project.projectPurposeMode === "personal") {
+        return clampScore(
+          average([
+            state.currentSpec.draftRef ? 100 : 0,
+            sectionHasKeywordGroup(state, [["workflow"], ["frequency"], ["input"], ["output"]]) ? 100 : 0,
+            scoreBreakdown.evidenceQuality
+          ])
+        );
+      }
+
+      return clampScore(
+        average([
+          state.currentSpec.draftRef ? 100 : 0,
+          sectionHasKeywordGroup(state, [["evidence"], ["alternative"], ["competition"], ["workflow"]]) ? 100 : 0,
+          scoreBreakdown.evidenceQuality
+        ])
+      );
+    case "decision_authority":
+      return clampScore(
+        average([
+          state.project.projectPurposeModeSelectionStatus === "confirmed" ? 100 : 0,
+          state.project.projectPurposeMode === "business"
+            ? state.project.businessCriticIntensitySelectionStatus === "confirmed"
+              ? 100
+              : 0
+            : 100,
+          scoreBreakdown.decisionApproval
+        ])
+      );
+    case "assumption_pressure":
+      return clampScore(
+        average([
+          scoreBreakdown.evidenceQuality,
+          scoreBreakdown.consistencyAndConflict,
+          unresolvedBusinessCriticIssues(state).length === 0 ? 100 : 0
+        ])
+      );
+  }
+}
+
+function ambiguityDimensionRationale(
+  dimension: AmbiguityReductionDimension,
+  score: number,
+  issues: readonly ProductEngineStateSnapshot["openIssues"][number][]
+) {
+  const label = AMBIGUITY_DIMENSION_LABELS[dimension];
+  const openCount = ambiguityDimensionOpenIssueCount(issues);
+  const researchQuestionCount = ambiguityDimensionResearchQuestionRefs(issues).length;
+
+  if (openCount > 0) {
+    return `${label} is below the execution floor because ${openCount} unresolved ambiguity question(s) still change the implementation slice.`;
+  }
+
+  if (score >= AMBIGUITY_DIMENSION_READY_THRESHOLD) {
+    return researchQuestionCount
+      ? `${label} is ready; related research questions are preserved as source-traced follow-up context.`
+      : `${label} is ready from current spec, decisions, evidence, and question debt.`;
+  }
+
+  return `${label} needs a sharper spec/decision/evidence signal before implementation starts.`;
+}
+
+function ambiguityDimensionCoverageScores(
+  state: ProductEngineStateSnapshot,
+  scoreBreakdown: ConfidenceCompletionProjection["scoreBreakdown"]
+): readonly AmbiguityDimensionCoverageScore[] {
+  return AMBIGUITY_REDUCTION_DIMENSIONS.map((dimension) => {
+    const issues = state.openIssues.filter((issue) => issue.ambiguityDimension === dimension);
+    const score = dimensionScoreWithIssuePenalty(
+      ambiguityDimensionBaseScore(state, dimension, scoreBreakdown),
+      issues
+    );
+
+    return {
+      dimension,
+      label: AMBIGUITY_DIMENSION_LABELS[dimension],
+      score,
+      rationale: ambiguityDimensionRationale(dimension, score, issues),
+      routingPaths: ambiguityDimensionRoutingPaths(issues),
+      openIssueCount: ambiguityDimensionOpenIssueCount(issues),
+      answeredIssueCount: ambiguityDimensionAnsweredIssueCount(issues),
+      researchQuestionRefs: ambiguityDimensionResearchQuestionRefs(issues),
+      requiredForImplementation: (IMPLEMENTATION_CORE_AMBIGUITY_DIMENSIONS as readonly AmbiguityReductionDimension[]).includes(dimension)
+    };
+  });
 }
 
 function questionDebtScore(state: ProductEngineStateSnapshot) {
@@ -563,10 +834,14 @@ function gateStatuses(
   state: ProductEngineStateSnapshot,
   compositeScore: number,
   axes: readonly ConfidenceAxisScore[],
+  ambiguityDimensionCoverage: readonly AmbiguityDimensionCoverageScore[],
   decisionScore: number
 ): readonly CompletionGateStatus[] {
   const readyAxisCount = axes.filter((axis) => axis.score >= CONFIDENCE_AXIS_READY_THRESHOLD).length;
   const confidenceAxesPassed = readyAxisCount >= Math.min(MIN_READY_CONFIDENCE_AXIS_COUNT, axes.length);
+  const coreAmbiguityDimensionFailures = ambiguityDimensionCoverage.filter(
+    (dimension) => dimension.requiredForImplementation && dimension.score < AMBIGUITY_DIMENSION_READY_THRESHOLD
+  );
   const unresolvedOpenQuestions = state.openIssues.filter((issue) => issue.status === "open").length;
   const blockingEvidence = state.researchState.evidenceMatrices.filter((matrix) =>
     evidenceMatrixBlocksCompletion(state, matrix)
@@ -598,6 +873,18 @@ function gateStatuses(
             blockingReason: `${readyAxisCount}/${axes.length} confidence axes are ${CONFIDENCE_AXIS_READY_THRESHOLD} or higher; below threshold: ${axes
               .filter((axis) => axis.score < CONFIDENCE_AXIS_READY_THRESHOLD)
               .map((axis) => `${axis.label} ${axis.score}`)
+              .join(", ")}`
+          })
+    },
+    {
+      gateId: "ambiguity_dimension_floor",
+      label: `Core ambiguity dimensions are ${AMBIGUITY_DIMENSION_READY_THRESHOLD} or higher`,
+      passed: coreAmbiguityDimensionFailures.length === 0,
+      ...(coreAmbiguityDimensionFailures.length === 0
+        ? {}
+        : {
+            blockingReason: `Core ambiguity dimensions below ${AMBIGUITY_DIMENSION_READY_THRESHOLD}: ${coreAmbiguityDimensionFailures
+              .map((dimension) => `${dimension.label} ${dimension.score}`)
               .join(", ")}`
           })
     },
@@ -678,6 +965,7 @@ export function buildConfidenceCompletionProjection(
       compositeScore: 0,
       readinessLabel: "draft",
       axes: [],
+      ambiguityDimensionCoverage: [],
       scoreBreakdown: {
         sectionCompleteness: 0,
         questionDebtResolution: 0,
@@ -740,11 +1028,18 @@ export function buildConfidenceCompletionProjection(
     scoreBreakdown.decisionApproval,
     scoreBreakdown.consistencyAndConflict
   );
+  const ambiguityDimensionCoverage = ambiguityDimensionCoverageScores(state, scoreBreakdown);
   const provisionalActions = nextBestActions(state, []);
   const allRiskCards = riskCards(state, provisionalActions);
   const topRiskCards = allRiskCards.slice(0, 3);
   const nextActions = nextBestActions(state, topRiskCards);
-  const gates = gateStatuses(state, compositeScore, axes, scoreBreakdown.decisionApproval);
+  const gates = gateStatuses(
+    state,
+    compositeScore,
+    axes,
+    ambiguityDimensionCoverage,
+    scoreBreakdown.decisionApproval
+  );
   const gateFailures = gates.flatMap((gate) => (gate.passed ? [] : [gate.blockingReason ?? gate.label]));
   const topRisks = uniqueStrings([
     ...state.researchState.knownRisks,
@@ -790,6 +1085,7 @@ export function buildConfidenceCompletionProjection(
     compositeScore,
     readinessLabel: readinessLabel(compositeScore, gatesPassed),
     axes,
+    ambiguityDimensionCoverage,
     scoreBreakdown,
     gates,
     topRisks,

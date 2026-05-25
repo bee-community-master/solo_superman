@@ -2,7 +2,7 @@
   "schemaVersion": "solo-superman-signed-package-release.v1",
   "appId": "solo-superman",
   "releaseEvidenceStatus": "blocked",
-  "summary": "Signed package release evidence remains blocked until macOS signing/notarization, Windows Authenticode/timestamp, and release manifest signing evidence exist.",
+  "summary": "Signed package release evidence is optional hardening for non-store/direct distribution and remains blocked until macOS signing/notarization, Windows Authenticode/timestamp, and release manifest signing evidence exist.",
   "preflightContract": "docs/signed-package-preflight.example.json",
   "releaseReadinessContract": "docs/release-readiness_KO.md",
   "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266",
@@ -30,7 +30,7 @@
       "id": "macos-signed-package-release",
       "scope": "macos",
       "status": "blocked",
-      "requiredFor": "general-release",
+      "requiredFor": "optional-hardening",
       "blocker": "macOS Developer ID signing, notarization, and stapling evidence is missing.",
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266",
       "evidenceRefs": [
@@ -50,10 +50,10 @@
         "Signed macOS DMG/PKG artifact verifies with codesign/pkgutil/spctl.",
         "Apple notarytool submission succeeds and notarization ticket is stapled before release.",
         "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached.",
-        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
+        "When signed-package hardening is opted in and this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
-        "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Apple credential refs.",
+        "Only when signing is opted in, run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Apple credential refs.",
         "Attach redacted macOS signing, notarization, stapling, and Gatekeeper evidence to #266."
       ]
     },
@@ -61,7 +61,7 @@
       "id": "windows-signed-package-release",
       "scope": "windows",
       "status": "blocked",
-      "requiredFor": "general-release",
+      "requiredFor": "optional-hardening",
       "blocker": "Windows Authenticode signing and timestamp evidence is missing.",
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266",
       "evidenceRefs": [
@@ -80,10 +80,10 @@
         "Signed Windows MSI/EXE Authenticode signature verifies before upload.",
         "Timestamp verification succeeds against the configured timestamp server.",
         "Artifact SHA-256 digest, size, signature ref, public certificate metadata, and redacted evidence ref are attached.",
-        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
+        "When signed-package hardening is opted in and this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
-        "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Windows signing credential refs.",
+        "Only when signing is opted in, run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with Windows signing credential refs.",
         "Attach redacted Windows signing and timestamp evidence to #266."
       ]
     },
@@ -91,7 +91,7 @@
       "id": "release-manifest-signing",
       "scope": "release-manifest",
       "status": "blocked",
-      "requiredFor": "general-release",
+      "requiredFor": "optional-hardening",
       "blocker": "Final release manifest signing evidence is missing.",
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266",
       "evidenceRefs": [
@@ -109,7 +109,7 @@
         "Release update manifest contains final artifact SHA-256 digests, sizes, and signature refs after macOS/Windows packages are signed.",
         "Release manifest signature verifies with the public key id documented for the release.",
         "Manifest evidence includes only public key ids, checksums, signatures, sizes, and redacted evidence refs.",
-        "When this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
+        "When signed-package hardening is opted in and this run is passed, include a structured evidenceBundle with artifact or manifest checksum, size, signature refs, public verification metadata, passed checks, and redacted evidence refs."
       ],
       "unblockCriteria": [
         "Sign the final release update manifest after artifact checksums/signature refs are final.",

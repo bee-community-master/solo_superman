@@ -9,6 +9,7 @@ import {
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationIssueDocumentStatus,
   autoImplementationIssueStatusSummary,
+  autoImplementationPlanningIssueDocumentStatus,
   autoImplementationPlanningIssueEvidenceRefs,
   autoImplementationPlanningIssueFiles,
   autoImplementationRunWithSynchronizedIssueDocs,
@@ -274,6 +275,72 @@ describe("AutoImplementationRunProjection contract", () => {
     expect(autoImplementationPlanningIssueFiles(run)).toEqual([
       "planning-handoff-pr-issues/001-phase2-api-ready.md"
     ]);
+  });
+
+  it("synchronizes the active Planning Handoff PR-sized issue with run completion", () => {
+    const planningIssueRef = "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md";
+    const run = {
+      ...readyRun,
+      status: "completed" as const,
+      issueManagement: {
+        ...readyRun.issueManagement,
+        planningIssueDocs: [
+          {
+            issueId: "phase2-api-ready",
+            title: "Phase 2 API-ready implementation slice",
+            relativePath: "planning-handoff-pr-issues/001-phase2-api-ready.md",
+            includedTaskIds: ["task_api_ready"],
+            status: "active" as const
+          },
+          {
+            issueId: "phase2-review-ready",
+            title: "Phase 2 review-ready implementation slice",
+            relativePath: "planning-handoff-pr-issues/002-phase2-review-ready.md",
+            includedTaskIds: ["task_review_ready"],
+            status: "planned" as const
+          }
+        ]
+      },
+      evidenceRefs: [
+        ...readyRun.evidenceRefs,
+        planningIssueRef,
+        "planning-handoff-pr-issue:planning-handoff-pr-issues/002-phase2-review-ready.md"
+      ]
+    };
+
+    expect(autoImplementationPlanningIssueDocumentStatus(run, run.issueManagement.planningIssueDocs[0]!)).toBe("completed");
+    expect(autoImplementationRunWithSynchronizedIssueDocs(run).issueManagement.planningIssueDocs).toMatchObject([
+      { issueId: "phase2-api-ready", status: "completed" },
+      { issueId: "phase2-review-ready", status: "planned" }
+    ]);
+  });
+
+  it("prefers first-class Planning Handoff PR-sized issue docs when they are available", () => {
+    const planningIssueRef = "planning-handoff-pr-issue:planning-handoff-pr-issues/001-phase2-api-ready.md";
+    const run = {
+      ...readyRun,
+      issueManagement: {
+        ...readyRun.issueManagement,
+        planningIssueDocs: [
+          {
+            issueId: "phase2-api-ready",
+            title: "Phase 2 API-ready implementation slice",
+            relativePath: "planning-handoff-pr-issues/001-phase2-api-ready.md",
+            includedTaskIds: ["task_api_ready"],
+            status: "active" as const
+          }
+        ]
+      },
+      evidenceRefs: [
+        ...readyRun.evidenceRefs,
+        planningIssueRef
+      ]
+    };
+
+    expect(autoImplementationPlanningIssueFiles(run)).toEqual([
+      "planning-handoff-pr-issues/001-phase2-api-ready.md"
+    ]);
+    expect(validateAutoImplementationRunProjection(projectionWithLatestRun(run))).toBeTruthy();
   });
 
   it("adds stage-specific required evidence to local Codex worker plans", () => {
@@ -665,6 +732,58 @@ describe("AutoImplementationRunProjection contract", () => {
                 "clean-code-review:changed_code:clean-1",
                 "clean-code-review:changed_code:clean-2"
               ],
+              missingTestAuditRefs: ["missing-test-audit:verify"],
+              testEvidenceRefs: ["test:verify"],
+              blockerEvidenceRefs: [],
+              evidenceRefs: ["implementation-step-ledger:step_demo"]
+            }
+          }
+        : stage)
+    });
+
+    expectInvalidProjection(invalid);
+  });
+
+  it("rejects malformed structured stage ledger evidence summaries", () => {
+    const invalid = projectionWithLatestRun({
+      ...readyRun,
+      stagePlan: readyRun.stagePlan.map((stage, index) => index === 0
+        ? {
+            ...stage,
+            status: "completed",
+            evidenceRefs: ["stage:complete:initial_pr"],
+            ledgerEvidence: {
+              implementationStepId: "step_demo",
+              trackerDocRef: "implementation-step-ledger:tracker:tracker_demo",
+              stepDocRef: "implementation-step-ledger:step:step_demo",
+              implementationEvidenceRefs: ["commit:abcdef1"],
+              codeReviewStreakRefs: [
+                "code-review:feature:clean-1",
+                "code-review:feature:clean-2",
+                "code-review:repository:clean-1",
+                "code-review:repository:clean-2"
+              ],
+              cleanCodeReviewStreakRefs: [
+                "clean-code-review:changed_code:clean-1",
+                "clean-code-review:changed_code:clean-2",
+                "clean-code-review:repository:clean-1",
+                "clean-code-review:repository:clean-2"
+              ],
+              codeReviewStreaks: [
+                {
+                  reviewScope: "feature",
+                  requiredNoFindingPasses: 2,
+                  currentNoFindingPasses: 2,
+                  satisfied: true,
+                  latestReviewIds: ["clean-1", "clean-2"],
+                  missingEvidenceLabel: "feature code review requires 2 consecutive no-finding passes"
+                }
+              ],
+              missingTestAuditSummary: {
+                auditId: "missing_test_audit_demo",
+                missingTestGapCount: -1,
+                satisfied: false
+              },
               missingTestAuditRefs: ["missing-test-audit:verify"],
               testEvidenceRefs: ["test:verify"],
               blockerEvidenceRefs: [],

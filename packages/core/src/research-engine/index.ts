@@ -71,6 +71,7 @@ export interface SynthesizeEvidenceInput {
   readonly researchTask: ResearchTaskProjection;
   readonly researchResult: ResearchResultProjection;
   readonly synthesisVersion: number;
+  readonly contextText?: string;
 }
 
 const EMPTY_RESEARCH_PROJECTION: Omit<ResearchEvidenceProjection, "version"> = {
@@ -125,6 +126,49 @@ function compactSummary(value: string, fallback: string) {
   return summary || trimmed.slice(0, 280).trimEnd();
 }
 
+export function stripInternalResearchMetaText(value: string) {
+  return value
+    .split(/\r?\n/u)
+    .map((line) =>
+      line
+        .replace(/\bPage body could not be fetched before timeout;?\s*/giu, "")
+        .replace(/\bFull page text was unavailable before timeout, so only the search-result summary is shown\.?/giu, "")
+        .replace(/\b(?:search-result|rch-result|result)\s+snippet retained for review\.?/giu, "")
+        .replace(/\bsnippet retained for review\.?/giu, "")
+        .replace(/\bSource snippets and fetched page text require quality-gate review before accepted (?:evidence|근거)\.?/giu, "")
+        .replace(/\bSource snippets and fetched page text require review before accepted (?:evidence|근거)\.?/giu, "")
+        .replace(/\bBrowser search snippets can be incomplete; quality-gate review must verify claims before acceptance\.?/giu, "")
+        .replace(/\bBrowser search snippets can be incomplete;?\s*/giu, "")
+        .replace(/\bSearch snippets and available page text may be incomplete, so important claims still need follow-up confirmation\.?/giu, "")
+        .replace(/\bOnly publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used\.?/giu, "")
+        .replace(/\bquality-gate review must verify claims before acceptance\.?/giu, "")
+        .replace(/\bquality-gate review before accepted (?:evidence|근거)\.?/giu, "")
+        .replace(/\bPublic page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial\.?/giu, "")
+        .replace(/\bBrowser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used\.?/giu, "")
+        .replace(/\bRandom delay range was \d+-\d+ms with at most \d+ fetched public page\(s\)\.?/giu, "")
+        .replace(/\bPublic web research completed for [^.。!?]+[.。!?]?/giu, "")
+        .replace(/\bQuery:\s*[^.。!?]+[.。!?]?/giu, "")
+        .replace(/\bSources reviewed:\s*\d+[.。!?]?/giu, "")
+        .replace(/\bPro:\s*At least one public source was reachable through a read-only browser search\.?/giu, "")
+        .replace(/\bLimitation:\s*Browser search snippets can be incomplete;?\s*/giu, "")
+        .replace(/\b(?:Pro|Con|Limitation):\s*$/giu, "")
+        .replace(/\bread-only browser search\.?/giu, "")
+        .replace(/\bread-only public web search\.?/giu, "")
+        .replace(/\s+([.。!?])/gu, "$1")
+        .trim()
+    )
+    .filter(Boolean)
+    .join("\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+function userFacingResearchText(value: string | undefined, fallback: string) {
+  const sanitized = stripInternalResearchMetaText(value ?? "");
+
+  return sanitized || fallback;
+}
+
 function userFacingQuestionText(value: string) {
   return value
     .replace(/^Validate evidence for:\s*/iu, "")
@@ -139,7 +183,7 @@ function evidenceSummaryOrFallback(
   evidenceItems: readonly { readonly summary: string }[],
   fallback: string
 ) {
-  return compactSummary(evidenceItems[0]?.summary ?? "", fallback);
+  return compactSummary(userFacingResearchText(evidenceItems[0]?.summary, fallback), fallback);
 }
 
 function neutralizeEvidenceStancePrefix(value: string) {
@@ -153,7 +197,7 @@ function neutralEvidenceSummaryOrFallback(
   evidenceItems: readonly { readonly summary: string }[],
   fallback: string
 ) {
-  const neutralSummary = neutralizeEvidenceStancePrefix(evidenceItems[0]?.summary ?? "");
+  const neutralSummary = neutralizeEvidenceStancePrefix(userFacingResearchText(evidenceItems[0]?.summary, fallback));
 
   return compactSummary(neutralSummary, fallback);
 }
@@ -262,8 +306,11 @@ function joinedEvidenceContext(input: {
   readonly proSummary: string;
   readonly conSummary: string | null;
   readonly uncertaintySummary: string;
+  readonly contextText?: string;
 }) {
-  return [input.topic, input.proSummary, input.conSummary, input.uncertaintySummary].filter(Boolean).join(" ");
+  return [input.topic, input.contextText, input.proSummary, input.conSummary, input.uncertaintySummary]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function bulletedQuestionCandidates(candidates: readonly string[]) {
@@ -364,6 +411,28 @@ const DEFAULT_CUSTOMER_CANDIDATES = [
   "팀 리더/운영 담당자"
 ] as const;
 
+const PET_LIFECARE_CUSTOMER_CANDIDATES = [
+  "첫 반려동물을 키우는 보호자",
+  "노령·만성질환 반려동물 보호자",
+  "여러 마리를 함께 키우는 가구",
+  "보험·의료비 관리가 필요한 보호자",
+  "장례·말기 케어까지 준비하는 보호자"
+] as const;
+
+function hasPetLifecycleContext(text: string) {
+  return /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|의료비|급여|사료|보험|장례|말기\s*케어|전생애|생애주기)/iu.test(
+    text
+  );
+}
+
+function customerFallbackCandidatesForContext(text: string) {
+  if (hasPetLifecycleContext(text)) {
+    return PET_LIFECARE_CUSTOMER_CANDIDATES;
+  }
+
+  return DEFAULT_CUSTOMER_CANDIDATES;
+}
+
 const CUSTOMER_CANDIDATE_LABEL_RULES = [
   {
     label: "혼자 만드는 초기 창업자",
@@ -396,8 +465,10 @@ function customerCandidateLabelsFromEvidence(input: {
   readonly proSummary: string;
   readonly conSummary: string | null;
   readonly uncertaintySummary: string;
+  readonly contextText?: string;
 }) {
   const text = joinedEvidenceContext(input);
+  const fallbackCandidates = customerFallbackCandidatesForContext(text);
   const explicitCandidates = labelsFromEvidenceCandidatePhrases({
     text,
     patterns: [
@@ -409,7 +480,15 @@ function customerCandidateLabelsFromEvidence(input: {
     .filter((candidate) => candidate.pattern.test(text))
     .map((candidate) => candidate.label);
 
-  return withCandidateFallbackFloor(uniqueValues([...explicitCandidates, ...candidates]), DEFAULT_CUSTOMER_CANDIDATES);
+  if (explicitCandidates.length) {
+    return withCandidateFallbackFloor(uniqueValues(explicitCandidates), fallbackCandidates);
+  }
+
+  if (hasPetLifecycleContext(text)) {
+    return fallbackCandidates.slice(0, 10);
+  }
+
+  return withCandidateFallbackFloor(uniqueValues(candidates), fallbackCandidates);
 }
 
 const DEFAULT_CUSTOMER_SIGNAL_CANDIDATES = [
@@ -452,6 +531,7 @@ function customerSignalLabelsFromEvidence(input: {
   readonly proSummary: string;
   readonly conSummary: string | null;
   readonly uncertaintySummary: string;
+  readonly contextText?: string;
 }) {
   const text = joinedEvidenceContext(input);
   const explicitSignals = labelsFromEvidenceCandidatePhrases({
@@ -476,6 +556,7 @@ function promptSentenceForAnswerIntent(
     readonly proSummary: string;
     readonly conSummary: string | null;
     readonly uncertaintySummary: string;
+    readonly contextText?: string;
   }
 ) {
   switch (intent) {
@@ -507,7 +588,7 @@ function promptSentenceForAnswerIntent(
       return `${lead}\n${bulletedQuestionCandidates(signals)}\n\n해당되는 신호를 여러 개 선택해주세요.`;
     }
     case "answer_form_policy":
-      return "이 요구사항은 질문마다 답변 형식을 달리 정해야 하는 설계 기준입니다. 실제로 어떤 질문에서 주관식/서술형, 찬성·반대, 하나 선택, 여러 개 선택, 우선순위 답변이 필요한지 3~5문장으로 서술해주세요.";
+      return "이 요구사항은 질문마다 답변 형식을 달리 정해야 하는 설계 기준입니다. 실제로 어떤 질문에서 주관식/서술형, 진행·보류 판단, 하나 선택, 여러 개 선택, 우선순위 답변이 필요한지 3~5문장으로 서술해주세요.";
     case "multi_choice":
       return promptWithGenericCandidates({
         topic: context.topic,
@@ -532,7 +613,7 @@ function promptSentenceForAnswerIntent(
     case "open_text":
       return "이 근거를 참고해 실제 사용자가 어떤 상황에서 이 문제를 겪고, 어떤 제약 때문에 지금 해결하려는지 본인 말로 3~5문장으로 서술해주세요.";
     case "binary_choice":
-      return "이 방향을 지금 스펙이나 다음 검증 단계에 반영하는 데 찬성/반대 중 어느 쪽인가요?";
+      return "이 방향을 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.";
     case "evidence_judgment":
       return evidenceJudgmentPrompt;
   }
@@ -547,7 +628,7 @@ function unlockSentenceForAnswerIntent(intent: AdditionalQuestionAnswerIntent, t
     case "multi_signal_choice":
       return "이 답으로 정해지는 내용은 다음 리서치/인터뷰에서 동시에 확인할 고객 신호와 검증 체크리스트입니다.";
     case "answer_form_policy":
-      return "이 답으로 정해지는 내용은 질문 카드마다 주관식, 찬반, 단일 선택, 복수 선택, 순위형 중 어떤 입력 방식과 저장 형식을 써야 하는지입니다.";
+      return "이 답으로 정해지는 내용은 질문 카드마다 주관식, 진행/보류 판단, 단일 선택, 복수 선택, 순위형 중 어떤 입력 방식과 저장 형식을 써야 하는지입니다.";
     case "multi_choice":
       return "이 답으로 정해지는 내용은 동시에 유지할 후보와 다음 리서치/검증 체크리스트입니다.";
     case "single_choice":
@@ -572,9 +653,9 @@ function questionLeadLinesForAnswerIntent(input: {
 }) {
   if (input.intent === "evidence_judgment" || input.intent === "binary_choice") {
     return [
-      `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 찬성쪽 근거는 ${input.proSummary}입니다.`,
+      `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 ${input.proSummary} 같은 단서가 확인되었습니다.`,
       "",
-      input.conSummary ? `반대쪽 근거는 ${input.conSummary}입니다.` : null,
+      input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
       `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
     ];
   }
@@ -603,16 +684,19 @@ function additionalQuestionForEvidenceGap(input: {
   readonly proEvidence: readonly { readonly summary: string }[];
   readonly conEvidence: readonly { readonly summary: string }[];
   readonly uncertainties: readonly { readonly summary: string }[];
+  readonly contextText?: string;
 }) {
   const topic = userFacingQuestionText(input.objective) || "이번 주장";
+  const contextText = userFacingResearchText(input.contextText, "");
   const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
   const usesStanceFraming = answerIntent === "evidence_judgment" || answerIntent === "binary_choice";
-  const proSummary = usesStanceFraming
-    ? evidenceSummaryOrFallback(input.proEvidence, "아직 찬성 근거가 충분히 정리되지 않았습니다")
-    : neutralEvidenceSummaryOrFallback(input.proEvidence, "아직 참고할 리서치 단서가 충분히 정리되지 않았습니다");
+  const proSummary = neutralEvidenceSummaryOrFallback(
+    input.proEvidence,
+    "아직 참고할 리서치 단서가 충분히 정리되지 않았습니다"
+  );
   const conSummary = input.conEvidence.length
     ? usesStanceFraming
-      ? evidenceSummaryOrFallback(input.conEvidence, "반대 근거가 아직 충분히 정리되지 않았습니다")
+      ? neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
       : neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
     : null;
   const uncertaintySummary =
@@ -621,18 +705,19 @@ function additionalQuestionForEvidenceGap(input: {
       : null) ??
     (input.balanceStatus === "missing_con_evidence" || input.balanceStatus === "needs_con_evidence"
       ? usesStanceFraming
-        ? "반대 근거가 부족해 과신 가능성이 남아 있습니다"
+        ? "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
         : "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
       : "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다");
 
   const choiceSentence = conSummary
-    ? `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 더 강하다’, ‘반대 근거가 더 강하다’, ‘아직 근거가 부족하다’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`
-    : `그중 지금 선택할 수 있는 방향은 ‘찬성 근거가 충분하다고 보고 진행’, ‘반대 근거를 더 찾아본 뒤 판단’, ‘아직 근거가 부족해 추가 리서치’ 정도로 추려졌습니다. 어느 방향으로 판단하시겠습니까?`;
+    ? `지금은 ‘이 방향을 우선 후보로 둔다’, ‘범위 축소나 방향 전환을 검토한다’, ‘추가 리서치로 근거자료를 더 보강한다’ 중에서 다음 판단을 고를 수 있습니다. 어느 방향으로 판단하시겠습니까?`
+    : `지금은 ‘이 방향을 우선 후보로 둔다’, ‘반례와 한계를 더 확인한다’, ‘지금은 스펙을 확정하기 어렵다’ 중에서 다음 판단을 고를 수 있습니다. 어느 방향으로 판단하시겠습니까?`;
   const promptContext = {
     topic,
     proSummary,
     conSummary,
-    uncertaintySummary
+    uncertaintySummary,
+    contextText
   };
   const promptSentence = promptSentenceForAnswerIntent(answerIntent, choiceSentence, promptContext);
   const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
@@ -926,7 +1011,15 @@ export function importResearchResult(input: ImportResearchResultInput): Research
 }
 
 export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): EvidenceMatrixProjection {
-  const resultText = `${input.researchResult.resultSummary} ${input.researchResult.limitationNotes ?? ""}`.toLowerCase();
+  const userFacingResultSummary = userFacingResearchText(
+    input.researchResult.resultSummary,
+    "Imported research result needs a user-facing summary."
+  );
+  const userFacingLimitationNotes = userFacingResearchText(
+    input.researchResult.limitationNotes,
+    "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다"
+  );
+  const resultText = `${userFacingResultSummary} ${userFacingLimitationNotes}`.toLowerCase();
   const token = `${input.researchResult.researchResultId}_v${input.synthesisVersion}`;
   const hasPro = includesAny(resultText, PRO_EVIDENCE_MARKERS);
   const hasCon =
@@ -939,7 +1032,7 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
           evidenceItemId: itemId("evidence_pro", token, 1),
           kind: "pro" as const,
           summary: evidenceSnippet(
-            input.researchResult.resultSummary,
+            userFacingResultSummary,
             PRO_EVIDENCE_MARKERS,
             "Imported result supports the claim."
           )
@@ -952,7 +1045,7 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
           evidenceItemId: itemId("evidence_con", token, 1),
           kind: "con" as const,
           summary: evidenceSnippet(
-            input.researchResult.resultSummary,
+            userFacingResultSummary,
             CON_EVIDENCE_SNIPPET_MARKERS,
             "Imported result raises counter-evidence or risk."
           )
@@ -964,7 +1057,7 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
         {
           evidenceItemId: itemId("evidence_uncertainty", token, 1),
           kind: "uncertainty" as const,
-          summary: input.researchResult.limitationNotes ?? "Imported result still has uncertainty."
+          summary: userFacingLimitationNotes
         }
       ]
     : [];
@@ -1007,7 +1100,8 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
               balanceStatus,
               proEvidence,
               conEvidence,
-              uncertainties
+              uncertainties,
+              ...(input.contextText ? { contextText: input.contextText } : {})
             })
           ],
     balanceStatus,

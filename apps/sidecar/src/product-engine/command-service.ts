@@ -35,6 +35,7 @@ import {
   hasAppliedAutoImplementationPullRequestMerge,
   autoImplementationFinalPrBodyEvidenceRefs,
   autoImplementationPlanningIssueEvidenceRefs,
+  autoImplementationPlanningIssueFiles,
   autoImplementationGitHubIssueUrlForIssue,
   autoImplementationRunWithSynchronizedIssueDocs,
   autoImplementationWorkerExpectedChangeScope,
@@ -53,6 +54,7 @@ import {
   type AutoImplementationRunStatus,
   type AutoImplementationRunProjection,
   type AutoImplementationPullRequestMutationRecord,
+  type AutoImplementationPlanningIssueDocument,
   type AutoImplementationWorkerJob,
   type AdvanceAutoImplementationWorkerStageRequest,
   type CompleteAutoImplementationWorkerJobRequest,
@@ -225,6 +227,7 @@ import {
   prepareAutoImplementationWorkspaceRun,
   sanitizeProjectFolderName,
   writeAutoImplementationIssueDocumentsState,
+  writeAutoImplementationPlanningIssueSequenceTrackerState,
   writeAutoImplementationRunManifest,
   writeAutoImplementationRunTrackerState,
   type AutoImplementationGitHubIssueMutationAdapter,
@@ -859,6 +862,46 @@ function autoImplementationStageLedgerEvidence(
     implementationEvidenceRefs,
     codeReviewStreakRefs,
     cleanCodeReviewStreakRefs,
+    codeReviewStreaks: step.codeReviewStreaks.map((streak) => ({
+      reviewScope: streak.reviewScope,
+      requiredNoFindingPasses: streak.requiredNoFindingPasses,
+      currentNoFindingPasses: streak.currentNoFindingPasses,
+      satisfied: streak.satisfied,
+      latestReviewIds: streak.latestReviewIds,
+      missingEvidenceLabel: streak.missingEvidenceLabel
+    })),
+    cleanCodeReviewStreaks: step.cleanCodeReviewStreaks.map((streak) => ({
+      reviewScope: streak.reviewScope,
+      requiredNoFindingPasses: streak.requiredNoFindingPasses,
+      currentNoFindingPasses: streak.currentNoFindingPasses,
+      satisfied: streak.satisfied,
+      latestReviewIds: streak.latestReviewIds,
+      missingEvidenceLabel: streak.missingEvidenceLabel
+    })),
+    ...(step.missingTestAuditRecord
+      ? {
+          missingTestAuditSummary: {
+            auditId: step.missingTestAuditRecord.auditId,
+            missingTestGapCount: step.missingTestAuditRecord.missingTestGaps.length,
+            satisfied: step.missingTestAuditRecord.missingTestGaps.length === 0
+          }
+        }
+      : {}),
+    ...(step.testEvidenceRecord
+      ? {
+          testEvidenceSummary: {
+            testEvidenceId: step.testEvidenceRecord.testEvidenceId,
+            outcome: step.testEvidenceRecord.outcome,
+            passedTestCount: step.testEvidenceRecord.passedTestCount,
+            failedTestCount: step.testEvidenceRecord.failedTestCount,
+            notTestedGapCount: step.testEvidenceRecord.notTestedGaps.length,
+            satisfied: step.testEvidenceRecord.outcome === "passed" &&
+              step.testEvidenceRecord.failedTestCount === 0 &&
+              step.testEvidenceRecord.notTestedGaps.length === 0,
+            commands: step.testEvidenceRecord.commands
+          }
+        }
+      : {}),
     missingTestAuditRefs,
     testEvidenceRefs,
     blockerEvidenceRefs,
@@ -1121,13 +1164,30 @@ function reviewGateSummaryLines(input: {
 }
 
 function pullRequestIssueTraceabilityLines(run: AutoImplementationRun) {
-  return run.issueManagement.issueDocs.length
+  const planningIssueLines = run.issueManagement.planningIssueDocs.length
+    ? [
+        `- Sequence tracker: ${run.issueManagement.planningIssueSequenceTrackerRelativePath ?? "none"}`,
+        "",
+        "### Planning-derived PR-sized issues",
+        ...run.issueManagement.planningIssueDocs.map((issue) => {
+          const taskIds = issue.includedTaskIds.length ? issue.includedTaskIds.join(", ") : "none";
+
+          return `- ${issue.issueId}: ${issue.title} (${issue.relativePath}; status: ${issue.status}; tasks: ${taskIds})`;
+        }),
+        "",
+        "### Delivery stage issues"
+      ]
+    : [];
+
+  const stageIssueLines = run.issueManagement.issueDocs.length
     ? run.issueManagement.issueDocs.map((issue) => {
       const githubIssueUrl = autoImplementationGitHubIssueUrlForIssue(run, issue) ?? "none";
 
       return `- ${issue.issueId}: ${issue.title} (${issue.relativePath}; stage: ${issue.stage}; GitHub issue: ${githubIssueUrl})`;
     })
     : ["- no generated issue documents recorded"];
+
+  return [...planningIssueLines, ...stageIssueLines];
 }
 
 function pullRequestIssueDocumentStatusSummaryLines(run: AutoImplementationRun) {
@@ -1537,6 +1597,24 @@ function normalizeLegacyAutoImplementationWorkerJob(
   };
 }
 
+function legacyPlanningIssueDocs(run: AutoImplementationRun): readonly AutoImplementationPlanningIssueDocument[] {
+  const issueManagement = run.issueManagement as AutoImplementationRun["issueManagement"] & {
+    readonly planningIssueDocs?: unknown;
+  };
+
+  if (Array.isArray(issueManagement.planningIssueDocs)) {
+    return issueManagement.planningIssueDocs as readonly AutoImplementationPlanningIssueDocument[];
+  }
+
+  return autoImplementationPlanningIssueFiles(run).map((relativePath, index) => ({
+    issueId: `planning-slice-${String(index + 1).padStart(3, "0")}`,
+    title: relativePath,
+    relativePath,
+    includedTaskIds: [],
+    status: index === 0 ? "active" as const : "planned" as const
+  }));
+}
+
 function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoImplementationRun {
   const workerJobs = (run as { readonly workerJobs?: unknown }).workerJobs;
   const pullRequestMutations = (run as { readonly pullRequestMutations?: unknown }).pullRequestMutations;
@@ -1546,6 +1624,16 @@ function normalizeLegacyAutoImplementationRun(run: AutoImplementationRun): AutoI
 
   return autoImplementationRunWithSynchronizedIssueDocs({
     ...run,
+    issueManagement: {
+      ...run.issueManagement,
+      planningIssueSequenceTrackerRelativePath:
+        (run.issueManagement as AutoImplementationRun["issueManagement"] & {
+          readonly planningIssueSequenceTrackerRelativePath?: unknown;
+        }).planningIssueSequenceTrackerRelativePath === undefined
+          ? null
+          : run.issueManagement.planningIssueSequenceTrackerRelativePath,
+      planningIssueDocs: legacyPlanningIssueDocs(run)
+    },
     workerJobs: normalizedWorkerJobs,
     pullRequestMutations: pullRequestMutations &&
       typeof pullRequestMutations === "object" &&
@@ -1677,13 +1765,17 @@ function autoImplementationWorkerPlan(input: {
 }) {
   const planningPlanEvidenceRef = input.run.evidenceRefs.find((ref) => ref.startsWith("planning-handoff-plan:"));
   const planningIssueEvidenceRefs = autoImplementationPlanningIssueEvidenceRefs(input.run);
+  const activePlanningIssueDocRefs = input.run.issueManagement.planningIssueDocs
+    .filter((issue) => issue.status === "active")
+    .map((issue) => `planning-issue-doc:${issue.relativePath}`);
   const sourceRefs = [
     `auto-implementation-run:${input.run.runId}`,
     `auto-implementation-stage:${input.issue.stage}`,
     `auto-implementation-issue:${input.issue.issueId}`,
     `issue-doc:${input.issue.relativePath}`,
     ...(planningPlanEvidenceRef ? [planningPlanEvidenceRef] : []),
-    ...planningIssueEvidenceRefs
+    ...planningIssueEvidenceRefs,
+    ...activePlanningIssueDocRefs
   ];
 
   return {
@@ -2828,6 +2920,10 @@ export function createProductEngineCommandService(
         run
       });
       await writeAutoImplementationRunTrackerState({
+        workspaceRoot: autoImplementationWorkspaceRoot,
+        run
+      });
+      await writeAutoImplementationPlanningIssueSequenceTrackerState({
         workspaceRoot: autoImplementationWorkspaceRoot,
         run
       });
@@ -4310,6 +4406,16 @@ export function createProductEngineCommandService(
     return (MOUNTED_RESEARCH_ADAPTER_KINDS as readonly string[]).includes(value);
   }
 
+  function defaultResearchAdapterKindForSourceCategory(
+    sourceCategory: StartResearchRunRequest["sourceCategory"]
+  ): MountedResearchAdapterKind {
+    return sourceCategory === "public_web" ? "web_search_readonly" : "local_fake_readonly";
+  }
+
+  function effectiveResearchAdapterKind(request: StartResearchRunRequest): NonNullable<StartResearchRunRequest["adapterKind"]> {
+    return request.adapterKind ?? defaultResearchAdapterKindForSourceCategory(request.sourceCategory);
+  }
+
   function createMountedResearchAdapter(adapterKind: MountedResearchAdapterKind): BackgroundResearchRuntimeAdapter {
     if (researchRuntimeAdapterFactory) {
       return researchRuntimeAdapterFactory(adapterKind);
@@ -4344,11 +4450,7 @@ export function createProductEngineCommandService(
   }
 
   function mountedResearchAdapterBlocker(request: StartResearchRunRequest) {
-    const adapterKind = request.adapterKind;
-
-    if (!adapterKind) {
-      return null;
-    }
+    const adapterKind = effectiveResearchAdapterKind(request);
 
     if (!isMountedResearchAdapterKind(adapterKind)) {
       return "Requested adapter is not mounted in the local sidecar.";
@@ -4589,7 +4691,7 @@ export function createProductEngineCommandService(
     now: string
   ): ResearchRunProjection {
     const nextResearchRunId = request.researchRunId ?? researchRunId();
-    const adapterKind = request.adapterKind ?? "local_fake_readonly";
+    const adapterKind = effectiveResearchAdapterKind(request);
     const sourceCategory = automaticResearchSourceCategoryOrNull(request.sourceCategory);
 
     if (!sourceCategory) {

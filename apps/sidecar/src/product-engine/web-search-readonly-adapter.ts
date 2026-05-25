@@ -222,12 +222,124 @@ function truncateText(value: string, maxLength: number) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function humanTitleFromUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./iu, "");
+    const lastPathSegment = url.pathname
+      .split("/")
+      .filter(Boolean)
+      .at(-1);
+    const decodedPath = lastPathSegment
+      ? decodeURIComponent(lastPathSegment).replace(/[-_]+/gu, " ").trim()
+      : "";
+
+    return decodedPath ? `${host} — ${decodedPath}` : host;
+  } catch {
+    return value;
+  }
+}
+
+function cleanSearchResultTitle(title: string, url: string) {
+  const normalized = normalizedText(title);
+  const fallback = humanTitleFromUrl(url);
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  try {
+    const host = new URL(url).hostname.replace(/^www\./iu, "");
+    const collapsedHostAndUrlPattern = new RegExp(`${escapeRegExp(host)}\\s*https?://`, "iu");
+
+    if (
+      /https?:\/\//iu.test(normalized) ||
+      collapsedHostAndUrlPattern.test(normalized) ||
+      /^[\w.-]+\s*›\s*/iu.test(normalized)
+    ) {
+      return fallback;
+    }
+  } catch {
+    if (/https?:\/\//iu.test(normalized)) {
+      return fallback;
+    }
+  }
+
+  return normalized;
+}
+
+function cleanSearchResultSnippet(snippet: string, title: string) {
+  const cleaned = normalizedText(snippet)
+    .replace(/\bFull page text was unavailable before timeout, so only the search-result summary is shown\.?/giu, "")
+    .replace(/\bPublic page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial\.?/giu, "")
+    .trim();
+
+  return cleaned || title;
+}
+
 function searchQueryFromDisclosure(payload: PublicSafeResearchDisclosurePayload | undefined, run: ResearchRunProjection) {
   const raw = payload
-    ? `${payload.researchObjective} ${payload.publicSafeSummary}`
+    ? publicWebSearchQueryFromPayload(payload)
     : `${run.researchTaskId} ${run.connectorId} public evidence`;
 
   return truncateText(raw, MAX_QUERY_CHARS);
+}
+
+function stripPublicSafeSummaryLabels(value: string) {
+  return value
+    .replace(/\bProduct category:\s*/giu, "")
+    .replace(/\bCustomer\/problem hypothesis:\s*/giu, "")
+    .replace(/\bResearch objective:\s*/giu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function removeGenericResearchObjectiveText(value: string) {
+  return value
+    .replace(/(?:첫\s*)?고객\s*세그먼트[^.。!?]{0,80}(?:구체화|좁|넓)[^.。!?]*[.。!?]?/giu, "")
+    .replace(/(?:first\s+)?customer\s+segment[^.?!]{0,100}(?:narrow|broad|specific|validate)[^.?!]*[.?!]?/giu, "")
+    .replace(/(?:구매자|사용자)[^.。!?]{0,80}(?:확인|구체화|검증)[^.。!?]*[.。!?]?/giu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function searchIntentTermsFor(objective: string, context: string) {
+  const combined = `${objective} ${context}`;
+  const isKorean = /[가-힣]/u.test(combined);
+
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+    return isKorean
+      ? "반려동물 보호자 유형 의료비 보험 돌봄 시장 조사 통계 니즈"
+      : "pet owner segments veterinary cost insurance care market research statistics needs";
+  }
+
+  if (/(?:고객|세그먼트|customer|segment|persona|사용자\s*유형)/iu.test(combined)) {
+    return isKorean
+      ? "고객 유형 사용자 세그먼트 시장 조사 통계 니즈"
+      : "customer segments user personas market research statistics needs";
+  }
+
+  if (/(?:구매자|결제자|buyer|payer|user)/iu.test(combined)) {
+    return isKorean
+      ? "구매자 사용자 의사결정자 시장 조사 통계"
+      : "buyer user decision maker market research statistics";
+  }
+
+  return isKorean ? "시장 조사 통계 니즈 사례" : "market research statistics user needs examples";
+}
+
+function publicWebSearchQueryFromPayload(payload: PublicSafeResearchDisclosurePayload) {
+  const objective = stripPublicSafeSummaryLabels(payload.researchObjective);
+  const context = removeGenericResearchObjectiveText(stripPublicSafeSummaryLabels(payload.publicSafeSummary));
+  const terms = searchIntentTermsFor(objective, context);
+  const objectivePart = removeGenericResearchObjectiveText(objective);
+  const raw = [context, objectivePart, terms].filter(Boolean).join(" ");
+
+  return raw || `${objective} ${payload.publicSafeSummary}`;
 }
 
 function sourceRefsFor(run: ResearchRunProjection, sources: readonly WebSearchReadOnlySourceResult[]) {
@@ -243,12 +355,10 @@ function summaryForSources(
     `${index + 1}. ${source.title} — ${source.url}\n   ${truncateText(source.snippet, 420)}`
   );
   const summary = [
-    `Public web research completed for ${run.researchTaskId}.`,
+    `Public source notes for ${run.researchTaskId}.`,
     `Query: ${query}`,
     `Sources reviewed: ${sources.length}`,
-    ...sourceLines,
-    "Pro: At least one public source was reachable through a read-only browser search.",
-    "Limitation: Browser search snippets can be incomplete; quality-gate review must verify claims before acceptance."
+    ...sourceLines
   ].join("\n");
 
   return truncateText(summary, MAX_SUMMARY_CHARS);
@@ -441,7 +551,17 @@ function isSearchEngineUtilityUrl(value: string) {
 }
 
 function publicSourceResults(sources: readonly WebSearchReadOnlySourceResult[]) {
-  return sources.filter((source) => isPublicHttpUrl(source.url));
+  return sources
+    .filter((source) => isPublicHttpUrl(source.url))
+    .map((source) => {
+      const title = truncateText(cleanSearchResultTitle(source.title, source.url), 180);
+
+      return {
+        ...source,
+        title,
+        snippet: truncateText(cleanSearchResultSnippet(source.snippet, title), MAX_SNIPPET_CHARS)
+      };
+    });
 }
 
 function decodeBingRedirectUrl(value: string) {
@@ -511,6 +631,59 @@ async function extractSearchCandidates(page: Page, maxResults: number) {
   return [...unique.values()];
 }
 
+function relevanceTermsForQuery(query: string) {
+  const stopwords = new Set([
+    "research",
+    "objective",
+    "market",
+    "public",
+    "evidence",
+    "조사",
+    "통계",
+    "시장",
+    "사례",
+    "니즈",
+    "관리",
+    "준비"
+  ]);
+
+  return [
+    ...new Set(
+      (query.match(/[가-힣a-z0-9]{2,}/giu) ?? [])
+        .map((term) => term.toLowerCase())
+        .filter((term) => !stopwords.has(term))
+    )
+  ].slice(0, 20);
+}
+
+function searchCandidateRelevanceScore(candidate: SearchCandidate, query: string) {
+  const terms = relevanceTermsForQuery(query);
+  const title = candidate.title.toLowerCase();
+  const haystack = `${candidate.title} ${candidate.snippet} ${candidate.url}`.toLowerCase();
+
+  return terms.reduce((score, term) => {
+    if (title.includes(term)) {
+      return score + 3;
+    }
+
+    if (haystack.includes(term)) {
+      return score + 1;
+    }
+
+    return score;
+  }, 0);
+}
+
+function rankedSearchCandidates(
+  candidates: readonly SearchCandidate[],
+  query: string,
+  maxResults: number
+) {
+  return [...candidates]
+    .sort((left, right) => searchCandidateRelevanceScore(right, query) - searchCandidateRelevanceScore(left, query))
+    .slice(0, maxResults);
+}
+
 async function pageText(page: Page) {
   return page.evaluate<string>(`document.body?.innerText ?? document.documentElement?.textContent ?? ""`);
 }
@@ -528,7 +701,7 @@ async function fetchCandidatePage(
     if (hasCaptchaOrAntiBotText(text) || hasLoginRequiredText(text)) {
       return {
         ...candidate,
-        snippet: `${candidate.snippet} Public page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial.`,
+        snippet: candidate.snippet,
         retrievedAt: now()
       };
     }
@@ -544,7 +717,7 @@ async function fetchCandidatePage(
   } catch {
     return {
       ...candidate,
-      snippet: `${candidate.snippet} Page body could not be fetched before timeout; search-result snippet retained for review.`,
+      snippet: candidate.snippet,
       retrievedAt: now()
     };
   }
@@ -566,6 +739,7 @@ function searchUrlsForQuery(query: string) {
 
 async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchInput) {
   let lastSearchBlocker: WebSearchReadOnlyAdapterError | null = null;
+  const uniqueCandidates = new Map<string, SearchCandidate>();
 
   for (const searchUrl of searchUrlsForQuery(input.query)) {
     try {
@@ -582,10 +756,12 @@ async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchIn
         continue;
       }
 
-      const candidates = await extractSearchCandidates(page, input.maxResults);
+      const candidates = await extractSearchCandidates(page, Math.max(input.maxResults * 2, input.maxResults));
 
-      if (candidates.length > 0) {
-        return candidates;
+      for (const candidate of candidates) {
+        if (!uniqueCandidates.has(candidate.url)) {
+          uniqueCandidates.set(candidate.url, candidate);
+        }
       }
     } catch (error) {
       lastSearchBlocker = error instanceof WebSearchReadOnlyAdapterError
@@ -595,6 +771,10 @@ async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchIn
             `Public search page could not be read: ${error instanceof Error ? error.message : String(error)}`
           );
     }
+  }
+
+  if (uniqueCandidates.size > 0) {
+    return rankedSearchCandidates([...uniqueCandidates.values()], input.query, input.maxResults);
   }
 
   throw lastSearchBlocker ?? new WebSearchReadOnlyAdapterError(
@@ -747,8 +927,8 @@ export function createWebSearchReadOnlyResearchAdapter(
         ...(primarySource ? { sourceTitle: primarySource.title, sourceUrl: primarySource.url } : {}),
         summary: summaryForSources(run, query, sources),
         limitations: [
-          "Browser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used.",
-          "Source snippets and fetched page text require quality-gate review before accepted evidence.",
+          "Only publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used.",
+          "Search snippets and available page text may be incomplete, so important claims still need follow-up confirmation.",
           `Random delay range was ${delayRange.min}-${delayRange.max}ms with at most ${maxFetchedPages} fetched public page(s).`
         ],
         sourceRefs: sourceRefsFor(run, sources)

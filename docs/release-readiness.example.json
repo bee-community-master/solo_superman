@@ -3,7 +3,7 @@
   "appId": "solo-superman",
   "publicPosture": "technical-preview",
   "broadReleaseStatus": "blocked",
-  "summary": "Solo Superman is safe to verify as a limited technical preview, but general release remains blocked until signed packages, packaged update rollback evidence, and Windows real-device verification are complete.",
+  "summary": "Solo Superman is safe to verify as a limited technical preview. Non-store/direct distribution does not require signed packages; broad release remains blocked until packaged update rollback evidence and Windows real-device verification are complete, while signing stays optional hardening.",
   "requiredVerificationCommands": {
     "credentialFree": [
       "pnpm verify:prod-bundle",
@@ -12,17 +12,12 @@
       "pnpm verify:windows-installer:dry-run",
       "pnpm verify:packaged-update-rollback",
       "pnpm verify:packaged-update-rollback:dry-run",
-      "pnpm verify:signed-package-preflight",
-      "pnpm verify:signed-package-release",
-      "pnpm verify:signed-package-release:dry-run",
       "pnpm verify:release-readiness",
       "pnpm verify:release-evidence-template",
       "pnpm verify:release-evidence-bundle",
       "pnpm verify"
     ],
     "readyRelease": [
-      "pnpm verify:signed-package-preflight -- --require-credentials",
-      "pnpm verify:signed-package-release -- --require-release-evidence",
       "pnpm verify:windows-real-device -- --require-device-evidence",
       "pnpm verify:packaged-update-rollback -- --require-device-evidence",
       "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
@@ -34,8 +29,8 @@
     {
       "id": "signed-packages",
       "status": "blocked",
-      "requiredFor": "general-release",
-      "blocker": "Apple Developer ID/notarization and Windows Authenticode credentials are not present in the local credential-free environment.",
+      "requiredFor": "optional-hardening",
+      "blocker": "Signing, notarization, Authenticode, and signed manifest evidence are optional hardening for non-store/direct distribution, not a broad-release blocker.",
       "evidenceRefs": [
         "docs/signed-packages_KO.md",
         "docs/signed-packages_EN.md",
@@ -46,14 +41,14 @@
         "scripts/verify-signed-package-release-dry-run.mjs"
       ],
       "requiredEvidence": [
-        "macOS DMG/PKG codesign verification, notarization status, and stapling evidence",
-        "Windows MSI/EXE Authenticode signature and timestamp verification",
-        "release manifest signature produced after final artifact checksum/signature refs are known"
+        "Optional macOS DMG/PKG codesign verification, notarization status, and stapling evidence when signing is enabled",
+        "Optional Windows MSI/EXE Authenticode signature and timestamp verification when signing is enabled",
+        "Optional release manifest signature produced after final artifact checksum/signature refs are known"
       ],
       "unblockCriteria": [
-        "Run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with signing credential refs",
-        "Attach redacted signing, notarization, and timestamp verification evidence to the release PR",
-        "Run pnpm verify:signed-package-release -- --require-release-evidence with redacted signing and manifest evidence"
+        "Only when the operator opts into signed artifacts, run pnpm verify:signed-package-preflight -- --require-credentials in a release environment with signing credential refs",
+        "Attach redacted signing, notarization, and timestamp verification evidence to the optional hardening issue",
+        "Run pnpm verify:signed-package-release -- --require-release-evidence with redacted signing and manifest evidence before claiming signed artifacts"
       ],
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/266"
     },
@@ -61,7 +56,7 @@
       "id": "packaged-update-rollback",
       "status": "blocked",
       "requiredFor": "general-release",
-      "blocker": "The packaged app updater has manifest/signature/checksum/retry/rollback contract and credential-free fixture dry-run coverage, but signed package device rollback verification is not complete.",
+      "blocker": "The packaged app updater has manifest/checksum/retry/rollback contract and credential-free fixture dry-run coverage, but device rollback verification is not complete.",
       "evidenceRefs": [
         "docs/release-channel_KO.md",
         "docs/release-channel_EN.md",
@@ -72,14 +67,14 @@
         "scripts/verify-packaged-update-rollback-dry-run.mjs"
       ],
       "requiredEvidence": [
-        "macOS and Windows install/update/defer/retry/rollback runs on signed packages",
+        "macOS and Windows install/update/defer/retry/rollback runs on packaged artifacts",
         "launch verification after update and after rollback",
         "proof that rollback changes only app binary/release metadata and preserves local data, generated workspaces, support bundles, and credentials",
         "passed rollback runs include structured evidenceBundle data with version transition, per-check evidence refs, protected-path preservation refs, metadata-only credential snapshot mode, redaction refs, and passed checks"
       ],
       "unblockCriteria": [
         "Record device evidence for install, update, retry, rollback, and launch verification",
-        "Keep pnpm verify:release-channel passing with final signed artifact metadata"
+        "Keep pnpm verify:release-channel passing with final packaged artifact metadata"
       ],
       "blockerIssue": "https://github.com/bee-community-master/solo_superman/issues/267"
     },

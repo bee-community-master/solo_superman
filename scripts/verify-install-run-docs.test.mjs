@@ -184,9 +184,9 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("ready-release plan-only summary keeps only plan-safe bundle preparation, planned command list, blocker summary, and issue-specific handoff summary fields");
     expect(runbook).toContain("releaseEvidenceIssuePreparation");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("releaseEvidenceIssuePreparation");
-    expect(runbook).toContain("#259/#266/#267별 evidence item 요약");
+    expect(runbook).toContain("기본 #259/#267별 evidence item 요약");
     expect(runbook).toContain("필수 check/evidence/unblock count");
-    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("#259/#266/#267 evidence item summaries");
+    expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("default #259/#267 evidence item summaries");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("required check/evidence/unblock counts");
     expect(runbook).toContain("recommended checks의 `pnpm verify:codex-live-runtime`");
     expect(readFileSync("docs/troubleshooting_EN.md", "utf8")).toContain("recommended `pnpm verify:codex-live-runtime` check");
@@ -231,7 +231,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("release evidence blocker summary");
-    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("3개 이슈/9개 항목");
+    expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("2개 이슈/5개 항목");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("pre-gate ready-release command 실행 기록");
     expect(readFileSync("docs/release-readiness_KO.md", "utf8")).toContain("filled-bundle/aggregate self-command");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("## Release evidence checklist");
@@ -242,7 +242,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-template -- --input");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("verify:release-evidence-bundle -- --bundle-dir");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("release evidence blocker summary");
-    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("three issues and nine evidence items");
+    expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("two issues and five evidence items");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("records pre-gate ready-release commands");
     expect(readFileSync("docs/release-readiness_EN.md", "utf8")).toContain("filled-bundle or aggregate self-command");
     expect(runbook).toContain("pre-gate ready-release command 실행 기록");

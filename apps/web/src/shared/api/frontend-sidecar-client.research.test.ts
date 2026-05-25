@@ -308,6 +308,7 @@ describe("sidecar client research", () => {
       researchTaskId: "research_task_client",
       connectorId: "public_search",
       sourceCategory: "public_web",
+      adapterKind: "web_search_readonly",
       researchObjective: "Find public onboarding evidence.",
       rawIdea: "Private raw idea stays in the POST body."
     });
