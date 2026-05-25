@@ -6,6 +6,7 @@ Use this matrix to choose the smallest proof that matches the product claim.
 | --- | --- | --- |
 | Docs/contracts stay synchronized | `pnpm verify:docs` | `pnpm verify` |
 | Core product capabilities are code-backed | `pnpm verify:product-capability-readiness` | `pnpm verify` |
+| Idea -> questions -> research follow-up -> auto implementation evidence stays connected | `pnpm verify:core-product-loop` | `pnpm verify` |
 | Idea -> clarification -> first answer -> planning blocker works | `pnpm verify:clarification-pipeline` | `pnpm verify` |
 | Hundreds of question/answer loops remain bounded | `pnpm verify:clarification-volume` | `pnpm verify` |
 | Research mounted provider polling/import/synthesis stays connected | `pnpm verify:research-pipeline` | `pnpm verify` |
