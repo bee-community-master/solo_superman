@@ -14,6 +14,11 @@ import {
   runAutoImplementationPipelineSmoke,
   type AutoImplementationPipelineSmokeEvidence
 } from "./auto-implementation-pipeline-smoke";
+import {
+  READINESS_TO_IMPLEMENTATION_SMOKE,
+  runReadinessToImplementationSmoke,
+  type ReadinessToImplementationSmokeEvidence
+} from "./readiness-to-implementation-smoke";
 
 export const CORE_PRODUCT_LOOP_SMOKE = "core_product_loop" as const;
 
@@ -28,6 +33,7 @@ export interface CoreProductLoopSmokeEvidence {
   readonly stages: {
     readonly clarification: ClarificationPipelineSmokeEvidence;
     readonly research: ResearchPipelineSmokeEvidence;
+    readonly readinessToImplementation: ReadinessToImplementationSmokeEvidence;
     readonly autoImplementation: AutoImplementationPipelineSmokeEvidence;
   };
   readonly loop?: {
@@ -37,6 +43,13 @@ export interface CoreProductLoopSmokeEvidence {
     readonly researchFollowUpQuestionCount: number;
     readonly researchFollowUpTaskCount: number;
     readonly generatedFollowUpResearchSourceRefCount: number;
+    readonly readinessCompositeScore: number;
+    readonly readinessLabel: string;
+    readonly completionCandidateStatus: string;
+    readonly planningHandoffStatus: string;
+    readonly readinessImplementationStatus: string;
+    readonly readinessImplementationCurrentStage: string;
+    readonly readinessImplementationStageCount: number;
     readonly autoImplementationCompletedStageCount: number;
     readonly autoImplementationFinalStatus: string;
     readonly prMutationMergeStatus: string;
@@ -49,6 +62,7 @@ export interface CoreProductLoopSmokeEvidence {
 export interface CoreProductLoopSmokeOptions {
   readonly runClarification?: SmokeRunner<ClarificationPipelineSmokeEvidence>;
   readonly runResearch?: SmokeRunner<ResearchPipelineSmokeEvidence>;
+  readonly runReadinessToImplementation?: SmokeRunner<ReadinessToImplementationSmokeEvidence>;
   readonly runAutoImplementation?: SmokeRunner<AutoImplementationPipelineSmokeEvidence>;
 }
 
@@ -74,6 +88,13 @@ function loopSummary(stages: CoreProductLoopSmokeEvidence["stages"]): CoreProduc
     researchFollowUpQuestionCount: stages.research.research?.followUpQuestionCount ?? 0,
     researchFollowUpTaskCount: stages.research.research?.followUpResearchTaskCount ?? 0,
     generatedFollowUpResearchSourceRefCount: stages.research.research?.followUpResearchSourceRefCount ?? 0,
+    readinessCompositeScore: stages.readinessToImplementation.readiness?.compositeScore ?? 0,
+    readinessLabel: stages.readinessToImplementation.readiness?.readinessLabel ?? "unknown",
+    completionCandidateStatus: stages.readinessToImplementation.readiness?.completionCandidateStatus ?? "unknown",
+    planningHandoffStatus: stages.readinessToImplementation.readiness?.planningHandoffStatus ?? "unknown",
+    readinessImplementationStatus: stages.readinessToImplementation.implementation?.status ?? "unknown",
+    readinessImplementationCurrentStage: stages.readinessToImplementation.implementation?.currentStage ?? "unknown",
+    readinessImplementationStageCount: stages.readinessToImplementation.implementation?.stageCount ?? 0,
     autoImplementationCompletedStageCount: completedStageCount(stages.autoImplementation),
     autoImplementationFinalStatus: stages.autoImplementation.stages.reviewLoop.run?.finalStatus ?? "unknown",
     prMutationMergeStatus: stages.autoImplementation.stages.prMutation.prMutation?.mergeStatus ?? "unknown"
@@ -84,6 +105,7 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   const blockers = [
     ...stageStatusBlocker(CLARIFICATION_PIPELINE_SMOKE, stages.clarification),
     ...stageStatusBlocker(RESEARCH_PIPELINE_SMOKE, stages.research),
+    ...stageStatusBlocker(READINESS_TO_IMPLEMENTATION_SMOKE, stages.readinessToImplementation),
     ...stageStatusBlocker(AUTO_IMPLEMENTATION_PIPELINE_SMOKE, stages.autoImplementation)
   ];
   const loop = loopSummary(stages);
@@ -106,6 +128,27 @@ function loopBlockers(stages: CoreProductLoopSmokeEvidence["stages"]) {
   if (loop.generatedFollowUpResearchSourceRefCount < 1) {
     blockers.push("core loop must attach prior source refs/memory to generated follow-up research runs.");
   }
+  if (loop.readinessCompositeScore < 85) {
+    blockers.push(`core loop readiness score must reach 85 before implementation; received ${loop.readinessCompositeScore}`);
+  }
+  if (loop.readinessLabel !== "spec_ready") {
+    blockers.push(`core loop readiness label must be spec_ready; received ${loop.readinessLabel}`);
+  }
+  if (loop.completionCandidateStatus !== "candidate") {
+    blockers.push(`core loop completion candidate must be candidate before Planning Handoff; received ${loop.completionCandidateStatus}`);
+  }
+  if (loop.planningHandoffStatus !== "planning_ready") {
+    blockers.push(`core loop must produce a planning_ready handoff before implementation; received ${loop.planningHandoffStatus}`);
+  }
+  if (loop.readinessImplementationStatus !== "pending") {
+    blockers.push(`core loop readiness handoff must start an implementation run in pending state; received ${loop.readinessImplementationStatus}`);
+  }
+  if (loop.readinessImplementationCurrentStage !== "initial_pr") {
+    blockers.push(`core loop readiness handoff must start at initial_pr; received ${loop.readinessImplementationCurrentStage}`);
+  }
+  if (loop.readinessImplementationStageCount < 7) {
+    blockers.push(`core loop readiness handoff must create every canonical implementation stage; received ${loop.readinessImplementationStageCount}`);
+  }
   if (loop.autoImplementationFinalStatus !== "completed") {
     blockers.push(`core loop auto implementation must finish the review-loop fixture; received ${loop.autoImplementationFinalStatus}`);
   }
@@ -125,10 +168,11 @@ function checkedEvidence(stages: CoreProductLoopSmokeEvidence["stages"]) {
     "clarification answer submission created visible follow-up and research task debt",
     "public-web research provider polling imported source-traced evidence and generated follow-up questions",
     "generated follow-up research starts with prior source refs or markdown memory as baseline context",
-    "planning/readiness remains evidence-gated before auto implementation claims completion",
+    "positive readiness handoff proved spec_ready candidate, planning_ready artifact, and initial_pr auto implementation start",
     "auto implementation pipeline reached runtime preview, worker ledger import, PR mutation, review-loop, and merge_main fixture evidence",
     `clarification checked: ${stages.clarification.checked.length}`,
     `research checked: ${stages.research.checked.length}`,
+    `readiness-to-implementation checked: ${stages.readinessToImplementation.checked.length}`,
     `auto implementation checked: ${stages.autoImplementation.checked.length}`
   ];
 }
@@ -155,6 +199,10 @@ export async function runCoreProductLoopSmoke(
       RESEARCH_PIPELINE_SMOKE,
       options.runResearch ?? (() => runResearchPipelineSmoke())
     );
+    const readinessToImplementation = await runStage(
+      READINESS_TO_IMPLEMENTATION_SMOKE,
+      options.runReadinessToImplementation ?? (() => runReadinessToImplementationSmoke())
+    );
     const autoImplementation = await runStage(
       AUTO_IMPLEMENTATION_PIPELINE_SMOKE,
       options.runAutoImplementation ?? (() => runAutoImplementationPipelineSmoke())
@@ -162,6 +210,7 @@ export async function runCoreProductLoopSmoke(
     const stages = {
       clarification,
       research,
+      readinessToImplementation,
       autoImplementation
     };
     const loop = loopSummary(stages);
@@ -207,6 +256,14 @@ export async function runCoreProductLoopSmoke(
         blockers: [errorMessage(error)],
         checked: []
       } satisfies ResearchPipelineSmokeEvidence,
+      readinessToImplementation: {
+        status: "blocked",
+        smoke: READINESS_TO_IMPLEMENTATION_SMOKE,
+        mode: "fixture",
+        reason: "Readiness-to-implementation stage did not return evidence.",
+        blockers: [errorMessage(error)],
+        checked: []
+      } satisfies ReadinessToImplementationSmokeEvidence,
       autoImplementation: {
         status: "blocked",
         smoke: AUTO_IMPLEMENTATION_PIPELINE_SMOKE,
