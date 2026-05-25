@@ -36,6 +36,7 @@
     "dev:web": "pnpm --filter @solo-superman/web dev",
     "start:local": "node scripts/start-local-web.mjs",
     "verify:research-pipeline": "tsx apps/sidecar/src/research-pipeline-smoke.ts",
+    "verify:research-pipeline:live-web": "tsx apps/sidecar/src/research-pipeline-smoke.ts --live-web",
     "verify:clarification-pipeline": "tsx apps/sidecar/src/clarification-pipeline-smoke.ts",
     "verify:auto-implementation-review-loop": "tsx apps/sidecar/src/auto-implementation-review-loop-smoke.ts",
     "verify:browser-delegation-pipeline": "tsx apps/sidecar/src/browser-delegation-pipeline-smoke.ts",

@@ -57,7 +57,11 @@ function researchEvidence(overrides: Partial<ResearchPipelineSmokeEvidence> = {}
       followUpResearchTaskCount: 1,
       queueBlockedCount: 2,
       researchMemorySourceRefCount: 1,
-      followUpResearchSourceRefCount: 2
+      followUpResearchSourceRefCount: 2,
+      sourceUrls: [
+        "https://example.com/core-loop-research",
+        "https://example.org/core-loop-counterpoint"
+      ]
     },
     checked: ["research fixture checked"],
     ...overrides

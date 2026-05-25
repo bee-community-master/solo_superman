@@ -83,6 +83,7 @@
       "checkedBehaviors": [
         "Read-only public-web research runs require an active allowlist and bounded concurrency.",
         "Mounted web_search_readonly provider polling proves source-traced result import before evidence matrices and evidence packs are synthesized.",
+        "Opt-in live-web research verification can run the same public-web import path with Playwright and non-fixture source URLs when network access is available.",
         "Research operations expose Max simultaneous research runs and Max research runs per session controls so users can tune manual and answer-triggered public-web research limits.",
         "Provider-polled research writes markdown memory so duplicate research can cite existing evidence while wider follow-up research and generated follow-up research tasks still start new runs with the memory as baseline context.",
         "Research review cards retain source traces and expose pro/con/uncertainty quality gates.",

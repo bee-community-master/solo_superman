@@ -40,4 +40,40 @@ describe("research pipeline smoke", () => {
       ])
     );
   });
+
+  it("can verify the same research path through the live-web adapter branch without fixture source URLs", async () => {
+    const evidence = await runResearchPipelineSmoke({
+      mode: "live_web",
+      liveWebSearch: async ({ query, now }) => [
+        {
+          title: `공개 반려동물 시장 근거: ${query}`,
+          url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          snippet: "반려동물 보호자 유형과 의료, 돌봄, 보험 니즈를 확인할 수 있는 공개 자료입니다.",
+          retrievedAt: now()
+        },
+        {
+          title: "반려동물 보험·의료비 확인이 더 필요하다는 공개 근거",
+          url: "https://www.mafra.go.kr/",
+          snippet:
+            "공개 자료만으로는 고객 세그먼트별 결제 의향과 보험 청구 행동을 확정하기 어려워 추가 반대 근거와 품질 검토가 필요합니다.",
+          retrievedAt: now()
+        }
+      ]
+    });
+
+    expect(evidence).toMatchObject({
+      status: "passed",
+      smoke: RESEARCH_PIPELINE_SMOKE,
+      mode: "live_web",
+      research: expect.objectContaining({
+        providerAdapterKind: "web_search_readonly",
+        sourceUrls: [
+          "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
+          "https://www.mafra.go.kr/"
+        ]
+      })
+    });
+    expect(evidence.checked).toContain("live public-web adapter path imported non-fixture public source URLs");
+    expect(evidence.research?.sourceUrls.some((sourceUrl) => sourceUrl.includes("example."))).toBe(false);
+  });
 });

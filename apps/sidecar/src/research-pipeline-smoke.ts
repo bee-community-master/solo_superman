@@ -10,7 +10,10 @@ import {
   listResearchMemoryMarkdownSourceRefs,
   RESEARCH_MEMORY_SOURCE_REF_PREFIX
 } from "./product-engine/research-memory-markdown";
-import { createWebSearchReadOnlyResearchAdapter } from "./product-engine/web-search-readonly-adapter";
+import {
+  createWebSearchReadOnlyResearchAdapter,
+  type WebSearchReadOnlySearch
+} from "./product-engine/web-search-readonly-adapter";
 import { createSidecarApp } from "./server";
 import { removeTemporaryDirectory } from "./test-cleanup";
 import {
@@ -26,21 +29,23 @@ import { sessionEventCount } from "./auto-implementation-smoke-fixtures";
 
 export const RESEARCH_PIPELINE_SMOKE = "research_pipeline" as const;
 
-const PROJECT_IDEA = "A research pipeline smoke idea for founder validation.";
+const PROJECT_IDEA =
+  "반려동물 전생애주기 의료 기록, 급여, 일상 돌봄, 보험 청구, 장례 준비 정보를 한 곳에서 관리하는 앱.";
 const ALLOWLIST_ID = "research_allowlist_pipeline_smoke";
 const RESEARCH_RUN_ID = "research_run_pipeline_smoke";
 const FOLLOW_UP_RESEARCH_RUN_ID = "research_run_pipeline_followup_memory_smoke";
 const SOURCE_QUEUE_ITEM_ID = "queue_item_pipeline_smoke";
-const BASE_RESEARCH_OBJECTIVE = "Find public validation evidence for the founder workflow assistant.";
+const BASE_RESEARCH_OBJECTIVE = "첫 고객 세그먼트가 너무 넓음을 구체화하기 위한 공개 근거 찾기.";
 
 type SmokeStatus = "blocked" | "passed";
+type SmokeMode = "fixture" | "live_web";
 
 type SmokeStorage = Awaited<ReturnType<typeof createSoloStorage>>;
 
 export interface ResearchPipelineSmokeEvidence {
   readonly status: SmokeStatus;
   readonly smoke: typeof RESEARCH_PIPELINE_SMOKE;
-  readonly mode: "fixture";
+  readonly mode: SmokeMode;
   readonly project?: {
     readonly projectId: string;
     readonly sessionId: string;
@@ -61,6 +66,7 @@ export interface ResearchPipelineSmokeEvidence {
     readonly queueBlockedCount: number;
     readonly researchMemorySourceRefCount: number;
     readonly followUpResearchSourceRefCount: number;
+    readonly sourceUrls: readonly string[];
   };
   readonly reason?: string;
   readonly blockers?: readonly string[];
@@ -71,6 +77,8 @@ export interface ResearchPipelineSmokeOptions {
   readonly appDataDir?: string;
   readonly cleanupAppDataDir?: boolean;
   readonly localCapabilityToken?: string;
+  readonly mode?: SmokeMode;
+  readonly liveWebSearch?: WebSearchReadOnlySearch;
 }
 
 interface ResearchScenario {
@@ -86,9 +94,10 @@ interface ProjectContext {
 }
 
 interface ResearchFlowResult {
+  readonly mode: SmokeMode;
   readonly project: ProjectContext;
   readonly startRun: JsonRecord;
-  readonly followUpResearchStartRun: JsonRecord;
+  readonly followUpResearchStartRun?: JsonRecord;
   readonly providerProjection: JsonRecord;
   readonly researchProjection: JsonRecord;
   readonly queueProjection: JsonRecord;
@@ -126,9 +135,26 @@ function stringArrayAt(value: unknown, label: string) {
   return value as readonly string[];
 }
 
-function createResearchPipelineRuntimeAdapter(adapterKind: string) {
+function createResearchPipelineRuntimeAdapter(input: {
+  readonly adapterKind: string;
+  readonly mode: SmokeMode;
+  readonly liveWebSearch?: WebSearchReadOnlySearch;
+}) {
+  const { adapterKind, mode, liveWebSearch } = input;
+
   if (adapterKind !== "web_search_readonly") {
     throw new Error(`research pipeline smoke only mounts web_search_readonly; received ${adapterKind}`);
+  }
+
+  if (mode === "live_web") {
+    return createWebSearchReadOnlyResearchAdapter({
+      maxResults: 3,
+      maxFetchedPages: 1,
+      timeoutMillis: 10_000,
+      minDelayMillis: 1_000,
+      maxDelayMillis: 1_000,
+      ...(liveWebSearch ? { search: liveWebSearch } : {})
+    });
   }
 
   return createWebSearchReadOnlyResearchAdapter({
@@ -223,8 +249,9 @@ async function startResearchRun(
     sourceCategory: "public_web",
     adapterKind: "web_search_readonly",
     researchObjective: options.researchObjective ?? BASE_RESEARCH_OBJECTIVE,
-    productCategory: "Founder workflow assistant",
-    customerProblemHypothesis: "Early founders need safer validation research before implementation.",
+    productCategory: "반려동물 전생애주기 통합 관리 앱",
+    customerProblemHypothesis:
+      "반려동물 보호자가 의료 기록, 일상 돌봄, 보험 청구, 장례 준비를 한 곳에서 관리한다.",
     contextHash: options.contextHash ?? "ctx_research_pipeline_smoke",
     sourceRefs: options.sourceRefs ?? [SOURCE_QUEUE_ITEM_ID]
   });
@@ -234,10 +261,17 @@ async function pollResearchProviderResult(input: {
   readonly storage: SmokeStorage;
   readonly projectId: string;
   readonly autoImplementationWorkspaceRoot: string;
+  readonly mode: SmokeMode;
+  readonly liveWebSearch?: WebSearchReadOnlySearch;
 }) {
   const commandService = createProductEngineCommandService(input.storage, undefined, {
     autoImplementationWorkspaceRoot: input.autoImplementationWorkspaceRoot,
-    researchRuntimeAdapterFactory: createResearchPipelineRuntimeAdapter
+    researchRuntimeAdapterFactory: (adapterKind) =>
+      createResearchPipelineRuntimeAdapter({
+        adapterKind,
+        mode: input.mode,
+        ...(input.liveWebSearch ? { liveWebSearch: input.liveWebSearch } : {})
+      })
   });
 
   return commandService.listResearchRuns(input.projectId as ProjectId);
@@ -290,7 +324,12 @@ function generatedFollowUpResearchTask(input: {
   );
 }
 
-async function executeResearchFlow(scenario: ResearchScenario, localCapabilityToken: string): Promise<ResearchFlowResult> {
+async function executeResearchFlow(
+  scenario: ResearchScenario,
+  localCapabilityToken: string,
+  options: Pick<ResearchPipelineSmokeOptions, "mode" | "liveWebSearch"> = {}
+): Promise<ResearchFlowResult> {
+  const mode = options.mode ?? "fixture";
   const project = await createProject(scenario.app, localCapabilityToken);
 
   await createAllowlist(scenario.app, localCapabilityToken, project.projectId);
@@ -306,7 +345,9 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
   const providerProjection = await pollResearchProviderResult({
     storage: scenario.storage,
     projectId: project.projectId,
-    autoImplementationWorkspaceRoot: scenario.autoImplementationWorkspaceRoot
+    autoImplementationWorkspaceRoot: scenario.autoImplementationWorkspaceRoot,
+    mode,
+    ...(options.liveWebSearch ? { liveWebSearch: options.liveWebSearch } : {})
   });
   const researchMemory = await listScenarioResearchMemory({
     researchMemoryMarkdownRoot: scenario.researchMemoryMarkdownRoot,
@@ -321,7 +362,20 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
   });
 
   if (!followUpTask) {
-    throw new Error("Research pipeline smoke expected a source-linked follow-up research task.");
+    if (mode === "fixture") {
+      throw new Error("Research pipeline smoke expected a source-linked follow-up research task.");
+    }
+
+    return {
+      mode,
+      project,
+      startRun,
+      providerProjection: providerProjection as unknown as JsonRecord,
+      researchProjection,
+      queueProjection,
+      researchMemorySourceRefs: researchMemory.sourceRefs,
+      researchMemoryMarkdown: researchMemory.markdown
+    };
   }
 
   const followUpResearchTaskId = stringAt(followUpTask.researchTaskId, "follow-up researchTaskId");
@@ -341,6 +395,7 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
   );
 
   return {
+    mode,
     project,
     startRun,
     followUpResearchStartRun,
@@ -352,11 +407,26 @@ async function executeResearchFlow(scenario: ResearchScenario, localCapabilityTo
   };
 }
 
+function sourceUrlsFromRun(run: JsonRecord) {
+  return stringArrayAt(run.sourceRefs, "research run sourceRefs").filter((sourceRef) => /^https?:\/\//iu.test(sourceRef));
+}
+
+function isExampleFixtureSourceUrl(sourceUrl: string) {
+  try {
+    const hostname = new URL(sourceUrl).hostname.replace(/^www\./iu, "");
+
+    return hostname === "example.com" || hostname === "example.org" || hostname === "example.net";
+  } catch {
+    return false;
+  }
+}
+
 function flowBlockers(result: ResearchFlowResult) {
   const blockers: string[] = [];
   const startProjection = objectAt(result.startRun.immediateProjection, "start research immediateProjection");
   const startedRun = objectAt(startProjection.researchRun, "started researchRun");
   const providerRun = firstRecordAt(result.providerProjection.runs, "provider-polled research runs");
+  const providerSourceUrls = sourceUrlsFromRun(providerRun);
   const matrices = recordArray(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const packs = recordArray(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCards = recordArray(result.researchProjection.reviewCards, "research reviewCards");
@@ -367,11 +437,12 @@ function flowBlockers(result: ResearchFlowResult) {
   const matrix = firstRecordAt(matrices, "research evidenceMatrices");
   const pack = firstRecordAt(packs, "research evidencePacks");
   const reviewCard = firstRecordAt(reviewCards, "research reviewCards");
-  const followUpStartProjection = objectAt(
-    result.followUpResearchStartRun.immediateProjection,
-    "follow-up research immediateProjection"
-  );
-  const followUpStartedRun = objectAt(followUpStartProjection.researchRun, "follow-up started researchRun");
+  const followUpStartProjection = result.followUpResearchStartRun
+    ? objectAt(result.followUpResearchStartRun.immediateProjection, "follow-up research immediateProjection")
+    : null;
+  const followUpStartedRun = followUpStartProjection
+    ? objectAt(followUpStartProjection.researchRun, "follow-up started researchRun")
+    : null;
   const followUps = [...activeQueue, ...nextQueue, ...blockedQueue, ...deferredQueue].filter(
     (item) => item.cardType === "follow_up_question"
   );
@@ -403,8 +474,24 @@ function flowBlockers(result: ResearchFlowResult) {
     blockers.push(`provider-polled research run must carry insufficient quality gate; received ${JSON.stringify(providerRun.qualityGateStatus)}`);
   }
 
-  if (matrix.balanceStatus !== "missing_con_evidence") {
-    blockers.push(`evidence matrix must expose missing_con_evidence; received ${JSON.stringify(matrix.balanceStatus)}`);
+  if (providerSourceUrls.length < 1) {
+    blockers.push("provider-polled research run must include at least one public source URL");
+  }
+
+  if (result.mode === "live_web" && providerSourceUrls.every(isExampleFixtureSourceUrl)) {
+    blockers.push("live-web research smoke must import non-fixture public source URLs from a real browser-search adapter path");
+  }
+
+  const acceptableInsufficientBalanceStatuses =
+    result.mode === "live_web"
+      ? new Set(["missing_con_evidence", "needs_con_evidence", "blocked_by_con_evidence", "source_quality_insufficient"])
+      : new Set(["missing_con_evidence"]);
+  if (typeof matrix.balanceStatus !== "string" || !acceptableInsufficientBalanceStatuses.has(matrix.balanceStatus)) {
+    blockers.push(
+      result.mode === "live_web"
+        ? `live-web evidence matrix must remain insufficient/blocked for follow-up review; received ${JSON.stringify(matrix.balanceStatus)}`
+        : `evidence matrix must expose missing_con_evidence; received ${JSON.stringify(matrix.balanceStatus)}`
+    );
   }
 
   if (pack.gateStatus !== "research_insufficient") {
@@ -415,34 +502,40 @@ function flowBlockers(result: ResearchFlowResult) {
     blockers.push("research review card must block planning until skeptical follow-up is handled");
   }
 
-  if (followUps.length < 1) {
+  if (result.mode === "fixture" && followUps.length < 1) {
     blockers.push("Decision Queue must expose at least one research follow-up question");
   }
 
-  if (followUpResearchTasks.length < 1) {
+  if (result.mode === "fixture" && followUpResearchTasks.length < 1) {
     blockers.push("research-generated follow-up questions must create source-linked planned research task debt");
   }
 
-  if (result.researchMemorySourceRefs.length < 1) {
+  if (result.mode === "fixture" && result.researchMemorySourceRefs.length < 1) {
     blockers.push("provider-polled research must write at least one markdown research memory source ref");
   }
 
-  if (!result.researchMemoryMarkdown.includes("## Reuse guidance")) {
+  if (result.mode === "fixture" && !result.researchMemoryMarkdown.includes("## Reuse guidance")) {
     blockers.push("research memory markdown must include reuse guidance");
   }
 
-  if (!result.researchMemoryMarkdown.includes("collect wider sources")) {
+  if (result.mode === "fixture" && !result.researchMemoryMarkdown.includes("collect wider sources")) {
     blockers.push("research memory markdown must tell wider follow-up research to collect wider sources");
   }
 
-  if (followUpStartProjection.status !== "started") {
+  if (result.mode === "fixture" && !followUpStartProjection) {
+    blockers.push("generated follow-up research run must start after fixture evidence synthesis");
+  }
+
+  if (followUpStartProjection && followUpStartProjection.status !== "started") {
     blockers.push(
       `generated follow-up research run start status must be started; received ${JSON.stringify(followUpStartProjection.status)}`
     );
   }
 
-  const followUpSourceRefs = stringArrayAt(followUpStartedRun.sourceRefs, "follow-up research sourceRefs");
-  if (!result.researchMemorySourceRefs.some((sourceRef) => followUpSourceRefs.includes(sourceRef))) {
+  const followUpSourceRefs = followUpStartedRun
+    ? stringArrayAt(followUpStartedRun.sourceRefs, "follow-up research sourceRefs")
+    : [];
+  if (followUpStartedRun && !result.researchMemorySourceRefs.some((sourceRef) => followUpSourceRefs.includes(sourceRef))) {
     blockers.push("generated follow-up research must carry existing markdown memory refs as baseline source refs");
   }
 
@@ -453,15 +546,17 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
   const startProjection = objectAt(result.startRun.immediateProjection, "start research immediateProjection");
   const startedRun = objectAt(startProjection.researchRun, "started researchRun");
   const providerRun = firstRecordAt(result.providerProjection.runs, "provider-polled research runs");
+  const providerSourceUrls = sourceUrlsFromRun(providerRun);
   const provider = objectAt(providerRun.provider, "provider-polled research run provider");
   const matrix = firstRecordAt(result.researchProjection.evidenceMatrices, "research evidenceMatrices");
   const pack = firstRecordAt(result.researchProjection.evidencePacks, "research evidencePacks");
   const reviewCard = firstRecordAt(result.researchProjection.reviewCards, "research reviewCards");
-  const followUpStartProjection = objectAt(
-    result.followUpResearchStartRun.immediateProjection,
-    "follow-up research immediateProjection"
-  );
-  const followUpStartedRun = objectAt(followUpStartProjection.researchRun, "follow-up started researchRun");
+  const followUpStartProjection = result.followUpResearchStartRun
+    ? objectAt(result.followUpResearchStartRun.immediateProjection, "follow-up research immediateProjection")
+    : null;
+  const followUpStartedRun = followUpStartProjection
+    ? objectAt(followUpStartProjection.researchRun, "follow-up started researchRun")
+    : null;
   const activeQueue = recordArray(result.queueProjection.active, "queue active");
   const nextQueue = recordArray(result.queueProjection.next, "queue next");
   const blockedQueue = recordArray(result.queueProjection.blocked, "queue blocked");
@@ -479,7 +574,7 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
   return {
     status: "passed",
     smoke: RESEARCH_PIPELINE_SMOKE,
-    mode: "fixture",
+    mode: result.mode,
     project: result.project,
     research: {
       allowlistId: ALLOWLIST_ID,
@@ -496,22 +591,33 @@ function passedEvidence(result: ResearchFlowResult): ResearchPipelineSmokeEviden
       followUpResearchTaskCount: followUpResearchTasks.length,
       queueBlockedCount: blockedQueue.length,
       researchMemorySourceRefCount: result.researchMemorySourceRefs.length,
-      followUpResearchSourceRefCount: stringArrayAt(
-        followUpStartedRun.sourceRefs,
-        "follow-up started run sourceRefs"
-      ).length
+      followUpResearchSourceRefCount: followUpStartedRun
+        ? stringArrayAt(followUpStartedRun.sourceRefs, "follow-up started run sourceRefs").length
+        : 0,
+      sourceUrls: providerSourceUrls
     },
     checked: [
       "temporary local sidecar and app data created",
       "public-web allowlist created without credentials",
       "read-only research run started",
       "mounted web_search_readonly provider result polled and imported with source trace",
-      "provider-polled research writes markdown memory for future duplicate or broader research decisions",
-      "generated follow-up research carries existing markdown memory refs as baseline context while still starting a new run",
+      ...(result.mode === "live_web"
+        ? ["live public-web adapter path imported non-fixture public source URLs"]
+        : ["fixture browser-search injection stayed isolated from the production adapter default"]),
+      ...(result.researchMemorySourceRefs.length > 0
+        ? ["provider-polled research writes markdown memory for future duplicate or broader research decisions"]
+        : ["live public-web import verification tolerates source_quality_insufficient runs without markdown memory"]),
+      ...(followUpStartedRun
+        ? ["generated follow-up research carries existing markdown memory refs as baseline context while still starting a new run"]
+        : ["live public-web import verification stops after source import when evidence synthesis does not generate follow-up debt"]),
       "provider quality gate marked insufficient evidence for review",
       "Research projection exposes evidence matrix, evidence pack, and review card",
-      "Decision Queue exposes source-traceable follow-up question debt",
-      "Research projection exposes source-linked planned research task debt for research-generated follow-up questions"
+      ...(followUpResearchTasks.length > 0
+        ? [
+            "Decision Queue exposes source-traceable follow-up question debt",
+            "Research projection exposes source-linked planned research task debt for research-generated follow-up questions"
+          ]
+        : ["live public-web import verification keeps follow-up debt optional because search results vary by network and search engine"])
     ]
   };
 }
@@ -525,13 +631,13 @@ function blockedEvidence(result: ResearchFlowResult, blockers: readonly string[]
   };
 }
 
-function errorEvidence(error: unknown): ResearchPipelineSmokeEvidence {
+function errorEvidence(error: unknown, mode: SmokeMode): ResearchPipelineSmokeEvidence {
   const message = error instanceof Error ? error.message : String(error);
 
   return {
     status: "blocked",
     smoke: RESEARCH_PIPELINE_SMOKE,
-    mode: "fixture",
+    mode,
     reason: "Research pipeline smoke failed before full evidence could be collected.",
     blockers: [message],
     checked: ["temporary local research pipeline smoke started"]
@@ -567,16 +673,20 @@ export async function runResearchPipelineSmoke(
   const appDataDir = options.appDataDir ?? (await mkdtemp(join(tmpdir(), "solo-superman-research-pipeline-smoke-")));
   const shouldCleanup = options.cleanupAppDataDir ?? !options.appDataDir;
   const localCapabilityToken = options.localCapabilityToken ?? `research-pipeline-smoke-${randomUUID()}`;
+  const mode = options.mode ?? "fixture";
   let scenario: ResearchScenario | null = null;
 
   try {
     scenario = await createScenario(appDataDir, localCapabilityToken);
-    const result = await executeResearchFlow(scenario, localCapabilityToken);
+    const result = await executeResearchFlow(scenario, localCapabilityToken, {
+      mode,
+      ...(options.liveWebSearch ? { liveWebSearch: options.liveWebSearch } : {})
+    });
     const blockers = flowBlockers(result);
 
     return blockers.length ? blockedEvidence(result, blockers) : passedEvidence(result);
   } catch (error: unknown) {
-    return errorEvidence(error);
+    return errorEvidence(error, mode);
   } finally {
     await scenario?.storage.close();
 
@@ -586,12 +696,18 @@ export async function runResearchPipelineSmoke(
   }
 }
 
+function smokeModeFromArgv(argv: readonly string[]) {
+  return argv.includes("--live-web") ? "live_web" : "fixture";
+}
+
 function exitCodeForEvidence(evidence: ResearchPipelineSmokeEvidence) {
   return evidence.status === "passed" ? 0 : 1;
 }
 
 async function main() {
-  const evidence = await runResearchPipelineSmoke();
+  const evidence = await runResearchPipelineSmoke({
+    mode: smokeModeFromArgv(process.argv.slice(2))
+  });
 
   console.log(JSON.stringify(evidence, null, 2));
   process.exitCode = exitCodeForEvidence(evidence);

@@ -10,6 +10,7 @@ Use this matrix to choose the smallest proof that matches the product claim.
 | Idea -> clarification -> first answer -> planning blocker works | `pnpm verify:clarification-pipeline` | `pnpm verify` |
 | Hundreds of question/answer loops remain bounded | `pnpm verify:clarification-volume` | `pnpm verify` |
 | Research mounted provider polling/import/synthesis stays connected | `pnpm verify:research-pipeline` | `pnpm verify` |
+| Real public-web research import uses non-fixture source URLs when network allows it | `pnpm verify:research-pipeline:live-web` | opt-in; not part of default `pnpm verify` |
 | Browser delegation safety/revoke path works | `pnpm verify:browser-delegation-pipeline` | `pnpm verify` |
 | Service page permission/final-submit boundary works | `pnpm verify:service-page-pipeline` | `pnpm verify` |
 | Production mutation stays gated | `pnpm verify:production-mutation-contract` | `pnpm verify` |
