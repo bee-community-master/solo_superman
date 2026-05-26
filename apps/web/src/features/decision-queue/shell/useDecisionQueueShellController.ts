@@ -83,7 +83,6 @@ import {
   type ConnectionState,
   type DecisionQueuePageId,
   type InitialResearchAutomationPermission,
-  type InitialResearchPermission,
   type PageHealth,
   type ProjectionState
 } from "./decision-queue-shell-model";
@@ -230,7 +229,6 @@ export function useDecisionQueueShellController() {
   const [idea, setIdea] = useState(DEFAULT_IDEA);
   const [intake, setIntake] = useState(DEFAULT_INTAKE);
   const [chatGptLoginAcknowledged, setChatGptLoginAcknowledged] = useState(false);
-  const [initialResearchPermission, setInitialResearchPermission] = useState<InitialResearchPermission>("not_now");
   const [initialResearchAutomationPermission, setInitialResearchAutomationPermission] =
     useState<InitialResearchAutomationPermission>("allow_codex");
   const [projectPurposeMode, setProjectPurposeMode] = useState<ProjectPurposeMode | null>(null);
@@ -439,7 +437,6 @@ export function useDecisionQueueShellController() {
     connectionStatus: connectionState.status,
     copy,
     idea,
-    initialResearchPermission,
     initialResearchAutomationPermission,
     initialBusinessCriticIntensityReason,
     intake,
@@ -1427,8 +1424,6 @@ export function useDecisionQueueShellController() {
     setIntake,
     chatGptLoginAcknowledged,
     setChatGptLoginAcknowledged,
-    initialResearchPermission,
-    setInitialResearchPermission,
     initialResearchAutomationPermission,
     setInitialResearchAutomationPermission,
     projectPurposeMode,

@@ -36,9 +36,9 @@ import {
   emptyProjectionState,
   emptyResearchOperationsState,
   initialResearchAutomationAllowsCodex,
+  initialResearchAutomationEnablesPublicWebSources,
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
   type InitialResearchAutomationPermission,
-  type InitialResearchPermission,
   initialQueueStartBlocker,
   latestCommandBackedProjectionVersion,
   type AppendCommand,
@@ -59,7 +59,6 @@ interface DecisionQueueSessionActionsProps {
   readonly connectionStatus: ConnectionState["status"];
   readonly copy: DecisionQueueCopy;
   readonly idea: string;
-  readonly initialResearchPermission: InitialResearchPermission;
   readonly initialResearchAutomationPermission: InitialResearchAutomationPermission;
   readonly initialBusinessCriticIntensityReason: string;
   readonly intake: string;
@@ -207,7 +206,6 @@ export function useDecisionQueueSessionActions({
   connectionStatus,
   copy,
   idea,
-  initialResearchPermission,
   initialResearchAutomationPermission,
   initialBusinessCriticIntensityReason,
   intake,
@@ -342,7 +340,7 @@ export function useDecisionQueueSessionActions({
           ...emptyProjectionState(),
           session,
         });
-        if (initialResearchPermission === "allow_public_web") {
+        if (initialResearchAutomationEnablesPublicWebSources(initialResearchAutomationPermission)) {
           await enableInitialResearchSources(client, session.projectId);
         }
 
@@ -402,7 +400,6 @@ export function useDecisionQueueSessionActions({
       copy.projectPurposeModeOptions,
       initialQueueStartBlockers,
       initialBusinessCriticIntensityReason,
-      initialResearchPermission,
       initialResearchAutomationPermission,
       client,
       enableInitialResearchSources,

@@ -45,7 +45,6 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     idea: "",
     initialBusinessCriticIntensityReason: "",
     initialQueueStartBlockerMessages: [],
-    initialResearchPermission: "not_now",
     initialResearchAutomationPermission: "allow_codex",
     intake: "",
     isBusy: false,
@@ -58,7 +57,6 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     setIdea: vi.fn(),
     setInitialBusinessCriticIntensityReason: vi.fn(),
     setInitialResearchAutomationPermission: vi.fn(),
-    setInitialResearchPermission: vi.fn(),
     setIntake: vi.fn(),
     setProjectPurposeMode: vi.fn(),
     startCodexLogin: vi.fn(),
@@ -82,24 +80,36 @@ describe("OnboardingView", () => {
     expect(markup).toContain('rows="6"');
     expect(markup).toContain('class="session-intake-field"');
     expect(markup).toContain('rows="8"');
-    expect(markup).toContain("Sign in to ChatGPT in your browser first");
-    expect(markup).toContain("Open ChatGPT");
-    expect(markup).toContain('href="https://chatgpt.com/"');
-    expect(markup).toContain('target="_blank"');
-    expect(markup).toContain('rel="noopener noreferrer"');
-    expect(markup).toContain("I signed in to ChatGPT directly in this browser/profile.");
     expect(markup).toContain("Idea summary");
     expect(markup).toContain("Goal description");
-    expect(markup).toContain("Research permission");
-    expect(markup).toContain("Set up research later");
-    expect(markup).toContain("Allow read-only public web research");
-    expect(markup).toContain("Automated research assistance");
-    expect(markup).toContain("Allow Codex research preview");
-    expect(markup).toContain("Allow Codex + visible ChatGPT Pro/Deep Research");
-    expect(markup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
-      markup.indexOf("Idea summary")
-    );
+    expect(markup).not.toContain("Research permission");
+    expect(markup).not.toContain("Set up research later");
+    expect(markup).not.toContain("Allow read-only public web research");
+    expect(markup).toContain("Research setup");
+    expect(markup).toContain("Codex + read-only public web research");
+    expect(markup).toContain("Codex + visible ChatGPT Pro/Deep Research");
+    expect(markup).not.toContain("Sign in to ChatGPT in your browser first");
     expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
+  });
+
+  it("shows the ChatGPT login gate only when visible ChatGPT research is selected", () => {
+    const hiddenMarkup = renderOnboardingView({
+      initialResearchAutomationPermission: "allow_codex"
+    });
+    const visibleMarkup = renderOnboardingView({
+      initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
+    });
+
+    expect(hiddenMarkup).not.toContain("Sign in to ChatGPT in your browser first");
+    expect(visibleMarkup).toContain("Sign in to ChatGPT in your browser first");
+    expect(visibleMarkup).toContain("Open ChatGPT");
+    expect(visibleMarkup).toContain('href="https://chatgpt.com/"');
+    expect(visibleMarkup).toContain('target="_blank"');
+    expect(visibleMarkup).toContain('rel="noopener noreferrer"');
+    expect(visibleMarkup).toContain("I signed in to ChatGPT directly in this browser/profile.");
+    expect(visibleMarkup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
+      visibleMarkup.indexOf("Idea summary")
+    );
   });
 
   it("renders backend Codex CLI login status before the first queue can start", () => {
