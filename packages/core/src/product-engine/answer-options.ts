@@ -727,11 +727,13 @@ const CREATOR_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
   )
 ];
 
+const PET_LIFECYCLE_CONTEXT_PROFILE_PATTERN =
+  /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|동물\s*진료|동물\s*의료|동물\s*보험|펫\s*보험|반려\s*(?:동물|견|묘).{0,20}(?:기록|의료|보험|장례|급여|일상|전생애|생애\s*주기)|사료|동물\s*장례|반려\s*(?:동물|견|묘).{0,20}말기\s*케어|동물\s*말기\s*케어|펫\s*말기\s*케어)/iu;
+
 const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[] = [
   {
     id: "pet_lifecycle",
-    pattern:
-      /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|동물\s*진료|동물\s*의료|동물\s*보험|펫\s*보험|반려\s*(?:동물|견|묘).{0,20}(?:기록|의료|보험|장례|급여|일상|전생애|생애\s*주기)|사료|동물\s*장례|반려\s*(?:동물|견|묘).{0,20}말기\s*케어|동물\s*말기\s*케어|펫\s*말기\s*케어)/iu,
+    pattern: PET_LIFECYCLE_CONTEXT_PROFILE_PATTERN,
     questionSubject: "보호자 유형",
     personReference: "그 보호자",
     answerOptions: PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS,
