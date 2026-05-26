@@ -171,6 +171,7 @@ type PrimaryCustomerContextProfile = {
   readonly questionSubject: string;
   readonly personReference: string;
   readonly answerOptions: readonly AmbiguityAnswerOption[];
+  readonly topicAnswerOptions?: Readonly<Partial<Record<string, readonly AmbiguityAnswerOption[]>>>;
 };
 
 const PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
@@ -201,6 +202,133 @@ const PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] =
     "보험·의료비 관리가 필요한 보호자를 가장 먼저 만나 비용 관리 문제를 확인한다.",
     "지불 의향과 반복 사용 신호를 비용 관리 문제에서 확인합니다.",
     "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
+  )
+];
+
+const PET_LIFECYCLE_BUYER_USER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "guardian_decides_and_uses",
+    "보호자가 직접 결정하고 쓴다",
+    "반려동물 보호자가 직접 비용을 내고 의료·급여·일상 기록도 관리한다.",
+    "첫 인터뷰 대상과 구매 판단이 단순해집니다.",
+    "가족, 병원, 보험사가 함께 관여하는 케이스는 놓칠 수 있습니다."
+  ),
+  answerOption(
+    "family_shared_pet_care",
+    "가족이 함께 돌봄을 나눈다",
+    "한 명이 아니라 가족 구성원이 의료 기록, 급여, 비용 관리를 나눠 맡는다.",
+    "공유와 권한 문제가 실제 사용 장면에 맞게 드러납니다.",
+    "첫 버전 범위가 협업 기능 쪽으로 커질 수 있습니다."
+  ),
+  answerOption(
+    "clinic_or_insurance_involved",
+    "병원·보험사가 함께 관여한다",
+    "보호자가 쓰지만 동물병원 기록이나 보험 청구 자료가 결정에 크게 관여한다.",
+    "데이터 출처와 신뢰 문제가 초기에 보입니다.",
+    "연동·정책·증빙 요구가 첫 버전에 비해 커질 수 있습니다."
+  )
+];
+
+const PET_LIFECYCLE_VALUE_PROP_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "medical_records_in_one_place",
+    "의료기록을 한곳에 모은다",
+    "보호자가 흩어진 진료 기록과 투약 정보를 한곳에서 찾을 수 있어 선택한다.",
+    "반복적으로 찾는 기록 문제를 직접 겨냥합니다.",
+    "급여·보험·장례까지의 전생애 가치가 약하게 보일 수 있습니다."
+  ),
+  answerOption(
+    "care_routine_continuity",
+    "급여·일상 루틴을 놓치지 않는다",
+    "보호자가 급여, 투약, 생활 루틴을 꾸준히 관리할 수 있어 선택한다.",
+    "반복 사용 이유와 알림/기록 가치를 확인할 수 있습니다.",
+    "의료비나 보험처럼 강한 지불 의향 신호는 별도 확인이 필요합니다."
+  ),
+  answerOption(
+    "insurance_cost_documents",
+    "보험·의료비 자료를 정리한다",
+    "보호자가 보험 청구와 의료비 기록을 쉽게 정리할 수 있어 선택한다.",
+    "지불 의향과 비용 절감 가치를 빠르게 검증합니다.",
+    "보험을 쓰지 않는 보호자에게는 가치가 약할 수 있습니다."
+  ),
+  answerOption(
+    "end_of_life_readiness",
+    "장례·말기 케어까지 준비한다",
+    "보호자가 장례와 말기 케어까지 미리 준비할 수 있어 선택한다.",
+    "전생애주기 차별점이 가장 선명하게 드러납니다.",
+    "정서적으로 민감해 첫 접근 문구와 인터뷰 방식이 어려울 수 있습니다."
+  )
+];
+
+const PET_LIFECYCLE_MVP_SCOPE_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "pet_medical_record_slice",
+    "의료기록 정리부터 검증",
+    "첫 버전은 동물병원 기록, 투약, 진료 메모를 모아보는 흐름부터 검증한다.",
+    "보호자가 반복해서 찾는 자료 문제를 작게 확인합니다.",
+    "급여·보험·장례 기능은 첫 검증에서 제외됩니다."
+  ),
+  answerOption(
+    "pet_daily_care_slice",
+    "급여·일상 루틴부터 검증",
+    "첫 버전은 급여, 투약, 일상 체크 기록을 유지하는 흐름부터 검증한다.",
+    "반복 사용성과 습관 형성 가능성을 볼 수 있습니다.",
+    "의료비나 보험처럼 강한 비용 문제는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "pet_insurance_cost_slice",
+    "보험·의료비 정리부터 검증",
+    "첫 버전은 의료비와 보험 청구 자료를 정리하는 흐름부터 검증한다.",
+    "지불 의향과 문서 정리 가치를 빠르게 확인합니다.",
+    "일상 돌봄 전체를 담는 앱이라는 인상은 약해질 수 있습니다."
+  )
+];
+
+const PET_LIFECYCLE_VALIDATION_EXPERIMENT_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "guardian_record_sorting_test",
+    "보호자 기록 정리 테스트",
+    "보호자에게 실제 진료·투약 기록을 가져오게 하고 수동으로 한곳에 정리해 반응을 본다.",
+    "제품 없이도 기록 통합 가치와 민감도를 확인합니다.",
+    "수동 지원 효과와 제품 자체 가치를 분리해 봐야 합니다."
+  ),
+  answerOption(
+    "insurance_document_walkthrough",
+    "보험 청구 자료 워크스루",
+    "보험·의료비 자료가 있는 보호자와 청구 준비 과정을 함께 따라가며 불편을 확인한다.",
+    "비용 문제와 지불 의향을 구체적으로 볼 수 있습니다.",
+    "보험 이용자가 아닌 보호자에게 일반화하기 어렵습니다."
+  ),
+  answerOption(
+    "senior_pet_care_plan_probe",
+    "노령 반려동물 케어 플랜 확인",
+    "노령·만성질환 반려동물 보호자에게 케어 계획 카드나 기록 샘플을 보여주고 저장 의향을 묻는다.",
+    "강한 문제를 가진 보호자부터 검증합니다.",
+    "무거운 케이스 중심으로 제품 범위가 커질 수 있습니다."
+  )
+];
+
+const PET_LIFECYCLE_NON_GOAL_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "exclude_clinic_integration",
+    "동물병원 자동 연동 제외",
+    "첫 버전에서는 동물병원 시스템 자동 연동을 제외하고 보호자 입력/업로드만 다룬다.",
+    "권한·연동 리스크를 줄이고 빠르게 검증할 수 있습니다.",
+    "기록 자동화 기대가 큰 보호자에게는 매력이 약할 수 있습니다."
+  ),
+  answerOption(
+    "exclude_claim_automation",
+    "보험 청구 자동화 제외",
+    "첫 버전에서는 보험 청구 자동 제출이 아니라 자료 정리와 확인까지만 다룬다.",
+    "정책·오류 리스크를 줄입니다.",
+    "보험 관리 가치를 강하게 느끼는 사용자는 부족하다고 볼 수 있습니다."
+  ),
+  answerOption(
+    "exclude_end_of_life_services",
+    "장례 상담·예약 제외",
+    "첫 버전에서는 장례 상담, 예약, 결제 연결을 제외하고 기록/준비 정보만 다룬다.",
+    "민감하고 운영 부담이 큰 영역을 뒤로 미룹니다.",
+    "전생애주기 차별점은 첫 버전에서 덜 드러날 수 있습니다."
   )
 ];
 
@@ -328,6 +456,246 @@ const LOCAL_COMMERCE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] 
   )
 ];
 
+const LOCAL_COMMERCE_BUYER_USER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "merchant_decides_customer_uses",
+    "매장이 비용을 내고 고객이 쓴다",
+    "매장 운영자가 비용을 내고 손님은 예약, 주문, 혜택을 사용한다.",
+    "가격과 영업 대상이 매장으로 선명해집니다.",
+    "손님이 실제로 반복 사용할지는 별도 확인이 필요합니다."
+  ),
+  answerOption(
+    "customer_direct_value",
+    "손님이 직접 가치를 느낀다",
+    "반복 방문 손님이 예약, 픽업, 혜택 편의 때문에 직접 사용한다.",
+    "소비자 반복 사용 신호를 빠르게 확인합니다.",
+    "매장이 비용을 낼 이유는 아직 약할 수 있습니다."
+  ),
+  answerOption(
+    "operator_staff_workflow",
+    "운영자와 직원이 함께 쓴다",
+    "매장 운영자와 직원이 주문, 예약, 단골 관리를 함께 처리한다.",
+    "현장 운영 흐름과 권한 문제를 볼 수 있습니다.",
+    "소규모 매장에는 기능이 무겁게 느껴질 수 있습니다."
+  )
+];
+
+const LOCAL_COMMERCE_VALUE_PROP_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "reservation_order_unified",
+    "예약·주문을 한곳에 모은다",
+    "매장과 손님이 예약과 픽업 주문을 한곳에서 처리할 수 있어 선택한다.",
+    "반복 운영 문제를 직접 줄입니다.",
+    "단골 혜택이나 재방문 가치는 약하게 보일 수 있습니다."
+  ),
+  answerOption(
+    "regular_customer_rewards",
+    "단골 혜택을 쉽게 관리한다",
+    "매장이 단골 혜택과 재방문 기록을 쉽게 관리할 수 있어 선택한다.",
+    "반복 방문과 매출 가치에 연결됩니다.",
+    "신규 주문 처리 문제는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "pickup_wait_reduction",
+    "픽업 대기와 혼선을 줄인다",
+    "손님과 매장이 픽업 시간, 준비 상태, 주문 확인을 덜 헷갈려 선택한다.",
+    "명확한 사용 순간과 행동 변화를 볼 수 있습니다.",
+    "예약 중심 매장에는 덜 중요할 수 있습니다."
+  )
+];
+
+const LOCAL_COMMERCE_MVP_SCOPE_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "reservation_slice",
+    "예약 흐름부터 검증",
+    "첫 버전은 예약 생성, 변경, 확인 흐름만 검증한다.",
+    "작은 범위로 매장 운영 문제를 확인합니다.",
+    "주문과 단골 혜택 가치는 제외됩니다."
+  ),
+  answerOption(
+    "pickup_order_slice",
+    "픽업 주문부터 검증",
+    "첫 버전은 픽업 주문과 준비 상태 확인 흐름만 검증한다.",
+    "손님 행동과 매장 운영 부담을 동시에 볼 수 있습니다.",
+    "예약형 매장에는 맞지 않을 수 있습니다."
+  ),
+  answerOption(
+    "loyalty_slice",
+    "단골 혜택부터 검증",
+    "첫 버전은 방문 기록과 단골 혜택 관리 흐름만 검증한다.",
+    "재방문 가치와 매장 지불 의향을 확인합니다.",
+    "즉시 주문/예약 문제 해결은 뒤로 밀립니다."
+  )
+];
+
+const LOCAL_COMMERCE_VALIDATION_EXPERIMENT_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "merchant_booking_concierge",
+    "매장 예약 수동 운영 테스트",
+    "한 매장의 예약을 수동으로 받아 정리해 주고 운영자가 계속 쓰려는지 본다.",
+    "매장 구매자 문제를 제품 없이 확인합니다.",
+    "손님 앱 사용성은 별도 검증이 필요합니다."
+  ),
+  answerOption(
+    "pickup_order_paper_test",
+    "픽업 주문 종이/폼 테스트",
+    "손님에게 간단한 폼으로 픽업 주문을 받고 매장 준비 과정을 관찰한다.",
+    "픽업 혼선과 대기 문제를 빠르게 확인합니다.",
+    "실제 결제·알림 자동화 가치는 아직 검증되지 않습니다."
+  ),
+  answerOption(
+    "loyalty_manual_stamp_test",
+    "단골 혜택 수동 스탬프 테스트",
+    "방문 기록과 혜택을 수동으로 관리해 보고 손님 재방문 반응을 확인한다.",
+    "단골 혜택 가치와 반복 사용 가능성을 봅니다.",
+    "예약/주문 문제와는 다른 방향으로 좁혀질 수 있습니다."
+  )
+];
+
+const LOCAL_COMMERCE_NON_GOAL_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "exclude_payment_integration",
+    "결제 연동 제외",
+    "첫 버전에서는 결제 연동을 제외하고 예약·주문 의향과 운영 흐름만 확인한다.",
+    "정산·환불·보안 부담을 줄입니다.",
+    "실제 구매 전환 신호는 약해질 수 있습니다."
+  ),
+  answerOption(
+    "exclude_delivery_network",
+    "배달망 연동 제외",
+    "첫 버전에서는 외부 배달망 연동 없이 매장 자체 픽업/예약만 다룬다.",
+    "연동 리스크를 줄이고 로컬 매장 흐름에 집중합니다.",
+    "배달 중심 매장에는 가치가 낮을 수 있습니다."
+  ),
+  answerOption(
+    "exclude_multi_location_admin",
+    "다지점 관리 제외",
+    "첫 버전에서는 여러 지점 통합 관리와 권한 기능을 제외한다.",
+    "소규모 매장 검증에 집중할 수 있습니다.",
+    "조직형 운영자의 요구는 뒤로 밀립니다."
+  )
+];
+
+const FOUNDER_VALIDATION_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "paid_interview_prep_founder",
+    "유료 인터뷰를 준비하는 1인 창업자",
+    "유료 고객 인터뷰를 준비하는 1인 창업자를 가장 먼저 만나 스펙과 근거 정리 문제를 확인한다.",
+    "아이디어 검증과 지불 의향이 직접 연결됩니다.",
+    "팀 단위 제품 기획 요구는 약하게 반영될 수 있습니다."
+  ),
+  answerOption(
+    "rough_idea_founder",
+    "막연한 아이디어를 정리하는 창업자",
+    "막연한 아이디어를 제품 스펙으로 바꾸려는 창업자를 가장 먼저 만난다.",
+    "초기 모호성 감소 가치를 가장 잘 확인합니다.",
+    "이미 고객이 있는 창업자에게 필요한 리서치 깊이는 부족할 수 있습니다."
+  ),
+  answerOption(
+    "evidence_sensitive_builder",
+    "근거 추적을 중시하는 빌더",
+    "기능 구현 전에 근거와 리스크를 추적하려는 빌더를 먼저 검증한다.",
+    "source-traced spec 가치와 자동화 니즈를 확인합니다.",
+    "비즈니스 검증보다 개발 생산성 쪽으로 좁혀질 수 있습니다."
+  )
+];
+
+const FOUNDER_VALIDATION_VALUE_PROP_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "traceable_spec_output",
+    "근거 추적 가능한 스펙",
+    "창업자가 아이디어와 리서치 근거가 연결된 스펙을 얻을 수 있어 선택한다.",
+    "Solo Superman의 핵심 산출물 가치를 검증합니다.",
+    "질문 자체의 품질 문제가 약하면 스펙 신뢰도도 낮아질 수 있습니다."
+  ),
+  answerOption(
+    "sharp_customer_questions",
+    "더 날카로운 고객 질문",
+    "창업자가 인터뷰 전에 고객·문제·성공 기준 질문을 더 선명하게 만들 수 있어 선택한다.",
+    "질문 생성 품질을 직접 검증합니다.",
+    "자동 구현이나 문서화 가치는 뒤로 밀릴 수 있습니다."
+  ),
+  answerOption(
+    "build_risk_visible",
+    "빌드 전 리스크 노출",
+    "창업자가 만들기 전에 근거 부족과 반례를 볼 수 있어 선택한다.",
+    "성급한 구현 방지 가치를 검증합니다.",
+    "즉시 실행을 원하는 사용자에게는 답답할 수 있습니다."
+  )
+];
+
+const FOUNDER_VALIDATION_MVP_SCOPE_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "question_quality_slice",
+    "질문 품질부터 검증",
+    "첫 버전은 아이디어 맞춤 질문과 선택지 품질만 검증한다.",
+    "현재 가장 큰 사용자 불만을 직접 해결합니다.",
+    "리서치 자동화나 구현 연계 가치는 뒤로 밀립니다."
+  ),
+  answerOption(
+    "research_trace_slice",
+    "리서치 근거 추적부터 검증",
+    "첫 버전은 질문과 리서치 근거가 스펙 판단으로 이어지는 흐름을 검증한다.",
+    "source-traced spec 신뢰도를 확인합니다.",
+    "질문 문장 품질 개선은 충분히 깊지 않을 수 있습니다."
+  ),
+  answerOption(
+    "handoff_slice",
+    "스펙 handoff부터 검증",
+    "첫 버전은 답변 후 구현 가능한 handoff 산출물까지 이어지는 흐름을 검증한다.",
+    "실제 작업 완료 가치까지 볼 수 있습니다.",
+    "질문 생성 문제를 해결하기 전에 범위가 커질 수 있습니다."
+  )
+];
+
+const FOUNDER_VALIDATION_EXPERIMENT_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "founder_question_review",
+    "창업자 질문 리뷰 테스트",
+    "실제 창업자 아이디어를 받아 질문 후보를 보여주고 맞지 않는 질문 수를 측정한다.",
+    "질문 품질을 가장 직접적으로 검증합니다.",
+    "리서치와 구현 연결 가치는 별도 확인이 필요합니다."
+  ),
+  answerOption(
+    "paid_interview_prep_test",
+    "유료 인터뷰 준비 테스트",
+    "유료 인터뷰를 앞둔 창업자에게 질문과 스펙 초안을 제공하고 결제/재사용 의향을 본다.",
+    "지불 의향과 실사용 압박을 동시에 확인합니다.",
+    "표본 모집이 어렵고 케이스별 편차가 클 수 있습니다."
+  ),
+  answerOption(
+    "spec_trace_walkthrough",
+    "근거 추적 스펙 워크스루",
+    "창업자에게 질문 답변과 리서치 근거가 연결된 스펙을 보여주고 신뢰도를 확인한다.",
+    "source trace 가치와 handoff 품질을 검증합니다.",
+    "초기 질문이 맞지 않으면 스펙 평가도 왜곡될 수 있습니다."
+  )
+];
+
+const FOUNDER_VALIDATION_NON_GOAL_OPTIONS: readonly AmbiguityAnswerOption[] = [
+  answerOption(
+    "exclude_full_auto_research",
+    "완전 자동 리서치 제외",
+    "첫 버전에서는 완전 자동 리서치 결론 생성보다 질문 품질과 근거 연결만 다룬다.",
+    "잘못된 근거 과신을 줄입니다.",
+    "자동화 기대가 큰 창업자에게는 부족할 수 있습니다."
+  ),
+  answerOption(
+    "exclude_auto_code_generation",
+    "자동 구현 제외",
+    "첫 버전에서는 코드 생성이나 PR 자동화를 제외하고 검증 질문과 스펙 준비에 집중한다.",
+    "질문/스펙 품질을 먼저 안정화합니다.",
+    "구현까지 한 번에 원하는 사용자에게는 가치가 작게 보일 수 있습니다."
+  ),
+  answerOption(
+    "exclude_team_workflows",
+    "팀 협업 기능 제외",
+    "첫 버전에서는 팀 권한, 리뷰, 승인 흐름을 제외하고 개인 창업자 흐름에 집중한다.",
+    "첫 고객 흐름을 작게 유지합니다.",
+    "팀 리더나 운영 조직 니즈는 뒤로 밀립니다."
+  )
+];
+
 const CREATOR_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
   answerOption(
     "solo_creator",
@@ -366,7 +734,14 @@ const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[
       /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|진료\s*기록|투약|의료비|사료|보험|장례|말기\s*케어|전생애|생애\s*주기)/iu,
     questionSubject: "보호자 유형",
     personReference: "그 보호자",
-    answerOptions: PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS
+    answerOptions: PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS,
+    topicAnswerOptions: {
+      buyer_user_split: PET_LIFECYCLE_BUYER_USER_OPTIONS,
+      value_prop_switching_reason: PET_LIFECYCLE_VALUE_PROP_OPTIONS,
+      mvp_validation_scope: PET_LIFECYCLE_MVP_SCOPE_OPTIONS,
+      first_validation_experiment: PET_LIFECYCLE_VALIDATION_EXPERIMENT_OPTIONS,
+      non_goal_boundaries: PET_LIFECYCLE_NON_GOAL_OPTIONS
+    }
   },
   {
     id: "healthcare",
@@ -398,7 +773,51 @@ const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[
       /(?:식당|카페|매장|소상공인|예약|주문|픽업|배달|단골|로컬\s*커머스|restaurant|cafe|store|merchant|reservation|order|pickup|delivery)/iu,
     questionSubject: "고객/운영자 유형",
     personReference: "그 사람",
-    answerOptions: LOCAL_COMMERCE_PRIMARY_CUSTOMER_OPTIONS
+    answerOptions: LOCAL_COMMERCE_PRIMARY_CUSTOMER_OPTIONS,
+    topicAnswerOptions: {
+      buyer_user_split: LOCAL_COMMERCE_BUYER_USER_OPTIONS,
+      value_prop_switching_reason: LOCAL_COMMERCE_VALUE_PROP_OPTIONS,
+      mvp_validation_scope: LOCAL_COMMERCE_MVP_SCOPE_OPTIONS,
+      first_validation_experiment: LOCAL_COMMERCE_VALIDATION_EXPERIMENT_OPTIONS,
+      non_goal_boundaries: LOCAL_COMMERCE_NON_GOAL_OPTIONS
+    }
+  },
+  {
+    id: "founder_validation",
+    pattern:
+      /(?:창업자|예비\s*창업|스타트업|1\s*인\s*창업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|founder|startup|customer\s*interview|product\s*spec|idea\s*validation|solo\s*founder)/iu,
+    questionSubject: "창업자 유형",
+    personReference: "그 창업자",
+    answerOptions: FOUNDER_VALIDATION_PRIMARY_CUSTOMER_OPTIONS,
+    topicAnswerOptions: {
+      buyer_user_split: [
+        answerOption(
+          "founder_decides_and_uses",
+          "창업자가 직접 결정하고 쓴다",
+          "창업자가 직접 비용을 내고 질문·스펙 산출물을 사용한다.",
+          "첫 구매자와 사용자가 같아 검증이 단순합니다.",
+          "팀이나 조직 승인 흐름은 놓칠 수 있습니다."
+        ),
+        answerOption(
+          "advisor_or_team_influences",
+          "멘토·팀이 판단에 관여한다",
+          "창업자가 쓰지만 멘토, 공동창업자, 팀원이 산출물 신뢰도를 함께 판단한다.",
+          "공유와 리뷰 요구를 일찍 볼 수 있습니다.",
+          "개인 창업자용 첫 흐름이 복잡해질 수 있습니다."
+        ),
+        answerOption(
+          "accelerator_or_program_buyer",
+          "프로그램/조직이 구매자다",
+          "액셀러레이터나 교육 프로그램이 비용을 내고 창업자가 사용한다.",
+          "B2B 구매 가능성을 확인합니다.",
+          "개별 창업자의 직접 지불 의향은 약하게 보일 수 있습니다."
+        )
+      ],
+      value_prop_switching_reason: FOUNDER_VALIDATION_VALUE_PROP_OPTIONS,
+      mvp_validation_scope: FOUNDER_VALIDATION_MVP_SCOPE_OPTIONS,
+      first_validation_experiment: FOUNDER_VALIDATION_EXPERIMENT_OPTIONS,
+      non_goal_boundaries: FOUNDER_VALIDATION_NON_GOAL_OPTIONS
+    }
   },
   {
     id: "creator",
@@ -575,6 +994,15 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
   ]
 };
 
+const IDEA_FIT_REQUIRED_TOPIC_KEYS = new Set([
+  "primary_customer_narrowing",
+  "buyer_user_split",
+  "value_prop_switching_reason",
+  "mvp_validation_scope",
+  "first_validation_experiment",
+  "non_goal_boundaries"
+]);
+
 export function answerOptionsForQuestion(
   topicKey: string | undefined,
   expectedAnswerType: AmbiguityExpectedAnswerType
@@ -610,6 +1038,16 @@ function contextualAnswerOptionsForQuestion(
 
   if (topicKey === "primary_customer_narrowing" && primaryCustomerProfile) {
     return primaryCustomerProfile.answerOptions;
+  }
+
+  const topicAnswerOptions = topicKey ? primaryCustomerProfile?.topicAnswerOptions?.[topicKey] : undefined;
+
+  if (topicAnswerOptions) {
+    return topicAnswerOptions;
+  }
+
+  if (topicKey && IDEA_FIT_REQUIRED_TOPIC_KEYS.has(topicKey)) {
+    return [];
   }
 
   return answerOptionsForQuestion(topicKey, expectedAnswerType);

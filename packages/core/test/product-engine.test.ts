@@ -251,8 +251,12 @@ describe("PR-04 ProductEngine reducer", () => {
           ambiguityRoutingPath: "human_judgment",
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
-          expectedAnswerType: "text",
-          answerOptions: [],
+          expectedAnswerType: "choice",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" }),
+            expect.objectContaining({ label: "막연한 아이디어를 정리하는 창업자" }),
+            expect.objectContaining({ label: "근거 추적을 중시하는 빌더" })
+          ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
           repeatLimit: 16
@@ -304,13 +308,13 @@ describe("PR-04 ProductEngine reducer", () => {
     const firstSevenQuestionTexts = state.openIssues.slice(0, 7).map((issue) => issue.questionText);
 
     expect(firstSevenQuestionTexts).toEqual([
-      "“A focused founder brief generator”를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?",
-      "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
-      "그 사람이 겪는 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
-      "그 사람이 지금 쓰는 방법을 두고 “A focused founder brief generator”를 선택하게 만들 쉬운 이유 하나는 무엇인가요?",
-      "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
-      "“Help solo founders turn a rough idea into a traceable product spec.”에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?",
-      "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
+      "“A focused founder brief generator”를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?",
+      "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
+      "창업자가 아이디어를 스펙과 고객 질문으로 바꾸는 과정에서 가장 큰 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
+      "창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 “A focused founder brief generator”를 선택할 이유 하나는 무엇인가요?",
+      "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+      "“Help solo founders turn a rough idea into a traceable product spec.”에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?",
+      "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?"
     ]);
     expect(state.openIssues[0]?.questionText).toContain("A focused founder brief generator");
     expect(state.openIssues[5]?.questionText).toContain("Help solo founders turn a rough idea");
@@ -357,8 +361,10 @@ describe("PR-04 ProductEngine reducer", () => {
           severity: "high",
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
-          expectedAnswerType: "text",
-          answerOptions: [],
+          expectedAnswerType: "choice",
+          answerOptions: expect.arrayContaining([
+            expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
+          ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
         })
       ])
@@ -710,7 +716,7 @@ describe("PR-04 ProductEngine reducer", () => {
       caseKey: "local_commerce",
       rawIdea: "동네 식당과 카페의 예약, 픽업 주문, 단골 혜택을 한 번에 관리하는 앱",
       intakeAnswer: "소규모 매장 운영자와 반복 방문 고객 중 누구를 먼저 검증할지 정한다.",
-      questionSubject: "고객/운영자 유형",
+      questionSubject: "매장/손님 유형",
       expectedLabels: [
         "소규모 매장 운영자",
         "반복 방문하는 단골 고객",

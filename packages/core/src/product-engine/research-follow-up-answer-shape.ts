@@ -542,10 +542,15 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: Re
     ? answerOptionsForQuestion(questionTopicKey, researchFollowUpExpectedAnswerType(input))
     : undefined;
   const questionCandidateOptionsAreGeneric = looksLikeGenericBuilderSegmentOptions(questionCandidateOptions);
+  const domainSpecificProfile = primaryCustomerContextProfileForText(domainSpecificQuestionContext(input));
+  const shouldPreferDomainOptionsOverGenericCandidates =
+    domainSpecificOptions.length > 0 &&
+    questionCandidateOptionsAreGeneric &&
+    domainSpecificProfile?.id !== "founder_validation";
 
   if (
     questionCandidateOptions.length &&
-    !(domainSpecificOptions.length && questionCandidateOptionsAreGeneric)
+    !shouldPreferDomainOptionsOverGenericCandidates
   ) {
     return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
   }

@@ -2373,6 +2373,7 @@ describe("PR-02 sidecar health shell", () => {
       });
       expect(seenPrompt).toContain("Prompt artifact: generated-ambiguity-questions.v1.md");
       expect(seenPrompt).toContain("Do not use a fixed question template");
+      expect(seenPrompt).toContain("Apply an Idea-Fit Gate");
       expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
     } finally {
@@ -7445,8 +7446,10 @@ describe("PR-02 sidecar health shell", () => {
                   severity: "high",
                   uncertaintyType: "vague",
                   whyItMatters: expect.any(String),
-                  expectedAnswerType: "text",
-                  answerOptions: [],
+                  expectedAnswerType: "choice",
+                  answerOptions: expect.arrayContaining([
+                    expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
+                  ]),
                   decisionItUnlocks: expect.any(String),
                   possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
                 })
@@ -7503,8 +7506,10 @@ describe("PR-02 sidecar health shell", () => {
         severity: "high",
         whyItMatters: expect.any(String),
         decisionItUnlocks: expect.any(String),
-        expectedAnswerType: "text",
-        answerOptions: [],
+        expectedAnswerType: "choice",
+        answerOptions: expect.arrayContaining([
+          expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
+        ]),
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
