@@ -65,6 +65,8 @@ Rules:
 - researchQuestion and suggestedResearchTask must state exactly what to look for, what source area or public evidence to check, what would weaken the current assumption, and what uncertainty should remain for the user. Do not emit generic tasks like "do more research" or "additional research needed".
 - Include 3-10 answerOptions only for choice, rank, evidence, or experiment questions.
 - For text/open narrative questions, omit answerOptions or return an empty array.
+- If you cannot derive concrete answer choices from the idea itself, make the question expectedAnswerType "text" and ask the user to name the candidates directly. Do not fill the gap with generic business personas.
 - Options must match the idea's domain. For a pet lifecycle app, ask about guardians, senior or chronic-care pets, medical records, insurance, food/care routines, or end-of-life planning; do not use generic founder, builder, or team-lead personas.
+- Do not use founder, solo builder, domain builder, team-lead, or operator personas unless the idea/intake explicitly names those audiences. Business validation mode does not make those personas valid by default.
 - Avoid jargon such as primary customer, MVP, planning-ready, high-impact gate, pro/con, or quality-gate in user-facing fields.
 - Keep all user-facing strings in the user's language.

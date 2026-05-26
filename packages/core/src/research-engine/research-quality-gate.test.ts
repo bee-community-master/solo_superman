@@ -130,7 +130,7 @@ describe("Decision-linked research quality gate", () => {
     });
   });
 
-  it("turns customer-segment evidence gaps into one-of-many customer choice prompts", () => {
+  it("asks for direct customer candidates when customer evidence names only incidental generic personas", () => {
     const researchTask = task({
       objective: "초기 고객 세그먼트와 사용자 성향 좁히기"
     });
@@ -142,12 +142,15 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
+      additionalQuestions: [expect.stringContaining("선택지 없이")]
     });
+    expect(matrix.additionalQuestions[0]).toContain("첫 고객 후보를 2~4개로 직접 적고");
+    expect(matrix.additionalQuestions[0]).not.toContain("혼자 만드는 초기 창업자");
+    expect(matrix.additionalQuestions[0]).not.toContain("팀 리더/운영 담당자");
     expect(matrix.additionalQuestions[0]).not.toContain("어느 방향으로 판단");
   });
 
-  it("uses evidence-derived customer candidates in listed follow-up prompts", () => {
+  it("does not infer a fixed founder/builder/team list from incidental evidence wording", () => {
     const researchTask = task({
       objective: "초기 고객 세그먼트와 사용자 성향 좁히기"
     });
@@ -158,11 +161,12 @@ describe("Decision-linked research quality gate", () => {
     });
     const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
 
-    expect(matrix.additionalQuestions[0]).toContain("리서치 단서에서 우선 비교할 고객 후보");
-    expect(matrix.additionalQuestions[0]).toContain("- 혼자 만드는 초기 창업자");
-    expect(matrix.additionalQuestions[0]).toContain("- 도메인 전문 1인 빌더");
-    expect(matrix.additionalQuestions[0]).toContain("- 팀 리더/운영 담당자");
-    expect(matrix.additionalQuestions[0]).toContain("어느 성향의 고객에 집중");
+    expect(matrix.additionalQuestions[0]).toContain("선택지 없이");
+    expect(matrix.additionalQuestions[0]).toContain("이 아이디어에 맞는 첫 고객 후보를 2~4개로 직접 적고");
+    expect(matrix.additionalQuestions[0]).not.toContain("- 혼자 만드는 초기 창업자");
+    expect(matrix.additionalQuestions[0]).not.toContain("- 도메인 전문 1인 빌더");
+    expect(matrix.additionalQuestions[0]).not.toContain("- 팀 리더/운영 담당자");
+    expect(matrix.additionalQuestions[0]).not.toContain("어느 성향의 고객에 집중");
   });
 
   it("asks for direct customer candidates instead of inventing generic founder options", () => {
@@ -700,7 +704,7 @@ describe("Decision-linked research quality gate", () => {
 
     expect(matrix).toMatchObject({
       balanceStatus: "missing_con_evidence",
-      additionalQuestions: [expect.stringContaining("어느 성향의 고객에 집중")]
+      additionalQuestions: [expect.stringContaining("선택지 없이")]
     });
     expect(matrix.additionalQuestions[0]).not.toContain("진행 후보로 둘지");
     expect(matrix.additionalQuestions[0]).not.toContain("Pro:");

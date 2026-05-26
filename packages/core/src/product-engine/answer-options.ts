@@ -421,29 +421,6 @@ export function isPetLifecycleContextText(contextText: string | undefined) {
 }
 
 const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAnswerOption[]>>> = {
-  primary_customer_narrowing: [
-    answerOption(
-      "solo_founders",
-      "혼자 만드는 초기 창업자",
-      "가장 먼저 검증할 primary customer는 혼자 제품을 만들기 시작한 초기 창업자다.",
-      "문제와 채널을 좁혀 인터뷰가 빨라집니다.",
-      "팀/조직형 고객의 요구는 놓칠 수 있습니다."
-    ),
-    answerOption(
-      "domain_expert_builders",
-      "도메인 전문 1인 빌더",
-      "가장 먼저 검증할 primary customer는 특정 업계 경험이 있고 직접 도구를 만드는 1인 빌더다.",
-      "고통과 전문성이 뚜렷해 깊은 답변을 얻기 쉽습니다.",
-      "시장 크기와 반복 채널 검증은 더 필요합니다."
-    ),
-    answerOption(
-      "two_segment_probe",
-      "두 세그먼트 비교 검증",
-      "초기 창업자와 도메인 전문 1인 빌더를 같은 질문으로 비교 검증한다.",
-      "성급한 customer lock-in을 줄입니다.",
-      "첫 배치의 실험 범위가 넓어집니다."
-    )
-  ],
   customer_signal_selection: [
     answerOption(
       "repeat_manual_pain",
@@ -611,6 +588,10 @@ export function answerOptionsForQuestion(
   expectedAnswerType: AmbiguityExpectedAnswerType | undefined
 ) {
   if (expectedAnswerType === "text") {
+    return [];
+  }
+
+  if (topicKey === "primary_customer_narrowing") {
     return [];
   }
 

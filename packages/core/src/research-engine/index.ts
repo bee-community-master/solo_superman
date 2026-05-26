@@ -429,18 +429,6 @@ function customerFallbackCandidatesForContext(text: string) {
 
 const CUSTOMER_CANDIDATE_LABEL_RULES = [
   {
-    label: "혼자 만드는 초기 창업자",
-    pattern: /(?:solo\s*founder|founder|창업자|혼자|개인|1인|one[-\s]?person)/iu
-  },
-  {
-    label: "도메인 전문 1인 빌더",
-    pattern: /(?:domain|전문|업계|빌더|builder|expert)/iu
-  },
-  {
-    label: "팀 리더/운영 담당자",
-    pattern: /(?:team|팀|리더|운영|담당자|organization|organisation|buyer|조직|관리자)/iu
-  },
-  {
     label: "소상공인/자영업 운영자",
     pattern: /(?:소상공|자영업|small\s*business|smb|merchant|store\s*owner)/iu
   },

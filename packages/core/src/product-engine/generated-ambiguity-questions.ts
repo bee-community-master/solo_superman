@@ -88,6 +88,8 @@ const PET_LIFECYCLE_CONTEXT_PATTERN =
   /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|의료비|급여|사료|보험|장례|말기\s*케어|전생애|생애주기|lifecycle)/iu;
 const GENERIC_BUILDER_PERSONA_PATTERN =
   /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|도메인\s*전문\s*1\s*인\s*빌더|팀\s*리더|운영\s*담당자|solo\s*founder|founder|domain\s*builder|team\s*lead|operator)/iu;
+const GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN =
+  /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업\s*(?:창업자|팀|리더|운영\s*담당자)|founder|startup\s+(?:founder|team|lead|operator)|solo\s*builder|1\s*인\s*빌더|domain\s*builder|팀\s*리더|운영\s*담당자|운영\s*팀|team\s*lead|operator|operations?)/iu;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
@@ -243,6 +245,7 @@ function contextualGeneratedQuestionIssues(
     ...questions.flatMap(generatedQuestionUserFacingTexts)
   ].join("\n");
   const isPetLifecycleContext = PET_LIFECYCLE_CONTEXT_PATTERN.test(combinedContext);
+  const allowsGenericBuilderPersona = GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
 
   questions.forEach((question, questionIndex) => {
     generatedQuestionUserFacingTexts(question).forEach((text) => {
@@ -255,10 +258,6 @@ function contextualGeneratedQuestionIssues(
       }
     });
 
-    if (!isPetLifecycleContext) {
-      return;
-    }
-
     (question.answerOptions ?? []).forEach((option, optionIndex) => {
       const optionText = [
         option.label,
@@ -267,7 +266,17 @@ function contextualGeneratedQuestionIssues(
         option.secondaryDetail ?? ""
       ].join("\n");
 
-      if (GENERIC_BUILDER_PERSONA_PATTERN.test(optionText)) {
+      const hasGenericBuilderPersona = GENERIC_BUILDER_PERSONA_PATTERN.test(optionText);
+
+      if (hasGenericBuilderPersona && !allowsGenericBuilderPersona) {
+        issue(
+          issues,
+          `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
+          "generated question options must be derived from the idea; generic founder/builder/team personas are only allowed when the idea names that audience"
+        );
+      }
+
+      if (isPetLifecycleContext && hasGenericBuilderPersona) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
