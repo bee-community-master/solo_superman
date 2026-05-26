@@ -219,6 +219,7 @@ import {
 } from "./chatgpt-browser-delegation";
 import { sha256Hex } from "./deterministic-hash";
 import {
+  IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS,
   answerOptionsForQuestion,
   answerOptionsForSeed,
   primaryCustomerContextProfileForText
@@ -1997,15 +1998,6 @@ function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQues
 
 type AmbiguityIssueSeedSource = "deterministic" | "generated_json";
 
-const IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS = new Set([
-  "primary_customer_narrowing",
-  "buyer_user_split",
-  "value_prop_switching_reason",
-  "mvp_validation_scope",
-  "first_validation_experiment",
-  "non_goal_boundaries"
-]);
-
 function questionTextForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
@@ -2030,7 +2022,6 @@ function suggestedResearchTaskForSeed(
 
 function expectedAnswerTypeForSeed(
   seed: AmbiguityIssueSeed,
-  context: OnboardingQuestionContext,
   source: AmbiguityIssueSeedSource,
   answerOptions: readonly AmbiguityAnswerOption[] | undefined
 ): AmbiguityExpectedAnswerType {
@@ -2068,7 +2059,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       ...seed,
       contextText
     });
-    const expectedAnswerType = expectedAnswerTypeForSeed(seed, context, input.source, initialAnswerOptions);
+    const expectedAnswerType = expectedAnswerTypeForSeed(seed, input.source, initialAnswerOptions);
     const answerOptions =
       expectedAnswerType === seed.expectedAnswerType
         ? initialAnswerOptions

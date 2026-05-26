@@ -85,15 +85,29 @@ const ALLOWED_ROUTES = new Set<AmbiguityPossibleRoute>([
 const ALLOWED_AMBIGUITY_DIMENSIONS = new Set<AmbiguityReductionDimension>(AMBIGUITY_REDUCTION_DIMENSIONS);
 const ALLOWED_AMBIGUITY_ROUTING_PATHS = new Set<AmbiguityRoutingPath>(AMBIGUITY_ROUTING_PATHS);
 const PET_LIFECYCLE_CONTEXT_PATTERN =
+  /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|veterinary|동물\s*진료|동물\s*의료|동물\s*보험|펫\s*보험|반려\s*(?:동물|견|묘).{0,20}(?:기록|의료|보험|장례|급여|일상|전생애|생애주기)|사료|동물\s*장례|반려\s*(?:동물|견|묘).{0,20}말기\s*케어|동물\s*말기\s*케어|펫\s*말기\s*케어)/iu;
+const PET_LIFECYCLE_ANCHOR_PATTERN =
   /(?:반려\s*동물|반려견|반려묘|보호자|펫\b|pet\b|guardian|companion\s+animal|clinic|veterinary|medical|record|daily\s*care|동물병원|수의|진료|의료\s*기록|기록|의료비|투약|급여|사료|보험|insurance|장례|funeral|end-of-life|말기\s*케어|전생애|생애주기|lifecycle)/iu;
 const LOCAL_COMMERCE_CONTEXT_PATTERN =
-  /(?:식당|카페|매장|소상공인|예약|주문|픽업|배달|단골|손님|로컬\s*커머스|restaurant|cafe|store|merchant|reservation|order|pickup|delivery|loyalty|customer)/iu;
+  /(?:식당|카페|매장|소상공인|예약|주문|픽업|배달|단골|손님|로컬\s*커머스|restaurant|cafe|merchant|reservation|order|pickup|delivery|loyalty)/iu;
+const LOCAL_COMMERCE_ANCHOR_PATTERN =
+  /(?:식당|카페|매장|소상공인|예약|주문|픽업|배달|단골|손님|고객|로컬\s*커머스|restaurant|cafe|store|merchant|reservation|order|pickup|delivery|loyalty|customer)/iu;
 const FOUNDER_VALIDATION_CONTEXT_PATTERN =
-  /(?:창업자|예비\s*창업|스타트업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|질문\s*품질|근거\s*추적|founder|startup|customer\s*interview|product\s*spec|idea\s*validation|question|traceable)/iu;
+  /(?:창업자|예비\s*창업|스타트업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|\bfounder\b|\bstartup\b|customer\s*interview|product\s*spec|idea\s*validation|\bsolo\s*founder\b)/iu;
+const FOUNDER_VALIDATION_ANCHOR_PATTERN =
+  /(?:창업자|예비\s*창업|스타트업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|질문\s*품질|근거\s*추적|\bfounder\b|\bstartup\b|customer\s*interview|product\s*spec|idea\s*validation|\bquestion\b|\btraceable\b)/iu;
+const GENERIC_FOUNDER_PERSONA_PATTERN =
+  /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|초기\s*창업자|\bsolo\s*founder\b|\bfounder\b)/iu;
 const GENERIC_BUILDER_PERSONA_PATTERN =
-  /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|도메인\s*전문\s*1\s*인\s*빌더|팀\s*리더|운영\s*담당자|solo\s*founder|founder|domain\s*builder|team\s*lead|operator)/iu;
+  /(?:도메인\s*전문\s*1\s*인\s*빌더|\bdomain\s*builder\b)/iu;
+const GENERIC_TEAM_OPERATOR_PERSONA_PATTERN =
+  /(?:팀\s*리더|운영\s*담당자|\bteam\s*lead\b|\boperator\b)/iu;
+const GENERIC_FOUNDER_PERSONA_ALLOWED_CONTEXT_PATTERN =
+  /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업|\bfounder\b|\bstartup\b|\bsolo\s*founder\b)/iu;
 const GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN =
-  /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업\s*(?:창업자|팀|리더|운영\s*담당자)|founder|startup\s+(?:founder|team|lead|operator)|solo\s*builder|1\s*인\s*빌더|domain\s*builder|팀\s*리더|운영\s*담당자|운영\s*팀|team\s*lead|operator|operations?)/iu;
+  /(?:1\s*인\s*빌더|도메인\s*전문\s*빌더|도메인\s*전문\s*1\s*인\s*빌더|\bsolo\s*builder\b|\bdomain\s*builder\b)/iu;
+const GENERIC_TEAM_OPERATOR_PERSONA_ALLOWED_CONTEXT_PATTERN =
+  /(?:팀\s*리더|운영\s*담당자|운영\s*팀|\bteam\s*lead\b|\boperator\b)/iu;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
@@ -110,10 +124,10 @@ const DECISION_AXIS_PATTERNS = [
   /(?:채널|어디에서\s*(?:만나|찾|모집)|channel|acquisition)/iu
 ] as const;
 
-const IDEA_FIT_CONTEXT_PATTERNS = [
-  PET_LIFECYCLE_CONTEXT_PATTERN,
-  LOCAL_COMMERCE_CONTEXT_PATTERN,
-  FOUNDER_VALIDATION_CONTEXT_PATTERN
+const IDEA_FIT_CONTEXT_PROFILES = [
+  { contextPattern: PET_LIFECYCLE_CONTEXT_PATTERN, anchorPattern: PET_LIFECYCLE_ANCHOR_PATTERN },
+  { contextPattern: LOCAL_COMMERCE_CONTEXT_PATTERN, anchorPattern: LOCAL_COMMERCE_ANCHOR_PATTERN },
+  { contextPattern: FOUNDER_VALIDATION_CONTEXT_PATTERN, anchorPattern: FOUNDER_VALIDATION_ANCHOR_PATTERN }
 ] as const;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -176,7 +190,7 @@ function questionHasMultipleDecisionAxes(question: string) {
 function ideaFitCuePatternForContext(contextText: string | undefined) {
   const normalizedContext = contextText ?? "";
 
-  return IDEA_FIT_CONTEXT_PATTERNS.find((pattern) => pattern.test(normalizedContext));
+  return IDEA_FIT_CONTEXT_PROFILES.find((profile) => profile.contextPattern.test(normalizedContext))?.anchorPattern;
 }
 
 function issue(issues: string[], path: string, message: string) {
@@ -261,7 +275,9 @@ function contextualGeneratedQuestionIssues(
     ...questions.flatMap(generatedQuestionUserFacingTexts)
   ].join("\n");
   const isPetLifecycleContext = PET_LIFECYCLE_CONTEXT_PATTERN.test(combinedContext);
+  const allowsGenericFounderPersona = GENERIC_FOUNDER_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
   const allowsGenericBuilderPersona = GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
+  const allowsGenericTeamOperatorPersona = GENERIC_TEAM_OPERATOR_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
   const ideaFitCuePattern = ideaFitCuePatternForContext(contextText);
 
   questions.forEach((question, questionIndex) => {
@@ -291,7 +307,11 @@ function contextualGeneratedQuestionIssues(
         option.secondaryDetail ?? ""
       ].join("\n");
 
+      const hasGenericFounderPersona = GENERIC_FOUNDER_PERSONA_PATTERN.test(optionText);
       const hasGenericBuilderPersona = GENERIC_BUILDER_PERSONA_PATTERN.test(optionText);
+      const hasGenericTeamOperatorPersona = GENERIC_TEAM_OPERATOR_PERSONA_PATTERN.test(optionText);
+      const hasAnyGenericBuilderPersona =
+        hasGenericFounderPersona || hasGenericBuilderPersona || hasGenericTeamOperatorPersona;
 
       if (ideaFitCuePattern && !ideaFitCuePattern.test(optionText)) {
         issue(
@@ -301,7 +321,11 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (hasGenericBuilderPersona && !allowsGenericBuilderPersona) {
+      if (
+        (hasGenericFounderPersona && !allowsGenericFounderPersona) ||
+        (hasGenericBuilderPersona && !allowsGenericBuilderPersona) ||
+        (hasGenericTeamOperatorPersona && !allowsGenericTeamOperatorPersona)
+      ) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
@@ -309,7 +333,7 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (isPetLifecycleContext && hasGenericBuilderPersona) {
+      if (isPetLifecycleContext && hasAnyGenericBuilderPersona) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,

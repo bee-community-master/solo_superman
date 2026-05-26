@@ -113,6 +113,172 @@ function validGeneratedQuestionSet() {
   return generatedQuestionSetWithFirstOptions(validPetGuardianAnswerOptions);
 }
 
+function generatedHealthcareRecordQuestionSet() {
+  return {
+    schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+    sourceSummary: "환자 진료 기록과 복약 알림 관리 앱",
+    questions: [
+      {
+        sectionRef: "Target Customer",
+        topicKey: "healthcare_record_user_segment",
+        uncertaintyType: "vague",
+        severity: "high",
+        summary: "첫 사용자 세그먼트가 넓음",
+        whyItMatters: "환자 유형에 따라 진료 기록, 복약, 가족 공유 중 첫 범위가 달라집니다.",
+        questionText: "환자 진료 기록 앱을 먼저 쓸 사용자 유형은 누구인가요?",
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        answerOptions: [
+          {
+            id: "chronic_condition_patient",
+            label: "만성질환 환자",
+            value: "만성질환 환자의 진료 기록과 복약 관리를 먼저 검증합니다.",
+            primaryDetail: "반복 방문과 복약 기록 문제가 선명합니다.",
+            secondaryDetail: "가벼운 건강관리 사용자는 별도 확인이 필요합니다."
+          },
+          {
+            id: "family_caregiver",
+            label: "가족 건강 보호자",
+            value: "가족의 진료 기록을 대신 챙기는 보호자를 먼저 검증합니다.",
+            primaryDetail: "대리 관리와 공유 문제가 드러납니다.",
+            secondaryDetail: "본인이 직접 쓰는 흐름은 별도 확인이 필요합니다."
+          },
+          {
+            id: "post_visit_record_keeper",
+            label: "진료 전후 기록 사용자",
+            value: "진료 전후 기록을 자주 다시 찾는 사용자를 먼저 검증합니다.",
+            primaryDetail: "기록 찾기 문제를 직접 확인합니다.",
+            secondaryDetail: "방문 빈도가 낮은 사용자는 약하게 보일 수 있습니다."
+          }
+        ],
+        decisionItUnlocks: "첫 인터뷰 대상과 진료 기록 범위를 정합니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "환자 유형별 진료 기록 관리 불편을 확인합니다.",
+        possibleRoutes: ["question", "decision_candidate"],
+        suggestedResearchTask: "환자 진료 기록 앱 공개 후기에서 불편 사례를 찾습니다."
+      },
+      {
+        sectionRef: "Problem",
+        topicKey: "healthcare_record_pain",
+        uncertaintyType: "missing",
+        severity: "high",
+        summary: "가장 아픈 기록 관리 문제가 아직 구체적이지 않음",
+        whyItMatters: "첫 기능은 환자가 반복해서 다시 찾는 기록에서 시작해야 합니다.",
+        questionText: "환자가 진료 기록을 다시 찾기 어려운 순간은 언제인가요?",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 문제 문장과 리서치 방향을 정합니다.",
+        ambiguityDimension: "context",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "환자가 반복해서 다시 요청하는 진료 기록 종류를 확인합니다.",
+        possibleRoutes: ["question", "research_needed"],
+        suggestedResearchTask: "진료 기록, 검사 결과, 복약 이력의 반복 불편 사례를 찾습니다."
+      },
+      {
+        sectionRef: "Value Proposition",
+        topicKey: "healthcare_existing_tools_counterpoint",
+        uncertaintyType: "missing_con_evidence",
+        severity: "medium",
+        summary: "기존 병원 앱이나 메모로 충분하다는 반례가 필요함",
+        whyItMatters: "새 앱 전환 이유가 약하면 진료 기록 통합 가치가 과장될 수 있습니다.",
+        questionText: "기존 병원 앱이나 메모로 충분하다는 반례는 무엇인가요?",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "전환 이유와 반례 리서치 방향을 정합니다.",
+        ambiguityDimension: "assumption_pressure",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "기존 병원 앱이나 메모로 충분하다는 공개 반례를 확인합니다.",
+        possibleRoutes: ["question", "missing_con_evidence"],
+        suggestedResearchTask: "병원 앱 리뷰와 환자 커뮤니티에서 기존 도구로 충분하다는 반례 자료를 찾습니다."
+      }
+    ]
+  };
+}
+
+function generatedFounderValidationQuestionSet() {
+  return {
+    schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+    sourceSummary: "customer interview 준비용 제품 스펙 생성기",
+    questions: [
+      {
+        sectionRef: "Target Customer",
+        topicKey: "founder_interview_segment",
+        uncertaintyType: "vague",
+        severity: "high",
+        summary: "첫 창업자 세그먼트가 넓음",
+        whyItMatters: "창업자 상황에 따라 질문 품질, 스펙, 근거 추적 중 첫 가치가 달라집니다.",
+        questionText: "customer interview를 준비하는 창업자 중 먼저 검증할 유형은 누구인가요?",
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        answerOptions: [
+          {
+            id: "paid_interview_prep_founder",
+            label: "유료 인터뷰를 준비하는 창업자",
+            value: "유료 customer interview를 준비하는 창업자를 먼저 검증합니다.",
+            primaryDetail: "질문 품질과 지불 의향이 직접 연결됩니다.",
+            secondaryDetail: "팀 협업 요구는 별도 확인이 필요합니다."
+          },
+          {
+            id: "rough_idea_founder",
+            label: "막연한 아이디어를 정리하는 창업자",
+            value: "아이디어를 제품 스펙으로 바꾸려는 창업자를 먼저 검증합니다.",
+            primaryDetail: "초기 모호성 감소 가치를 확인합니다.",
+            secondaryDetail: "이미 고객이 있는 창업자는 별도 확인이 필요합니다."
+          },
+          {
+            id: "traceable_spec_builder",
+            label: "근거 추적 스펙을 원하는 빌더",
+            value: "근거 추적 product spec이 필요한 founder를 먼저 검증합니다.",
+            primaryDetail: "traceable spec 가치를 확인합니다.",
+            secondaryDetail: "비즈니스 검증보다 개발 handoff로 좁혀질 수 있습니다."
+          }
+        ],
+        decisionItUnlocks: "첫 인터뷰 대상과 질문 품질 검증 범위를 정합니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "창업자 유형별 customer interview 준비 불편을 확인합니다.",
+        possibleRoutes: ["question", "decision_candidate"],
+        suggestedResearchTask: "founder 커뮤니티에서 customer interview 질문 준비 불편 사례를 찾습니다."
+      },
+      {
+        sectionRef: "Problem",
+        topicKey: "founder_question_quality_pain",
+        uncertaintyType: "missing",
+        severity: "high",
+        summary: "질문 품질 문제가 아직 구체적이지 않음",
+        whyItMatters: "첫 기능은 창업자가 실제로 틀렸다고 느끼는 질문에서 시작해야 합니다.",
+        questionText: "창업자가 customer interview 질문을 만들 때 가장 자주 막히는 순간은 언제인가요?",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 문제 문장과 질문 생성 기준을 정합니다.",
+        ambiguityDimension: "context",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "창업자 질문 작성 불편을 확인합니다.",
+        possibleRoutes: ["question", "research_needed"],
+        suggestedResearchTask: "founder 인터뷰 준비 자료와 커뮤니티에서 질문 품질 불편 사례를 찾습니다."
+      },
+      {
+        sectionRef: "Value Proposition",
+        topicKey: "founder_template_counterpoint",
+        uncertaintyType: "missing_con_evidence",
+        severity: "medium",
+        summary: "기존 템플릿으로 충분하다는 반례가 필요함",
+        whyItMatters: "기존 ChatGPT나 템플릿으로 충분하면 제품 전환 이유가 약해집니다.",
+        questionText: "기존 ChatGPT나 템플릿으로 충분하다는 창업자 반례는 무엇인가요?",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "전환 이유와 반례 리서치 방향을 정합니다.",
+        ambiguityDimension: "assumption_pressure",
+        ambiguityRoutingPath: "human_judgment",
+        researchQuestion: "기존 템플릿으로 충분하다는 공개 반례를 확인합니다.",
+        possibleRoutes: ["question", "missing_con_evidence"],
+        suggestedResearchTask: "founder 커뮤니티와 제품 리뷰에서 기존 템플릿으로 충분하다는 반례 자료를 찾습니다."
+      }
+    ]
+  };
+}
+
 describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
   it("accepts pet lifecycle questions with pet guardian answer options", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
@@ -127,6 +293,38 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
       "첫 반려동물을 키우는 보호자",
       "노령·만성질환 반려동물 보호자",
       "보험·의료비 관리가 필요한 보호자"
+    ]);
+  });
+
+  it("does not route generic healthcare record language through the pet lifecycle idea-fit gate", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedHealthcareRecordQuestionSet(),
+      {
+        contextText: "환자 진료 기록과 복약 알림을 한 곳에서 관리하는 헬스케어 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.questions[0]?.answerOptions?.map((option) => option.label)).toEqual([
+      "만성질환 환자",
+      "가족 건강 보호자",
+      "진료 전후 기록 사용자"
+    ]);
+  });
+
+  it("does not treat customer interview founder contexts as local-commerce customer contexts", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedFounderValidationQuestionSet(),
+      {
+        contextText: "customer interview를 준비하는 창업자를 위한 제품 스펙과 근거 추적 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.questions[0]?.answerOptions?.map((option) => option.label)).toEqual([
+      "유료 인터뷰를 준비하는 창업자",
+      "막연한 아이디어를 정리하는 창업자",
+      "근거 추적 스펙을 원하는 빌더"
     ]);
   });
 
@@ -163,6 +361,43 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.questions).toEqual([]);
     expect(parsed.issues.join("\n")).toContain("pet lifecycle generated questions must use pet guardian/domain choices");
+  });
+
+  it("does not allow founder/builder choices just because an unrelated operations idea names operators", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedQuestionSetWithFirstOptions([
+        {
+          id: "solo_founder",
+          label: "초기 창업자",
+          value: "초기 창업자를 먼저 검증합니다.",
+          primaryDetail: "빠른 인터뷰가 가능합니다.",
+          secondaryDetail: "물류 운영자 맥락은 남아 있습니다."
+        },
+        {
+          id: "domain_builder",
+          label: "도메인 전문 1인 빌더",
+          value: "도메인 전문 1인 빌더를 먼저 검증합니다.",
+          primaryDetail: "문제 맥락이 뚜렷합니다.",
+          secondaryDetail: "실제 교대 운영자 맥락은 남아 있습니다."
+        },
+        {
+          id: "shift_operator",
+          label: "교대 운영자",
+          value: "교대 operator를 먼저 검증합니다.",
+          primaryDetail: "현장 운영 관점 검증이 가능합니다.",
+          secondaryDetail: "관리자 구매 맥락은 남아 있습니다."
+        }
+      ]),
+      {
+        contextText: "warehouse operations dashboard for shift operators"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.questions).toEqual([]);
+    expect(parsed.issues.join("\n")).toContain(
+      "generic founder/builder/team personas are only allowed when the idea names that audience"
+    );
   });
 
   it("rejects generic founder personas for any idea that did not name that audience", () => {
