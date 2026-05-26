@@ -202,6 +202,29 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     );
   });
 
+  it("rejects question text that is not anchored to the idea domain", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...validGeneratedQuestionSet(),
+        questions: validGeneratedQuestionSet().questions.map((question, index) =>
+          index === 0
+            ? {
+                ...question,
+                questionText: "어떤 초기 사용자에게 먼저 집중하시겠습니까?"
+              }
+            : question
+        )
+      },
+      {
+        contextText: "동네 식당과 카페의 예약, 픽업 주문, 단골 혜택을 한 번에 관리하는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.questions).toEqual([]);
+    expect(parsed.issues.join("\n")).toContain("generated question must include idea/domain anchors");
+  });
+
   it("rejects internal planning jargon in generated user-facing fields", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
       {

@@ -1140,6 +1140,128 @@ function goalContextLabel(context: OnboardingQuestionContext) {
   return context.goal ? `“${context.goal}”` : "이번 목표";
 }
 
+function contextProfileId(context: OnboardingQuestionContext) {
+  return primaryCustomerContextProfileForText(generatedQuestionSetContextText(context))?.id;
+}
+
+function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuestionContext) {
+  const ideaLabel = ideaContextLabel(context);
+  const goalLabel = goalContextLabel(context);
+
+  switch (contextProfileId(context)) {
+    case "pet_lifecycle": {
+      const questionByTopic: Readonly<Record<string, string>> = {
+        primary_customer_narrowing:
+          `${ideaLabel}를 가장 먼저 테스트할 보호자 유형은 누구이고, 그 보호자는 의료·급여·일상·보험·장례 중 어떤 문제를 지금 겪고 있나요?`,
+        buyer_user_split:
+          "반려동물 기록과 비용 관리는 보호자가 직접 결정하나요, 아니면 가족·동물병원·보험사가 따로 관여하나요?",
+        problem_pain_intensity:
+          "보호자가 의료기록, 급여, 보험, 장례 준비를 관리하다가 가장 큰 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
+        value_prop_switching_reason:
+          `보호자가 병원 앱, 메모, 사진첩, 보험 앱을 두고 ${ideaLabel}를 선택하게 만들 이유 하나는 무엇인가요?`,
+        alternative_dissatisfaction_gap:
+          "보호자는 지금 반려동물 기록과 비용 정보를 어디에 흩어 관리하고, 그 방식이 괜찮을 때와 불편할 때는 언제인가요?",
+        mvp_validation_scope:
+          `${goalLabel}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+        first_validation_experiment:
+          "제품을 만들기 전에 보호자가 반려동물 기록이나 비용 자료를 실제로 맡기려는지 어떻게 작게 확인할 수 있나요?",
+        success_metric_measurability:
+          "첫 검증에서 보호자가 실제 진료·급여·보험 기록을 정리하거나 다시 찾았다고 판단할 관찰 가능한 증거는 무엇인가요?",
+        non_goal_boundaries:
+          "첫 버전에서 동물병원 연동, 보험 청구 자동화, 장례 상담처럼 의도적으로 제외해야 할 반려동물 관리 범위는 무엇인가요?",
+        acquisition_channel_realism:
+          "첫 검증에 참여할 보호자는 동물병원, 보호자 커뮤니티, 보험/의료비 경험자 중 어디서 어떻게 만날 수 있나요?",
+        implementation_resource_fit:
+          "현재 리소스로 의료기록, 급여·일상, 보험·의료비, 장례 준비 중 어떤 반려동물 관리 흐름만 구현할 수 있나요?",
+        founder_advantage:
+          "이 만드는 사람/팀이 반려동물 보호자의 기록·비용·돌봄 문제를 더 잘 이해하거나 풀 수 있는 근거는 무엇인가요?",
+        job_context_specificity:
+          "보호자가 병원 방문 전후, 투약/급여 중, 보험 청구 때, 장례 준비 때 중 어떤 순간에 이 제품을 쓰게 되나요?",
+        operational_risk_boundary:
+          "반려동물 의료·보험·장례 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 법률, 운영 리스크는 무엇인가요?",
+        evidence_balance:
+          "반려동물 보호자가 의료·급여·보험·장례 정보를 한곳에 모으려 한다는 단서와, 기존 방식으로 충분하다는 반례는 각각 무엇인가요?"
+      };
+
+      return questionByTopic[topicKey];
+    }
+    case "local_commerce": {
+      const questionByTopic: Readonly<Record<string, string>> = {
+        primary_customer_narrowing:
+          `${ideaLabel}를 가장 먼저 테스트할 매장/손님 유형은 누구이고, 예약·픽업 주문·단골 혜택 중 어떤 상황을 겪고 있나요?`,
+        buyer_user_split:
+          "이 예약·주문·단골 관리 문제는 매장 운영자가 비용을 내고 손님이 쓰나요, 아니면 손님이 직접 가치를 느끼나요?",
+        problem_pain_intensity:
+          "매장이나 손님이 예약, 픽업 주문, 단골 혜택을 처리하다가 가장 큰 불편은 언제 생기고 어떤 손실로 이어지나요?",
+        value_prop_switching_reason:
+          `매장이나 손님이 전화, 메신저, 배달앱, 쿠폰 수첩을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
+        alternative_dissatisfaction_gap:
+          "지금 매장과 손님은 예약·주문·단골 혜택을 어떤 도구로 처리하고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+        mvp_validation_scope:
+          `${goalLabel}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+        first_validation_experiment:
+          "제품을 만들기 전에 한 매장의 예약·픽업 주문·단골 혜택 관리를 수동으로 도와 실제 사용 의향을 어떻게 확인할 수 있나요?",
+        success_metric_measurability:
+          "첫 검증에서 매장이나 손님이 예약·픽업 주문·단골 혜택 흐름을 실제로 반복 사용했다고 판단할 증거는 무엇인가요?",
+        non_goal_boundaries:
+          "첫 버전에서 결제 연동, 배달망 연동, 다지점 관리자처럼 의도적으로 제외해야 할 매장 운영 범위는 무엇인가요?",
+        acquisition_channel_realism:
+          "첫 검증에 참여할 식당·카페·소규모 매장이나 단골 손님은 어디서 어떻게 모집할 수 있나요?",
+        implementation_resource_fit:
+          "현재 리소스로 예약, 픽업 주문, 단골 혜택 중 어떤 로컬 커머스 흐름만 구현할 수 있나요?",
+        founder_advantage:
+          "이 만드는 사람/팀이 소규모 매장과 손님의 예약·주문·재방문 문제를 더 잘 풀 수 있는 근거는 무엇인가요?",
+        job_context_specificity:
+          "매장 운영자나 손님은 예약 전후, 픽업 주문 중, 재방문 혜택 확인 때 중 어떤 순간에 이 제품을 쓰나요?",
+        operational_risk_boundary:
+          "매장 주문·예약·고객 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 결제, 운영 리스크는 무엇인가요?",
+        evidence_balance:
+          "매장이나 손님이 예약·주문·단골 혜택을 한곳에 모으려 한다는 단서와 기존 도구로 충분하다는 반례는 각각 무엇인가요?"
+      };
+
+      return questionByTopic[topicKey];
+    }
+    case "founder_validation": {
+      const questionByTopic: Readonly<Record<string, string>> = {
+        primary_customer_narrowing:
+          `${ideaLabel}를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?`,
+        buyer_user_split:
+          "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
+        problem_pain_intensity:
+          "창업자가 아이디어를 스펙과 고객 질문으로 바꾸는 과정에서 가장 큰 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
+        value_prop_switching_reason:
+          `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
+        alternative_dissatisfaction_gap:
+          "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+        mvp_validation_scope:
+          `${goalLabel}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+        first_validation_experiment:
+          "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?",
+        success_metric_measurability:
+          "첫 검증에서 창업자가 질문을 더 맞다고 느끼고 고객 인터뷰나 스펙 작성 행동으로 이어졌다고 판단할 증거는 무엇인가요?",
+        non_goal_boundaries:
+          "첫 버전에서 완전 자동 리서치, 자동 구현, 팀 협업처럼 의도적으로 제외해야 할 창업자 지원 범위는 무엇인가요?",
+        acquisition_channel_realism:
+          "유료 고객 인터뷰나 제품 스펙 준비 중인 창업자는 어디서 어떻게 모집할 수 있나요?",
+        implementation_resource_fit:
+          "현재 리소스로 질문 품질, 근거 추적, 스펙 handoff 중 어떤 창업자 검증 흐름만 구현할 수 있나요?",
+        founder_advantage:
+          "이 만드는 사람/팀이 창업자의 아이디어 모호성, 질문 품질, 근거 추적 문제를 더 잘 풀 수 있는 근거는 무엇인가요?",
+        job_context_specificity:
+          "창업자는 아이디어를 처음 정리할 때, 고객 인터뷰 전, 스펙 handoff 전 중 어떤 순간에 이 제품을 쓰나요?",
+        operational_risk_boundary:
+          "창업자 아이디어와 리서치 근거를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 신뢰, 책임 리스크는 무엇인가요?",
+        evidence_balance:
+          "창업자가 맞춤 질문과 근거 추적 스펙을 원한다는 단서와 기존 ChatGPT/템플릿으로 충분하다는 반례는 각각 무엇인가요?"
+      };
+
+      return questionByTopic[topicKey];
+    }
+  }
+
+  return undefined;
+}
+
 const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
   primary_customer_narrowing: (context) => {
     const profile = primaryCustomerContextProfileForText(generatedQuestionSetContextText(context));
@@ -1180,6 +1302,12 @@ const PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (conte
 };
 
 function contextualOnboardingQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
+  const ideaFitQuestion = ideaFitBusinessQuestionText(seed.topicKey, context);
+
+  if (ideaFitQuestion) {
+    return ideaFitQuestion;
+  }
+
   const topicQuestion =
     BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC[seed.topicKey] ??
     PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC[seed.topicKey];
@@ -1869,6 +1997,15 @@ function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQues
 
 type AmbiguityIssueSeedSource = "deterministic" | "generated_json";
 
+const IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS = new Set([
+  "primary_customer_narrowing",
+  "buyer_user_split",
+  "value_prop_switching_reason",
+  "mvp_validation_scope",
+  "first_validation_experiment",
+  "non_goal_boundaries"
+]);
+
 function questionTextForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
@@ -1894,16 +2031,16 @@ function suggestedResearchTaskForSeed(
 function expectedAnswerTypeForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
-  source: AmbiguityIssueSeedSource
+  source: AmbiguityIssueSeedSource,
+  answerOptions: readonly AmbiguityAnswerOption[] | undefined
 ): AmbiguityExpectedAnswerType {
   if (source === "generated_json") {
     return seed.expectedAnswerType;
   }
 
-  const contextText = generatedQuestionSetContextText(context);
-  const hasDomainSpecificCustomerOptions = Boolean(primaryCustomerContextProfileForText(contextText));
-
-  return seed.topicKey === "primary_customer_narrowing" && !hasDomainSpecificCustomerOptions
+  return seed.expectedAnswerType !== "text" &&
+    IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS.has(seed.topicKey) &&
+    !(answerOptions?.length)
     ? "text"
     : seed.expectedAnswerType;
 }
@@ -1923,10 +2060,23 @@ function createAmbiguityIssuesFromSeeds(input: {
   );
 
   return input.seeds.map((seed, index) => {
+    const contextText = generatedQuestionSetContextText(context);
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
-    const expectedAnswerType = expectedAnswerTypeForSeed(seed, context, input.source);
+    const initialAnswerOptions = seed.answerOptions ?? answerOptionsForSeed({
+      ...seed,
+      contextText
+    });
+    const expectedAnswerType = expectedAnswerTypeForSeed(seed, context, input.source, initialAnswerOptions);
+    const answerOptions =
+      expectedAnswerType === seed.expectedAnswerType
+        ? initialAnswerOptions
+        : seed.answerOptions ?? answerOptionsForSeed({
+            ...seed,
+            expectedAnswerType,
+            contextText
+          });
     const answerSelectionMode = expectedAnswerType === "text"
       ? undefined
       : seed.answerSelectionMode ?? (expectedAnswerType === "rank" ? "ranked" : undefined);
@@ -1958,11 +2108,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       questionText: questionTextForSeed(seed, context, input.source),
       expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
-      answerOptions: seed.answerOptions ?? answerOptionsForSeed({
-        ...seed,
-        expectedAnswerType,
-        contextText: generatedQuestionSetContextText(context)
-      }),
+      answerOptions,
       decisionItUnlocks: seed.decisionItUnlocks,
       ambiguityDimension,
       ambiguityRoutingPath,

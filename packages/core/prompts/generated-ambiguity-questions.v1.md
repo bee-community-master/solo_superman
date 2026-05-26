@@ -54,6 +54,8 @@ Rules:
 - Generate 3-15 questions.
 - Use the review-axis metadata to decide what to ask first: first customer segment, buyer/user split, problem intensity, value proposition, first validation, risks, and open uncertainty are examples, not a fixed list.
 - Do not ask from a prefixed template. Generate questions from the specific idea, its missing judgments, and the provided review axes.
+- Apply an Idea-Fit Gate before returning JSON: every question and every answer option must be anchored in actors, jobs, situations, artifacts, pains, constraints, or domain terms that appear in the idea/intake. If a candidate cannot point back to the idea, discard it.
+- Business validation mode is not a license to ask generic startup questions. Business questions must still mention the actual domain actors and artifacts, such as pet guardians and medical/insurance records for a pet lifecycle idea, or merchants/customers and reservations/orders for a local commerce idea.
 - Prefer the weakest execution-changing dimension. If tied, prioritize goal, scope/non-goals, decision authority, and success criteria before lower-impact context.
 - Every question must include ambiguityDimension and ambiguityRoutingPath. These fields are required, not optional.
 - Ask exactly one execution-changing judgment per question. Do not combine customer, scope, and success criteria into one compound question.
