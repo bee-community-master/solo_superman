@@ -1,5 +1,6 @@
 import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { initialResearchAutomationAllowsVisibleChatGpt } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface OnboardingViewProps {
@@ -15,7 +16,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     codexLoginStart,
     idea,
     initialQueueStartBlockerMessages,
-    initialResearchPermission,
     initialResearchAutomationPermission,
     initialBusinessCriticIntensityReason,
     intake,
@@ -26,7 +26,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     setBusinessCriticIntensity,
     setChatGptLoginAcknowledged,
     setIdea,
-    setInitialResearchPermission,
     setInitialResearchAutomationPermission,
     setInitialBusinessCriticIntensityReason,
     setIntake,
@@ -35,6 +34,9 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
   } = controller;
   const readinessClassName = canStart ? "start-readiness start-readiness-ready" : "start-readiness start-readiness-blocked";
   const codexAccount = controller.runtimeStatus?.account ?? null;
+  const visibleChatGptResearchEnabled = initialResearchAutomationAllowsVisibleChatGpt(
+    initialResearchAutomationPermission
+  );
   const codexStatusReason =
     codexAccount?.reason ??
     controller.runtimeStatus?.reason ??
@@ -49,28 +51,30 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
         </div>
         <div className="session-start-layout">
           <div className="session-login-column">
-            <section className="start-guide chatgpt-login-gate" aria-label={copy.questions.chatGptLoginAria}>
-              <div className="login-gate-copy">
-                <h3>{copy.questions.chatGptLoginTitle}</h3>
-                <p>{copy.questions.chatGptLoginDescription}</p>
-                <p className="mode-summary">{copy.questions.chatGptCredentialBoundary}</p>
-              </div>
-              <div className="card-actions panel-actions">
-                <a className="chatgpt-login-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">
-                  {copy.questions.chatGptLoginOpen}
-                </a>
-              </div>
-              <label className="mode-option">
-                <input
-                  type="checkbox"
-                  checked={chatGptLoginAcknowledged}
-                  onChange={(event) => setChatGptLoginAcknowledged(event.target.checked)}
-                />
-                <span>
-                  <strong>{copy.questions.chatGptLoginAcknowledge}</strong>
-                </span>
-              </label>
-            </section>
+            {visibleChatGptResearchEnabled ? (
+              <section className="start-guide chatgpt-login-gate" aria-label={copy.questions.chatGptLoginAria}>
+                <div className="login-gate-copy">
+                  <h3>{copy.questions.chatGptLoginTitle}</h3>
+                  <p>{copy.questions.chatGptLoginDescription}</p>
+                  <p className="mode-summary">{copy.questions.chatGptCredentialBoundary}</p>
+                </div>
+                <div className="card-actions panel-actions">
+                  <a className="chatgpt-login-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">
+                    {copy.questions.chatGptLoginOpen}
+                  </a>
+                </div>
+                <label className="mode-option">
+                  <input
+                    type="checkbox"
+                    checked={chatGptLoginAcknowledged}
+                    onChange={(event) => setChatGptLoginAcknowledged(event.target.checked)}
+                  />
+                  <span>
+                    <strong>{copy.questions.chatGptLoginAcknowledge}</strong>
+                  </span>
+                </label>
+              </section>
+            ) : null}
             <section className="start-guide codex-login-gate" aria-label={copy.questions.codexLoginAria}>
               <div className="login-gate-copy">
                 <h3>{copy.questions.codexLoginTitle}</h3>
@@ -152,27 +156,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
               ))}
               <p className="mode-help">
                 {copy.questions.purposeHelp}
-              </p>
-            </fieldset>
-            <fieldset className="mode-fieldset">
-              <legend>{copy.questions.initialResearchPermission}</legend>
-              {copy.questions.initialResearchPermissionOptions.map((option) => (
-                <label className="mode-option" key={option.permission}>
-                  <input
-                    checked={initialResearchPermission === option.permission}
-                    name="initial-research-permission"
-                    onChange={() => setInitialResearchPermission(option.permission)}
-                    type="radio"
-                    value={option.permission}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                  </span>
-                </label>
-              ))}
-              <p className="mode-help">
-                {copy.questions.initialResearchPermissionHelp}
               </p>
             </fieldset>
             <fieldset className="mode-fieldset">

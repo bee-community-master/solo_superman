@@ -66,7 +66,6 @@ export const DEFAULT_INTAKE = "";
 
 export const WEB_PUBLIC_SAFE_ALLOWLIST_ID = "research_allowlist_web_public_safe" as ResearchAllowlistId;
 
-export type InitialResearchPermission = "allow_public_web" | "not_now";
 export type InitialResearchAutomationPermission = ResearchAutomationPermission;
 
 export type DecisionQueuePageId = "onboarding" | "questions" | "research" | "planning" | "implementation" | "permissions";
@@ -156,6 +155,12 @@ export function initialResearchAutomationAllowsVisibleChatGpt(
   permission: InitialResearchAutomationPermission
 ): boolean {
   return permission === "allow_codex_and_chatgpt_visible";
+}
+
+export function initialResearchAutomationEnablesPublicWebSources(
+  permission: InitialResearchAutomationPermission
+): boolean {
+  return permission !== "manual_only";
 }
 
 export function initialQueueStartBlocker(input: InitialQueueStartReadinessInput): InitialQueueStartBlocker | null {

@@ -483,40 +483,26 @@ const EN_COPY = {
     intakeAnswerPlaceholder: "Describe who this is for, what problem it solves, and what you want to decide in this session.",
     projectPurpose: "Project purpose",
     purposeHelp: "You choose the project purpose. Until you choose, the app will not lock business- or workflow-specific questions.",
-    initialResearchPermission: "Research permission",
-    initialResearchPermissionOptions: [
-      {
-        permission: "not_now" as const,
-        label: "Set up research later",
-        description: "Create questions now and keep public web research disabled until you enable it in the Research tab."
-      },
-      {
-        permission: "allow_public_web" as const,
-        label: "Allow read-only public web research",
-        description: "Enable the public-safe allowlist during onboarding so evidence tasks can use approved read-only sources."
-      }
-    ],
-    initialResearchPermissionHelp: "This only controls public, read-only research sources. It never grants write, credential, account, or paid-service access.",
-    initialResearchAutomationPermission: "Automated research assistance",
+    initialResearchAutomationPermission: "Research setup",
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "Use local questions only",
-        description: "Create the first batch with the local ambiguity algorithm and do not ask Codex or ChatGPT to prepare research."
+        label: "Local questions only for now",
+        description: "Create the first batch with the local ambiguity algorithm. Public web research stays off until you enable it in the Research tab."
       },
       {
         permission: "allow_codex" as const,
-        label: "Allow Codex research preview",
-        description: "Let Codex generate idea-specific questions and research prompts, with local deterministic fallback if Codex is unavailable."
+        label: "Codex + read-only public web research",
+        description: "Enable the public-safe allowlist during onboarding and let Codex generate idea-specific questions and research prompts, with local fallback if Codex is unavailable."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Allow Codex + visible ChatGPT Pro/Deep Research",
-        description: "Let Codex prepare the research handoff and allow ChatGPT Pro/Deep Research only as visible delegation in your own browser."
+        label: "Codex + visible ChatGPT Pro/Deep Research",
+        description: "Enable public web research, let Codex prepare the handoff, and use ChatGPT Pro/Deep Research only as visible delegation in your own browser."
       }
     ],
     initialResearchAutomationPermissionHelp:
-      "ChatGPT Pro/Deep Research is never fully headless here: login, CAPTCHA, usage limits, and final submission stay visible and user-owned.",
+      "This single setting controls both onboarding public read-only sources and automated assistance. It never grants write, credential, account, or paid-service access; ChatGPT is never fully headless.",
     businessCriticIntensity: "Business review intensity",
     intensityReason: "Reason for this intensity",
     intensityReasonPlaceholder: "Note why this level of challenge fits the project.",
@@ -1955,40 +1941,26 @@ const JA_COPY: typeof EN_COPY = {
     intakeAnswerPlaceholder: "誰のために、どの問題を解決し、このセッションで何を決めたいかを書いてください。",
     projectPurpose: "プロジェクト目的",
     purposeHelp: "プロジェクト目的は自分で選びます。選択するまで、事業向け・個人ワークフロー向けの質問は確定しません。",
-    initialResearchPermission: "リサーチ権限",
-    initialResearchPermissionOptions: [
-      {
-        permission: "not_now" as const,
-        label: "リサーチ設定は後で行う",
-        description: "今は質問だけ作成し、Research タブで有効化するまで公開 Web リサーチを無効のままにします。"
-      },
-      {
-        permission: "allow_public_web" as const,
-        label: "読み取り専用の公開 Web リサーチを許可",
-        description: "オンボーディング中に安全な allowlist を有効化し、承認済みの読み取り専用ソースを使えるようにします。"
-      }
-    ],
-    initialResearchPermissionHelp: "これは公開・読み取り専用リサーチソースだけの設定です。書き込み、認証情報、アカウント、有料サービスへのアクセスは許可しません。",
-    initialResearchAutomationPermission: "自動リサーチ補助",
+    initialResearchAutomationPermission: "リサーチ設定",
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "ローカル質問だけを使う",
-        description: "最初の質問セットはローカルの曖昧さ削減アルゴリズムで作り、CodexやChatGPTにはリサーチ準備を依頼しません。"
+        label: "今はローカル質問のみ",
+        description: "最初の質問セットはローカルの曖昧さ削減アルゴリズムで作ります。公開 Web リサーチは Research タブで有効化するまでオフのままです。"
       },
       {
         permission: "allow_codex" as const,
-        label: "Codexのリサーチpreviewを許可",
-        description: "Codexでアイデアに合わせた質問とリサーチpromptを生成し、利用できない場合はローカル決定的フローに戻します。"
+        label: "Codex + 読み取り専用の公開 Web リサーチ",
+        description: "オンボーディング中に安全な allowlist を有効化し、Codexでアイデアに合わせた質問とリサーチpromptを生成します。利用できない場合はローカルフローに戻します。"
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Codex + 見えるChatGPT Pro/Deep Researchを許可",
-        description: "Codexでリサーチ引き継ぎを準備し、ChatGPT Pro/Deep Researchは自分のブラウザで見える委任としてのみ使います。"
+        label: "Codex + 見えるChatGPT Pro/Deep Research",
+        description: "公開 Web リサーチを有効化し、Codexで引き継ぎを準備します。ChatGPT Pro/Deep Researchは自分のブラウザで見える委任としてのみ使います。"
       }
     ],
     initialResearchAutomationPermissionHelp:
-      "ここではChatGPT Pro/Deep Researchを完全headless化しません。ログイン、CAPTCHA、利用制限、最終送信は見える状態でユーザーが所有します。",
+      "この1つの設定で、オンボーディング時の公開・読み取り専用ソースと自動補助の範囲を決めます。書き込み、認証情報、アカウント、有料サービスへのアクセスは許可せず、ChatGPTも完全headless化しません。",
     businessCriticIntensity: "事業レビューの強さ",
     intensityReason: "この強さを選ぶ理由",
     intensityReasonPlaceholder: "この問い直しの強さが合う理由を書いてください。",
@@ -3432,40 +3404,26 @@ const KO_COPY: typeof EN_COPY = {
     intakeAnswerPlaceholder: "누구를 위한 것인지, 어떤 문제를 풀고 싶은지, 이번 세션에서 무엇을 결정하고 싶은지 적어주세요.",
     projectPurpose: "프로젝트 목적",
     purposeHelp: "프로젝트 목적은 사용자가 직접 선택합니다. 선택 전에는 사업 검증용 질문이나 개인 워크플로용 질문을 확정하지 않습니다.",
-    initialResearchPermission: "리서치 권한",
-    initialResearchPermissionOptions: [
-      {
-        permission: "not_now" as const,
-        label: "리서치는 나중에 설정",
-        description: "지금은 질문만 만들고, Research 탭에서 켜기 전까지 공개 웹 리서치를 비활성화합니다."
-      },
-      {
-        permission: "allow_public_web" as const,
-        label: "읽기 전용 공개 웹 리서치 허용",
-        description: "온보딩 중 안전한 allowlist를 켜서 승인된 읽기 전용 공개 자료만 사용할 수 있게 합니다."
-      }
-    ],
-    initialResearchPermissionHelp: "이 설정은 공개·읽기 전용 리서치 소스만 허용합니다. 쓰기, 계정, credential, 유료 서비스 접근은 허용하지 않습니다.",
-    initialResearchAutomationPermission: "자동화 리서치 보조",
+    initialResearchAutomationPermission: "리서치 설정",
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "로컬 질문만 사용",
-        description: "첫 질문 묶음은 로컬 모호함 축소 알고리즘으로 만들고 Codex나 ChatGPT에는 리서치 준비를 맡기지 않습니다."
+        label: "지금은 로컬 질문만 사용",
+        description: "첫 질문 묶음은 로컬 모호함 축소 알고리즘으로 만들고, 공개 웹 리서치는 Research 탭에서 켜기 전까지 비활성화합니다."
       },
       {
         permission: "allow_codex" as const,
-        label: "Codex 리서치 preview 허용",
-        description: "Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 하고, 사용할 수 없으면 로컬 결정적 흐름으로 돌아갑니다."
+        label: "Codex + 읽기 전용 공개 웹 리서치",
+        description: "온보딩 중 안전한 allowlist를 켜고 Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 합니다. 사용할 수 없으면 로컬 흐름으로 돌아갑니다."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Codex + 보이는 ChatGPT Pro/Deep Research 허용",
-        description: "Codex가 리서치 전달을 준비하고 ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 사용합니다."
+        label: "Codex + 보이는 ChatGPT Pro/Deep Research",
+        description: "공개 웹 리서치를 켜고 Codex가 전달을 준비합니다. ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 사용합니다."
       }
     ],
     initialResearchAutomationPermissionHelp:
-      "여기서는 ChatGPT Pro/Deep Research를 완전 headless로 돌리지 않습니다. 로그인, CAPTCHA, 사용량 제한, 최종 제출은 모두 사용자에게 보이는 상태로 유지합니다.",
+      "이 한 가지 설정으로 온보딩의 읽기 전용 공개 소스 사용 여부와 자동화 보조 범위를 함께 정합니다. 쓰기, credential, 계정, 유료 서비스 접근은 허용하지 않으며 ChatGPT도 완전 headless로 돌리지 않습니다.",
     businessCriticIntensity: "사업 리뷰 강도",
     intensityReason: "이 강도를 선택한 이유",
     intensityReasonPlaceholder: "이 정도로 되묻는 것이 프로젝트에 맞는 이유를 적어주세요.",

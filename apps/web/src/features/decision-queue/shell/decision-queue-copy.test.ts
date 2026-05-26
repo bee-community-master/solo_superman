@@ -67,8 +67,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.intakeAnswer).toBe("Goal description");
     expect(DECISION_QUEUE_COPY.ja.questions.intakeAnswer).toBe("目標の説明");
     expect(DECISION_QUEUE_COPY.ko.questions.intakeAnswer).toBe("목표에 대한 서술");
-    expect(DECISION_QUEUE_COPY.en.questions.initialResearchPermission).toBe("Research permission");
-    expect(DECISION_QUEUE_COPY.ko.questions.initialResearchPermission).toBe("리서치 권한");
+    expect(DECISION_QUEUE_COPY.en.questions.initialResearchAutomationPermission).toBe("Research setup");
+    expect(DECISION_QUEUE_COPY.ko.questions.initialResearchAutomationPermission).toBe("리서치 설정");
+    expect(DECISION_QUEUE_COPY.ko.questions.initialResearchAutomationPermissionHelp).toContain("이 한 가지 설정");
     expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsMissingAllowlist).toContain("allowlist");
     expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.activeProjectRequiredStartRun).not.toMatch(
       /[가-힣]/u

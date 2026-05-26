@@ -312,6 +312,9 @@ describe("useDecisionQueueSessionActions", () => {
       ...(immediateProjection ? { immediateProjection } : {})
     } as CommandResponse<TProjection>);
     const createProject = vi.fn(async () => commandResponse(1, sessionProjection));
+    const createResearchAllowlist = vi.fn(async () => commandResponse(1, {
+      kind: "ResearchAllowlistGovernanceProjection"
+    } as never));
     const captureIntake = vi.fn(async () => commandResponse(2));
     const draftInitialSpec = vi.fn(async () => commandResponse(3));
     const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
@@ -335,6 +338,7 @@ describe("useDecisionQueueSessionActions", () => {
         codexLoginAuthenticated: true,
         client: {
           createProject,
+          createResearchAllowlist,
           captureIntake,
           draftInitialSpec,
           generateInitialQuestionSet,
@@ -344,7 +348,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "A pet lifecycle management app",
-        initialResearchPermission: "not_now",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Use natural questions tailored to pet guardians.",
@@ -389,6 +392,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "allow_codex"
     }));
+    expect(createResearchAllowlist).toHaveBeenCalledTimes(1);
     expect(generateInitialQuestionSet).toHaveBeenCalledWith({
       sessionId,
       expectedStateVersion: 3,
@@ -434,6 +438,9 @@ describe("useDecisionQueueSessionActions", () => {
       ...(immediateProjection ? { immediateProjection } : {})
     } as CommandResponse<TProjection>);
     const createProject = vi.fn(async () => commandResponse(1, sessionProjection));
+    const createResearchAllowlist = vi.fn(async () => commandResponse(1, {
+      kind: "ResearchAllowlistGovernanceProjection"
+    } as never));
     const captureIntake = vi.fn(async () => commandResponse(2));
     const draftInitialSpec = vi.fn(async () => commandResponse(3));
     const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
@@ -453,6 +460,7 @@ describe("useDecisionQueueSessionActions", () => {
         codexLoginAuthenticated: false,
         client: {
           createProject,
+          createResearchAllowlist,
           captureIntake,
           draftInitialSpec,
           analyzeAmbiguity,
@@ -461,7 +469,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "A private journaling workflow",
-        initialResearchPermission: "not_now",
         initialResearchAutomationPermission: "manual_only",
         initialBusinessCriticIntensityReason: "",
         intake: "Keep the first questions local and deterministic.",
@@ -507,6 +514,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "manual_only"
     }));
+    expect(createResearchAllowlist).not.toHaveBeenCalled();
     expect(generateInitialQuestionSet).not.toHaveBeenCalled();
     expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", undefined);
   });
@@ -565,7 +573,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Non-blocking answer flow",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Keep the queue moving.",
@@ -710,7 +717,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Auto-continue questions",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "The next batch should appear automatically.",
@@ -907,7 +913,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Auto-continue with server fallback",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Question debt remains even when the visible next list is short.",
@@ -1055,7 +1060,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Keep loading question batches",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Research review is active but the next question should still load.",
@@ -1200,7 +1204,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Known risk should not stop the question loop",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "When a question is carried as risk, the next one should keep flowing.",
@@ -1369,7 +1372,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Research cards should feed the next questions",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Follow-up questions should appear after research review resolution.",
@@ -1533,7 +1535,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Manual research should feed the question loop",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex",
         initialBusinessCriticIntensityReason: "",
         intake: "Manual evidence can also generate follow-up questions.",
@@ -1686,7 +1687,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Visible ChatGPT result should feed research evidence",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible",
         initialBusinessCriticIntensityReason: "",
         intake: "Paste a Deep Research result after reviewing it.",
@@ -1808,7 +1808,6 @@ describe("useDecisionQueueSessionActions", () => {
         connectionStatus: "connected",
         copy: DECISION_QUEUE_COPY.en,
         idea: "Onboarding-only visible ChatGPT handoff should preserve provenance",
-        initialResearchPermission: "allow_public_web",
         initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible",
         initialBusinessCriticIntensityReason: "",
         intake: "Paste a user-reviewed Deep Research result.",
