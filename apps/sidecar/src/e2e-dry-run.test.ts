@@ -3356,7 +3356,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
                   severity: "high",
                   uncertaintyType: "vague",
                   whyItMatters: expect.any(String),
-                  expectedAnswerType: "choice",
+                  expectedAnswerType: "text",
+                  answerOptions: [],
                   decisionItUnlocks: expect.any(String),
                   possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
                 }),
@@ -3413,7 +3414,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         severity: "high",
         whyItMatters: expect.any(String),
         decisionItUnlocks: expect.any(String),
-        expectedAnswerType: "choice",
+        expectedAnswerType: "text",
+        answerOptions: [],
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 

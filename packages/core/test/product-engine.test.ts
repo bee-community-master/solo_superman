@@ -251,15 +251,8 @@ describe("PR-04 ProductEngine reducer", () => {
           ambiguityRoutingPath: "human_judgment",
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
-          expectedAnswerType: "choice",
-          answerOptions: expect.arrayContaining([
-            expect.objectContaining({
-              label: expect.any(String),
-              value: expect.any(String),
-              pro: expect.any(String),
-              con: expect.any(String)
-            })
-          ]),
+          expectedAnswerType: "text",
+          answerOptions: [],
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
           repeatLimit: 16
@@ -364,13 +357,8 @@ describe("PR-04 ProductEngine reducer", () => {
           severity: "high",
           whyItMatters: expect.any(String),
           decisionItUnlocks: expect.any(String),
-          expectedAnswerType: "choice",
-          answerOptions: expect.arrayContaining([
-            expect.objectContaining({
-              pro: expect.any(String),
-              con: expect.any(String)
-            })
-          ]),
+          expectedAnswerType: "text",
+          answerOptions: [],
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
         })
       ])
@@ -3122,7 +3110,7 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
-  it("carries evidence-derived listed candidates into active research follow-up answer options", () => {
+  it("does not invent generic founder candidates from incidental customer evidence", () => {
     const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const planned = reduceProductEngineCommand(
       command("PlanResearch", 0, {
@@ -3184,43 +3172,30 @@ describe("PR-04 ProductEngine reducer", () => {
     );
 
     expect(synthesized.accepted).toBe(true);
-    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
-      "- 혼자 만드는 초기 창업자"
-    );
-    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
-      "- 도메인 전문 1인 빌더"
-    );
-    expect(synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0]).toContain(
-      "- 팀 리더/운영 담당자"
-    );
+    const additionalQuestion = synthesized.nextState.researchState.evidenceMatrices[0]?.additionalQuestions[0] ?? "";
+
+    expect(additionalQuestion).toContain("선택지 없이");
+    expect(additionalQuestion).toContain("이 아이디어에 맞는 첫 고객 후보를 2~4개로 직접 적고");
+    expect(additionalQuestion).not.toContain("혼자 만드는 초기 창업자");
+    expect(additionalQuestion).not.toContain("도메인 전문 1인 빌더");
+    expect(additionalQuestion).not.toContain("팀 리더/운영 담당자");
 
     const researchFollowUpIssue = synthesized.nextState.openIssues.find((issue) =>
       issue.queueItemId.startsWith("queue_research_followup_")
     );
 
     expect(researchFollowUpIssue).toMatchObject({
-      expectedAnswerType: "choice",
-      answerSelectionMode: "single",
-      questionText: expect.stringContaining("어느 성향의 고객에 집중")
+      expectedAnswerType: "text",
+      questionText: expect.stringContaining("선택지 없이")
     });
-    expect(researchFollowUpIssue?.answerOptions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "question_candidate_1", label: "혼자 만드는 초기 창업자" }),
-        expect.objectContaining({ id: "question_candidate_2", label: "도메인 전문 1인 빌더" }),
-        expect.objectContaining({ id: "question_candidate_3", label: "팀 리더/운영 담당자" })
-      ])
-    );
+    expect(researchFollowUpIssue?.answerOptions).toEqual([]);
     expect(synthesized.nextState.queueProjection.active).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           cardType: "follow_up_question",
-          title: expect.stringContaining("어느 성향의 고객에 집중"),
-          answerSelectionMode: "single",
-          answerOptions: expect.arrayContaining([
-            expect.objectContaining({ label: "혼자 만드는 초기 창업자" }),
-            expect.objectContaining({ label: "도메인 전문 1인 빌더" }),
-            expect.objectContaining({ label: "팀 리더/운영 담당자" })
-          ])
+          title: expect.stringContaining("선택지 없이"),
+          expectedAnswerType: "text",
+          answerOptions: []
         })
       ])
     );

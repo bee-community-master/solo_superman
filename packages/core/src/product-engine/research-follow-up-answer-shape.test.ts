@@ -1087,11 +1087,8 @@ describe("research follow-up answer shape", () => {
 
     expect(classifyResearchFollowUpAnswerShape(singleChoiceInput)).toBe("single_choice");
     expect(researchFollowUpAnswerSelectionMode(singleChoiceInput)).toBe("single");
-    expect(researchFollowUpAnswerOptions(singleChoiceInput)).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: "solo_founders" }),
-        expect.objectContaining({ id: "domain_expert_builders" })
-      ])
+    expect(researchFollowUpAnswerOptions(singleChoiceInput).map((option) => option.id)).not.toEqual(
+      expect.arrayContaining(["solo_founders", "domain_expert_builders"])
     );
 
     expect(classifyResearchFollowUpAnswerShape(multiSelectInput)).toBe("multi_select");

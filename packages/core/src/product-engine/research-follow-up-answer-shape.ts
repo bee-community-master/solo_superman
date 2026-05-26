@@ -541,10 +541,11 @@ function choiceAnswerOptions(input: ResearchFollowUpAnswerInput, answerShape: Re
   const questionTopicOptions = questionTopicKey
     ? answerOptionsForQuestion(questionTopicKey, researchFollowUpExpectedAnswerType(input))
     : undefined;
+  const questionCandidateOptionsAreGeneric = looksLikeGenericBuilderSegmentOptions(questionCandidateOptions);
 
   if (
     questionCandidateOptions.length &&
-    !(domainSpecificOptions.length && looksLikeGenericBuilderSegmentOptions(questionCandidateOptions))
+    !(domainSpecificOptions.length && questionCandidateOptionsAreGeneric)
   ) {
     return boundedChoiceAnswerOptions(questionCandidateOptions, answerShape);
   }

@@ -1891,6 +1891,23 @@ function suggestedResearchTaskForSeed(
     : contextualSuggestedResearchTask(seed, context);
 }
 
+function expectedAnswerTypeForSeed(
+  seed: AmbiguityIssueSeed,
+  context: OnboardingQuestionContext,
+  source: AmbiguityIssueSeedSource
+): AmbiguityExpectedAnswerType {
+  if (source === "generated_json") {
+    return seed.expectedAnswerType;
+  }
+
+  const contextText = generatedQuestionSetContextText(context);
+  const hasDomainSpecificCustomerOptions = Boolean(primaryCustomerContextProfileForText(contextText));
+
+  return seed.topicKey === "primary_customer_narrowing" && !hasDomainSpecificCustomerOptions
+    ? "text"
+    : seed.expectedAnswerType;
+}
+
 function createAmbiguityIssuesFromSeeds(input: {
   readonly sessionId: SessionId;
   readonly specRef: string;
@@ -1909,7 +1926,10 @@ function createAmbiguityIssuesFromSeeds(input: {
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
-    const answerSelectionMode = seed.answerSelectionMode ?? (seed.expectedAnswerType === "rank" ? "ranked" : undefined);
+    const expectedAnswerType = expectedAnswerTypeForSeed(seed, context, input.source);
+    const answerSelectionMode = expectedAnswerType === "text"
+      ? undefined
+      : seed.answerSelectionMode ?? (expectedAnswerType === "rank" ? "ranked" : undefined);
     const ambiguityDimension = inferredAmbiguityDimensionForSeed(seed);
     const ambiguityRoutingPath = inferredAmbiguityRoutingPathForSeed(seed);
 
@@ -1936,10 +1956,11 @@ function createAmbiguityIssuesFromSeeds(input: {
       whyItMatters: seed.whyItMatters,
       status: "open",
       questionText: questionTextForSeed(seed, context, input.source),
-      expectedAnswerType: seed.expectedAnswerType,
+      expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions: seed.answerOptions ?? answerOptionsForSeed({
         ...seed,
+        expectedAnswerType,
         contextText: generatedQuestionSetContextText(context)
       }),
       decisionItUnlocks: seed.decisionItUnlocks,

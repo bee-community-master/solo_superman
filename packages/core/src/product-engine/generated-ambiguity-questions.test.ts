@@ -165,6 +165,43 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.issues.join("\n")).toContain("pet lifecycle generated questions must use pet guardian/domain choices");
   });
 
+  it("rejects generic founder personas for any idea that did not name that audience", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedQuestionSetWithFirstOptions([
+        {
+          id: "solo_founder",
+          label: "초기 창업자",
+          value: "초기 창업자를 먼저 검증합니다.",
+          primaryDetail: "빠른 인터뷰가 가능합니다.",
+          secondaryDetail: "실제 예약 고객 맥락은 남아 있습니다."
+        },
+        {
+          id: "domain_builder",
+          label: "도메인 전문 1인 빌더",
+          value: "도메인 전문 1인 빌더를 먼저 검증합니다.",
+          primaryDetail: "문제 맥락이 뚜렷합니다.",
+          secondaryDetail: "실제 사용 고객 맥락은 남아 있습니다."
+        },
+        {
+          id: "team_operator",
+          label: "팀 리더/운영 담당자",
+          value: "팀 리더나 운영 담당자를 먼저 검증합니다.",
+          primaryDetail: "운영 관점 검증이 가능합니다.",
+          secondaryDetail: "최종 사용 고객 맥락은 남아 있습니다."
+        }
+      ]),
+      {
+        contextText: "창업 아이디어 검증용으로 동네 식당과 카페의 예약, 픽업 주문, 단골 혜택을 한 번에 관리하는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.questions).toEqual([]);
+    expect(parsed.issues.join("\n")).toContain(
+      "generated question options must be derived from the idea"
+    );
+  });
+
   it("rejects internal planning jargon in generated user-facing fields", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
       {
