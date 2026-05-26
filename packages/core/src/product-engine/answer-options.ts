@@ -731,7 +731,7 @@ const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[
   {
     id: "pet_lifecycle",
     pattern:
-      /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|진료\s*기록|투약|의료비|사료|보험|장례|말기\s*케어|전생애|생애\s*주기)/iu,
+      /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|동물\s*진료|동물\s*의료|동물\s*보험|펫\s*보험|반려\s*(?:동물|견|묘).{0,20}(?:기록|의료|보험|장례|급여|일상|전생애|생애\s*주기)|사료|동물\s*장례|반려\s*(?:동물|견|묘).{0,20}말기\s*케어|동물\s*말기\s*케어|펫\s*말기\s*케어)/iu,
     questionSubject: "보호자 유형",
     personReference: "그 보호자",
     answerOptions: PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS,
@@ -994,7 +994,7 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
   ]
 };
 
-const IDEA_FIT_REQUIRED_TOPIC_KEYS = new Set([
+export const IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS = new Set([
   "primary_customer_narrowing",
   "buyer_user_split",
   "value_prop_switching_reason",
@@ -1046,7 +1046,7 @@ function contextualAnswerOptionsForQuestion(
     return topicAnswerOptions;
   }
 
-  if (topicKey && IDEA_FIT_REQUIRED_TOPIC_KEYS.has(topicKey)) {
+  if (topicKey && IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS.has(topicKey)) {
     return [];
   }
 

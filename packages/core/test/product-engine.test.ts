@@ -723,6 +723,30 @@ describe("PR-04 ProductEngine reducer", () => {
         "픽업·배달을 자주 쓰는 고객",
         "여러 지점을 관리하는 운영자"
       ]
+    },
+    {
+      caseKey: "healthcare_records",
+      rawIdea: "환자 진료 기록과 복약 알림을 한 곳에서 관리하는 헬스케어 앱",
+      intakeAnswer: "만성질환 환자와 가족 보호자 중 첫 대상을 좁히고 싶다.",
+      questionSubject: "사용자 유형",
+      expectedLabels: [
+        "만성질환을 꾸준히 관리하는 환자",
+        "가족 건강을 함께 챙기는 보호자",
+        "진료 전후 기록이 많은 사용자",
+        "검진·복약·생활습관을 챙기는 사용자"
+      ]
+    },
+    {
+      caseKey: "personal_finance_insurance",
+      rawIdea: "보험, 대출, 카드값을 한 곳에서 정리하는 개인 금융 관리 앱",
+      intakeAnswer: "월급 직장인과 수입이 불규칙한 프리랜서 중 첫 대상을 좁힌다.",
+      questionSubject: "금융 관리 사용자 유형",
+      expectedLabels: [
+        "월급과 고정지출을 관리하는 직장인",
+        "수입이 불규칙한 프리랜서",
+        "공동 생활비를 나누는 가구",
+        "보험·투자·대출을 함께 보는 사용자"
+      ]
     }
   ])(
     "uses idea-specific first-customer options for $caseKey ideas when generated questions are unavailable",
