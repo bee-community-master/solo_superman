@@ -96,18 +96,22 @@ const FOUNDER_VALIDATION_CONTEXT_PATTERN =
   /(?:창업자|예비\s*창업|스타트업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|\bfounder\b|\bstartup\b|customer\s*interview|product\s*spec|idea\s*validation|\bsolo\s*founder\b)/iu;
 const FOUNDER_VALIDATION_ANCHOR_PATTERN =
   /(?:창업자|예비\s*창업|스타트업|고객\s*인터뷰|제품\s*스펙|아이디어\s*검증|질문\s*품질|근거\s*추적|\bfounder\b|\bstartup\b|customer\s*interview|product\s*spec|idea\s*validation|\bquestion\b|\btraceable\b)/iu;
-const GENERIC_FOUNDER_PERSONA_PATTERN =
-  /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|초기\s*창업자|\bsolo\s*founder\b|\bfounder\b)/iu;
-const GENERIC_BUILDER_PERSONA_PATTERN =
-  /(?:도메인\s*전문\s*1\s*인\s*빌더|\bdomain\s*builder\b)/iu;
-const GENERIC_TEAM_OPERATOR_PERSONA_PATTERN =
-  /(?:팀\s*리더|운영\s*담당자|\bteam\s*lead\b|\boperator\b)/iu;
-const GENERIC_FOUNDER_PERSONA_ALLOWED_CONTEXT_PATTERN =
-  /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업|\bfounder\b|\bstartup\b|\bsolo\s*founder\b)/iu;
-const GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN =
-  /(?:1\s*인\s*빌더|도메인\s*전문\s*빌더|도메인\s*전문\s*1\s*인\s*빌더|\bsolo\s*builder\b|\bdomain\s*builder\b)/iu;
-const GENERIC_TEAM_OPERATOR_PERSONA_ALLOWED_CONTEXT_PATTERN =
-  /(?:팀\s*리더|운영\s*담당자|운영\s*팀|\bteam\s*lead\b|\boperator\b)/iu;
+const GENERIC_PERSONA_GUARDS = [
+  {
+    personaPattern: /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|초기\s*창업자|\bsolo\s*founder\b|\bfounder\b)/iu,
+    allowedContextPattern:
+      /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업|\bfounder\b|\bstartup\b|\bsolo\s*founder\b)/iu
+  },
+  {
+    personaPattern: /(?:도메인\s*전문\s*1\s*인\s*빌더|\bdomain\s*builder\b)/iu,
+    allowedContextPattern:
+      /(?:1\s*인\s*빌더|도메인\s*전문\s*빌더|도메인\s*전문\s*1\s*인\s*빌더|\bsolo\s*builder\b|\bdomain\s*builder\b)/iu
+  },
+  {
+    personaPattern: /(?:팀\s*리더|운영\s*담당자|\bteam\s*lead\b|\boperator\b)/iu,
+    allowedContextPattern: /(?:팀\s*리더|운영\s*담당자|운영\s*팀|\bteam\s*lead\b|\boperator\b)/iu
+  }
+] as const;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
@@ -193,6 +197,18 @@ function ideaFitCuePatternForContext(contextText: string | undefined) {
   return IDEA_FIT_CONTEXT_PROFILES.find((profile) => profile.contextPattern.test(normalizedContext))?.anchorPattern;
 }
 
+function optionTextHasGenericPersona(optionText: string) {
+  return GENERIC_PERSONA_GUARDS.some((guard) => guard.personaPattern.test(optionText));
+}
+
+function optionTextHasDisallowedGenericPersona(optionText: string, contextText: string | undefined) {
+  const normalizedContext = contextText ?? "";
+
+  return GENERIC_PERSONA_GUARDS.some(
+    (guard) => guard.personaPattern.test(optionText) && !guard.allowedContextPattern.test(normalizedContext)
+  );
+}
+
 function issue(issues: string[], path: string, message: string) {
   issues.push(`${path}: ${message}`);
 }
@@ -275,9 +291,6 @@ function contextualGeneratedQuestionIssues(
     ...questions.flatMap(generatedQuestionUserFacingTexts)
   ].join("\n");
   const isPetLifecycleContext = PET_LIFECYCLE_CONTEXT_PATTERN.test(combinedContext);
-  const allowsGenericFounderPersona = GENERIC_FOUNDER_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
-  const allowsGenericBuilderPersona = GENERIC_BUILDER_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
-  const allowsGenericTeamOperatorPersona = GENERIC_TEAM_OPERATOR_PERSONA_ALLOWED_CONTEXT_PATTERN.test(contextText ?? "");
   const ideaFitCuePattern = ideaFitCuePatternForContext(contextText);
 
   questions.forEach((question, questionIndex) => {
@@ -307,11 +320,7 @@ function contextualGeneratedQuestionIssues(
         option.secondaryDetail ?? ""
       ].join("\n");
 
-      const hasGenericFounderPersona = GENERIC_FOUNDER_PERSONA_PATTERN.test(optionText);
-      const hasGenericBuilderPersona = GENERIC_BUILDER_PERSONA_PATTERN.test(optionText);
-      const hasGenericTeamOperatorPersona = GENERIC_TEAM_OPERATOR_PERSONA_PATTERN.test(optionText);
-      const hasAnyGenericBuilderPersona =
-        hasGenericFounderPersona || hasGenericBuilderPersona || hasGenericTeamOperatorPersona;
+      const hasGenericPersona = optionTextHasGenericPersona(optionText);
 
       if (ideaFitCuePattern && !ideaFitCuePattern.test(optionText)) {
         issue(
@@ -321,11 +330,7 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (
-        (hasGenericFounderPersona && !allowsGenericFounderPersona) ||
-        (hasGenericBuilderPersona && !allowsGenericBuilderPersona) ||
-        (hasGenericTeamOperatorPersona && !allowsGenericTeamOperatorPersona)
-      ) {
+      if (optionTextHasDisallowedGenericPersona(optionText, contextText)) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
@@ -333,7 +338,7 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (isPetLifecycleContext && hasAnyGenericBuilderPersona) {
+      if (isPetLifecycleContext && hasGenericPersona) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
