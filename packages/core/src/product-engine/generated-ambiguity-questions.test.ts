@@ -660,6 +660,33 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.issues.join("\n")).toContain("must name the source area or public evidence to inspect");
     expect(parsed.issues.join("\n")).toContain("must name what would weaken the assumption");
+    expect(parsed.issues.join("\n")).toContain("must name the remaining human judgment after current research");
+  });
+
+  it("rejects current research tasks that omit the remaining human judgment", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: [
+          generatedSet.questions[0]!,
+          {
+            ...generatedSet.questions[1]!,
+            ambiguityRoutingPath: "current_research",
+            researchQuestion: "노령·만성질환 반려동물 보호자의 기록 관리 불편을 확인합니다.",
+            suggestedResearchTask: "동물병원 후기, 펫보험 청구 안내, 보호자 커뮤니티 글에서 노령·만성질환 보호자의 기록 분산 사례와 반례를 찾습니다.",
+            possibleRoutes: ["question", "research_needed"]
+          },
+          generatedSet.questions[2]!
+        ]
+      },
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("must name the remaining human judgment after current research");
   });
 
   it("requires at least one pressure question in every generated ambiguity set", () => {
@@ -694,7 +721,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
             ...generatedSet.questions[1]!,
             ambiguityRoutingPath: "current_research",
             researchQuestion: "노령·만성질환 반려동물 보호자가 공개 후기에서 보험, 진료 기록, 약 이력 관리 불편을 반복해서 말하는지 확인합니다.",
-            suggestedResearchTask: "동물병원 후기, 펫보험 청구 안내, 보호자 커뮤니티 글에서 노령·만성질환 보호자의 기록 분산 사례와 반례를 찾습니다.",
+            suggestedResearchTask: "동물병원 후기, 펫보험 청구 안내, 보호자 커뮤니티 글에서 노령·만성질환 보호자의 기록 분산 사례와 반례를 찾고, 리서치 뒤에도 어떤 보호자에 집중할지 사용자 판단이 남는다고 표시합니다.",
             possibleRoutes: ["question", "research_needed"]
           },
           generatedSet.questions[2]!
