@@ -67,15 +67,15 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
 }
 
 describe("OnboardingView", () => {
-  it("renders login gates on the left and the larger goal setup area on the right", () => {
+  it("renders idea inputs before action cards so conditional setup stays below the control that revealed it", () => {
     const markup = renderOnboardingView({
       idea: DEFAULT_IDEA,
       intake: DEFAULT_INTAKE
     });
 
     expect(markup).toContain('class="session-start-layout"');
-    expect(markup).toContain('class="session-login-column"');
-    expect(markup).toContain('class="session-goal-column"');
+    expect(markup).toContain('class="session-input-column"');
+    expect(markup).toContain('class="session-action-column"');
     expect(markup).toContain('class="session-idea-field"');
     expect(markup).toContain('rows="6"');
     expect(markup).toContain('class="session-intake-field"');
@@ -90,6 +90,16 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Codex + visible ChatGPT Pro/Deep Research");
     expect(markup).not.toContain("Sign in to ChatGPT in your browser first");
     expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
+  });
+
+  it("keeps business-only follow-up settings directly after the purpose choice", () => {
+    const markup = renderOnboardingView({
+      projectPurposeMode: "business"
+    });
+
+    expect(markup).toContain("Business review intensity");
+    expect(markup.indexOf("Project purpose")).toBeLessThan(markup.indexOf("Business review intensity"));
+    expect(markup.indexOf("Business review intensity")).toBeLessThan(markup.indexOf("Research setup"));
   });
 
   it("shows the ChatGPT login gate only when visible ChatGPT research is selected", () => {
@@ -107,8 +117,11 @@ describe("OnboardingView", () => {
     expect(visibleMarkup).toContain('target="_blank"');
     expect(visibleMarkup).toContain('rel="noopener noreferrer"');
     expect(visibleMarkup).toContain("I signed in to ChatGPT directly in this browser/profile.");
+    expect(visibleMarkup.indexOf("Research setup")).toBeLessThan(
+      visibleMarkup.indexOf("Sign in to ChatGPT in your browser first")
+    );
     expect(visibleMarkup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
-      visibleMarkup.indexOf("Idea summary")
+      visibleMarkup.indexOf("Sign in to Codex CLI for backend questions and research")
     );
   });
 
@@ -125,8 +138,11 @@ describe("OnboardingView", () => {
     expect(markup).toContain("codex auth login");
     expect(markup).toContain("Open Codex login");
     expect(markup).toContain("Refresh Codex login status");
+    expect(markup.indexOf("Research setup")).toBeLessThan(
+      markup.indexOf("Sign in to Codex CLI for backend questions and research")
+    );
     expect(markup.indexOf("Sign in to Codex CLI for backend questions and research")).toBeLessThan(
-      markup.indexOf("Idea summary")
+      markup.indexOf("First-question readiness checklist")
     );
   });
 
