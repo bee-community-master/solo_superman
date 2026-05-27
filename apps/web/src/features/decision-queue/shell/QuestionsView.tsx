@@ -38,10 +38,32 @@ function boundedPercent(value: number) {
   return Math.min(100, Math.max(0, value));
 }
 
+function compactSourceTraceLabel(value: string) {
+  const compacted = value.replace(/\s+/gu, " ").trim();
+
+  return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
+}
+
 function researchFollowUpSourceTrace(item: QueueItemProjection) {
-  return item.cardType === "follow_up_question" && item.sourceRef?.startsWith("research:")
-    ? item.sourceRef
-    : null;
+  if (item.cardType !== "follow_up_question" || !item.sourceRef?.startsWith("research:")) {
+    return null;
+  }
+
+  const sourceClue = /(?:출처 단서|Source clue|Source):\s*([^\n]+)/iu.exec(item.whyItMatters ?? "")?.[1]?.trim();
+
+  if (sourceClue && !/^research[_:]/iu.test(sourceClue)) {
+    return compactSourceTraceLabel(sourceClue);
+  }
+
+  const decisionSource = /(?:와|and)\s+(.+?)\s+(?:근거|evidence)\S*\s*(?:를|을)?\s*(?:스펙|spec|decision)/iu.exec(
+    item.decisionItUnlocks ?? ""
+  )?.[1]?.trim();
+
+  if (decisionSource && !/^research[_:]/iu.test(decisionSource)) {
+    return compactSourceTraceLabel(decisionSource);
+  }
+
+  return item.title ? compactSourceTraceLabel(item.title) : null;
 }
 
 export function answerDraftFromSelectedOptions(
@@ -180,7 +202,7 @@ function ResearchFollowUpSourceTrace({
 
   return sourceTrace ? (
     <p className="research-source-trace">
-      {copy.questions.researchFollowUpSourceTrace}: <code>{sourceTrace}</code>
+      {copy.questions.researchFollowUpSourceTrace}: {sourceTrace}
     </p>
   ) : null;
 }
