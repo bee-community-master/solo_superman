@@ -2268,7 +2268,7 @@ describe("PR-02 sidecar health shell", () => {
           ambiguityRoutingPath: "current_research",
           researchQuestion: "Check which pet records guardians repeatedly mention losing, re-requesting, or failing to keep current.",
           possibleRoutes: ["question", "research_needed"],
-          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples or remaining uncertainty."
+          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples and the remaining human judgment about which record to prioritize."
         },
         {
           sectionRef: "Value Proposition",

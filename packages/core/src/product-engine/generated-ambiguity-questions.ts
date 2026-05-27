@@ -128,6 +128,8 @@ const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =
   /(?:공개|출처|자료|후기|커뮤니티|리포트|보고서|통계|가이드|가격|정책|규정|경쟁|대체재|사례|리뷰|forum|community|review|report|source|public|statistic|guide|policy|pricing|competitor|alternative|case)/iu;
 const RESEARCH_SKEPTICAL_CUE_PATTERN =
   /(?:반례|반대|부족|약하|흔들|불확실|한계|위험|실패|다른|여전히|남는|counter|contrary|weaken|missing|gap|uncertain|uncertainty|limit|risk|fail|skeptical)/iu;
+const RESEARCH_REMAINING_HUMAN_JUDGMENT_CUE_PATTERN =
+  /(?:남(?:는|은)\s*(?:판단|결정|선택|불확실)|사용자\s*(?:판단|결정|선택)|사람이\s*(?:판단|결정|선택)|리서치(?:로|만으로)?\s*(?:정할|결정할|판단할)\s*수\s*없|human\s+judgment|remaining\s+(?:decision|judgment)|cannot\s+be\s+(?:answered|decided))/iu;
 const DECISION_AXIS_PATTERNS = [
   /(?:누구|어떤\s*(?:고객|사용자|보호자|사람|조직|세그먼트)|who|customer|user|segment)/iu,
   /(?:기능|어디까지|범위|무엇을\s*(?:만들|제공|포함)|feature|scope)/iu,
@@ -182,6 +184,10 @@ function researchTaskHasSourceSeekingCue(value: string | undefined) {
 
 function researchTaskHasSkepticalCue(value: string | undefined) {
   return Boolean(value && RESEARCH_SKEPTICAL_CUE_PATTERN.test(value));
+}
+
+function researchTaskHasRemainingHumanJudgmentCue(value: string | undefined) {
+  return Boolean(value && RESEARCH_REMAINING_HUMAN_JUDGMENT_CUE_PATTERN.test(value));
 }
 
 function questionHasMultipleDecisionAxes(question: string) {
@@ -491,6 +497,9 @@ function parseGeneratedQuestion(
       if (!researchTaskHasSkepticalCue(suggestedResearchTask)) {
         issue(issues, `${path}.suggestedResearchTask`, "must name what would weaken the assumption or what uncertainty should remain");
       }
+      if (!researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask)) {
+        issue(issues, `${path}.suggestedResearchTask`, "must name the remaining human judgment after current research");
+      }
     }
     if (!routes.includes("research_needed")) {
       issue(issues, `${path}.routes`, "must include research_needed when ambiguityRoutingPath is current_research");
@@ -542,6 +551,7 @@ function parseGeneratedQuestion(
         isGenericResearchTask(suggestedResearchTask) ||
         !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
         !researchTaskHasSkepticalCue(suggestedResearchTask) ||
+        !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
         !routes.includes("research_needed"))) ||
     (ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask)) ||
     (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) ||
