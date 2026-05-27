@@ -682,8 +682,8 @@ function flowBlockers(result: SingleSessionFlowResult) {
   if (summary.generatedQuestionCount < 10) {
     blockers.push(`same session must generate a broad question backlog; received ${summary.generatedQuestionCount}`);
   }
-  if (summary.activeQuestionCount < 3) {
-    blockers.push(`same session must expose multiple active questions; received ${summary.activeQuestionCount}`);
+  if (summary.activeQuestionCount < 1) {
+    blockers.push(`same session must expose at least one active question; received ${summary.activeQuestionCount}`);
   }
   if (summary.petDomainQuestionSignalCount < 3) {
     blockers.push(`first question must be domain-fit for the pet lifecycle idea; received ${summary.petDomainQuestionSignalCount} domain signals`);

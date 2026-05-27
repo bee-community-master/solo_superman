@@ -14,7 +14,7 @@ describe("single-session product loop smoke", () => {
       mode: "fixture",
       loop: {
         generatedQuestionCount: expect.any(Number),
-        activeQuestionCount: 5,
+        activeQuestionCount: 1,
         firstQuestionTopicKey: "primary_customer_narrowing",
         petDomainQuestionSignalCount: expect.any(Number),
         staleFounderOptionCount: 0,

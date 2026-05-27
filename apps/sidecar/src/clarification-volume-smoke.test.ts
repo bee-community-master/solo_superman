@@ -13,7 +13,7 @@ describe("clarification volume smoke", () => {
         targetAnsweredQuestionCount: 200,
         finalCompletionPercent: 100,
         finalFollowUpBudgetRemainingCount: 0,
-        maxActiveQuestionCount: 5,
+        maxActiveQuestionCount: 1,
         maxRepeatDepth: 16
       })
     });
@@ -26,7 +26,7 @@ describe("clarification volume smoke", () => {
     expect(evidence.checked).toEqual(
       expect.arrayContaining([
         "initial follow-up budget supports 200+ answerable questions",
-        "active batch stayed bounded to five visible questions",
+        "active question flow stayed bounded to one visible question by default",
         "active batch refilled until at least 200 answers were accepted",
         "question progress reached 100% after answerable debt was exhausted"
       ])

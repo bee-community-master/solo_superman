@@ -103,9 +103,9 @@ export interface GeneratedInitialQuestionSetInput {
   readonly businessCriticIntensity: BusinessCriticIntensity | null;
 }
 
-export const MIN_QUESTION_BATCH_SIZE = 3;
+export const MIN_QUESTION_BATCH_SIZE = 1;
 export const MAX_QUESTION_BATCH_SIZE = 5;
-export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MAX_QUESTION_BATCH_SIZE;
+export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MIN_QUESTION_BATCH_SIZE;
 
 export function boundedQuestionBatchSize(value: number) {
   if (!Number.isFinite(value)) {

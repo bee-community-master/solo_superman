@@ -7494,11 +7494,11 @@ describe("PR-02 sidecar health shell", () => {
           generatedQuestionCount: 15,
           openQuestionCount: 15,
           answeredQuestionCount: 0,
-          visibleQuestionDebtCount: 5,
+          visibleQuestionDebtCount: 1,
           completionPercent: 0
         }
       });
-      expect(activeItems).toHaveLength(5);
+      expect(activeItems).toHaveLength(1);
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
@@ -7779,7 +7779,7 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const secondQuestionId = (activeItems[1] as Readonly<Record<string, unknown>>).queueItemId as string;
+      const secondQuestionId = ((refetchedQueueData.active as readonly Readonly<Record<string, unknown>>[])[0] as Readonly<Record<string, unknown>>).queueItemId as string;
       const staleAnswer = await storageApp.request(`/api/v1/questions/${secondQuestionId}/answers`, {
         method: "POST",
         headers: {
