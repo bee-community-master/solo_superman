@@ -230,6 +230,12 @@ import {
   parseGeneratedAmbiguityQuestionSet
 } from "./generated-ambiguity-questions";
 import {
+  dimensionFloorGatePriorityRank,
+  extractIdeaFitDomainSignals,
+  scoreIdeaFitDimensions,
+  selectWeakestExecutionChangingDimension
+} from "./idea-fit-questioning";
+import {
   researchFollowUpAnswerOptions,
   researchFollowUpAnswerSelectionMode,
   researchFollowUpExpectedAnswerType
@@ -305,7 +311,7 @@ const EMPTY_RUNTIME_PROJECTION: RuntimeActivityProjection = {
   runtimeStatus: "scaffold_placeholder"
 };
 
-const DEFAULT_QUESTION_BATCH_SIZE = 5;
+const DEFAULT_QUESTION_BATCH_SIZE = 1;
 const DEFAULT_FOLLOW_UP_QUESTION_LIMIT = 16;
 const BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT = 6;
 const ANSWER_EXCERPT_MAX_CHARS = 96;
@@ -1153,7 +1159,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
     case "pet_lifecycle": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 보호자 유형은 누구이고, 그 보호자는 의료·급여·일상·보험·장례 중 어떤 문제를 지금 겪고 있나요?`,
+          `${ideaLabel}를 가장 먼저 테스트할 보호자 유형은 누구인가요?`,
         buyer_user_split:
           "반려동물 기록과 비용 관리는 보호자가 직접 결정하나요, 아니면 가족·동물병원·보험사가 따로 관여하나요?",
         problem_pain_intensity:
@@ -1163,7 +1169,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         alternative_dissatisfaction_gap:
           "보호자는 지금 반려동물 기록과 비용 정보를 어디에 흩어 관리하고, 그 방식이 괜찮을 때와 불편할 때는 언제인가요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${goalLabel}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 보호자가 반려동물 기록이나 비용 자료를 실제로 맡기려는지 어떻게 작게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1189,7 +1195,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
     case "local_commerce": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 매장/손님 유형은 누구이고, 예약·픽업 주문·단골 혜택 중 어떤 상황을 겪고 있나요?`,
+          `${ideaLabel}를 가장 먼저 테스트할 매장/손님 유형은 누구인가요?`,
         buyer_user_split:
           "이 예약·주문·단골 관리 문제는 매장 운영자가 비용을 내고 손님이 쓰나요, 아니면 손님이 직접 가치를 느끼나요?",
         problem_pain_intensity:
@@ -1199,7 +1205,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         alternative_dissatisfaction_gap:
           "지금 매장과 손님은 예약·주문·단골 혜택을 어떤 도구로 처리하고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${goalLabel}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 한 매장의 예약·픽업 주문·단골 혜택 관리를 수동으로 도와 실제 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1225,7 +1231,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
     case "founder_validation": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?`,
+          `${ideaLabel}를 가장 먼저 테스트할 창업자 유형은 누구인가요?`,
         buyer_user_split:
           "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
         problem_pain_intensity:
@@ -1235,7 +1241,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         alternative_dissatisfaction_gap:
           "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${goalLabel}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1268,8 +1274,8 @@ const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (conte
     const profile = primaryCustomerContextProfileForText(generatedQuestionSetContextText(context));
 
     return profile
-      ? `${ideaContextLabel(context)}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
-      : `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
+      ? `${ideaContextLabel(context)}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구인가요?`
+      : `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구인가요?`;
   },
   buyer_user_split: () =>
     "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
@@ -1280,7 +1286,7 @@ const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (conte
   alternative_dissatisfaction_gap: () =>
     "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
   mvp_validation_scope: (context) =>
-    `${goalContextLabel(context)}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
+    `${goalContextLabel(context)}에 가장 도움이 되는 첫 버전 기능 하나는 무엇인가요?`,
   first_validation_experiment: () =>
     "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
 };
@@ -2036,6 +2042,24 @@ function expectedAnswerTypeForSeed(
     : seed.expectedAnswerType;
 }
 
+function priorityDimensionForQuestionContext(context: OnboardingQuestionContext) {
+  const signals = extractIdeaFitDomainSignals({
+    ...(context.idea ? { rawIdea: context.idea } : {}),
+    ...(context.goal ? { intakeGoal: context.goal } : {})
+  });
+
+  return selectWeakestExecutionChangingDimension(scoreIdeaFitDimensions(signals))?.dimension;
+}
+
+function seedPriorityRank(
+  seed: AmbiguityIssueSeed,
+  priorityDimension: NonNullable<AmbiguityIssueSnapshot["ambiguityDimension"]> | undefined
+) {
+  const dimension = inferredAmbiguityDimensionForSeed(seed);
+
+  return dimension === priorityDimension ? -1 : dimensionFloorGatePriorityRank(dimension);
+}
+
 function createAmbiguityIssuesFromSeeds(input: {
   readonly sessionId: SessionId;
   readonly specRef: string;
@@ -2050,7 +2074,16 @@ function createAmbiguityIssuesFromSeeds(input: {
     `${input.sessionId}:${input.specRef}:${input.mode}:${input.intensity ?? "none"}:${input.source}`
   );
 
-  return input.seeds.map((seed, index) => {
+  const priorityDimension = priorityDimensionForQuestionContext(context);
+  const orderedSeeds = input.seeds
+    .map((seed, index) => ({ seed, index }))
+    .sort((left, right) =>
+      seedPriorityRank(left.seed, priorityDimension) - seedPriorityRank(right.seed, priorityDimension) ||
+      left.index - right.index
+    )
+    .map(({ seed }) => seed);
+
+  return orderedSeeds.map((seed, index) => {
     const contextText = generatedQuestionSetContextText(context);
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
@@ -4361,13 +4394,9 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
   }
   const candidateIssues = selectedIssues as readonly AmbiguityIssueSnapshot[];
 
-  const minimumBatchSize = openIssues.length >= 3 ? 3 : 1;
-
-  if (candidateIssues.length < minimumBatchSize || candidateIssues.length > DEFAULT_QUESTION_BATCH_SIZE) {
+  if (candidateIssues.length < 1 || candidateIssues.length > 5) {
     return reject(
-      openIssues.length >= 3
-        ? "ActivateQuestionBatch requires 3 to 5 open ambiguity issues."
-        : "ActivateQuestionBatch requires at least one remaining open ambiguity issue.",
+      "ActivateQuestionBatch requires 1 to 5 open ambiguity issues.",
       "VALIDATION_FAILED"
     );
   }

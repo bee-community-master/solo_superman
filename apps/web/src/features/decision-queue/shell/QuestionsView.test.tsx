@@ -70,7 +70,7 @@ function renderQuestionsView(
     loadNextQuestionBatch: vi.fn(),
     projectPurposeMode: null,
     projections: emptyProjectionState(),
-    questionBatchSize: 5,
+    questionBatchSize: 1,
     questionProgress: DEFAULT_QUESTION_PROGRESS,
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
     refreshQuestionList: vi.fn(),
@@ -176,8 +176,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
-    expect(markup).toContain("Questions per batch");
-    expect(markup).toContain("Choose a smaller batch when the session feels heavy");
+    expect(markup).toContain("Questions to show at once");
+    expect(markup).toContain("Default to one next question");
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
     expect(markup).toContain("Choose one");
@@ -751,7 +751,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Question loop next action");
-    expect(markup).toContain("Answer the 5 active questions; the loop can continue automatically after the current batch is cleared.");
+    expect(markup).toContain("Answer the 5 active questions; the loop can continue automatically after the current visible questions are cleared.");
     expect(markup).toContain("5/23 generated questions handled · 22%");
     expect(markup).toContain("Generated");
     expect(markup).toContain("Open debt");
@@ -768,7 +768,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
-    expect(markup).toContain("Answer only the current batch");
+    expect(markup).toContain("Answer only the current question");
     expect(markup).toContain("40 follow-up slots remain; use them deliberately.");
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");

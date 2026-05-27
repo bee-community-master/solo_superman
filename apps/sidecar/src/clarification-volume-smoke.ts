@@ -342,7 +342,7 @@ function passedEvidence(result: VolumeFlowResult): ClarificationVolumeSmokeEvide
       "core ProductEngine long-session fixture started without external services",
       "business-mode ambiguity analysis produced a broad base backlog",
       "initial follow-up budget supports 200+ answerable questions",
-      "active batch stayed bounded to five visible questions",
+      "active question flow stayed bounded to one visible question by default",
       "active batch refilled until at least 200 answers were accepted",
       "follow-up chains reached depth 16 without duplicate-topic rejection",
       "every accepted answer created durable research task debt",

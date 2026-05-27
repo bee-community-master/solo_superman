@@ -11,6 +11,8 @@ const PROMPT_TEMPLATE_URL = new URL(
 );
 
 const DEFAULT_REVIEW_AXES = [
+  "domainSignals: actors/users/buyers/artifacts/jobs/pains/constraints/channels/exclusions",
+  "dimensionScores: goal/scope/decision authority/success criteria/constraints/assumption pressure/context",
   "goal clarity",
   "scope and non-goals",
   "decision authority",

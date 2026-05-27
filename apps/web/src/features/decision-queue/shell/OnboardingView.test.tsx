@@ -165,7 +165,7 @@ describe("OnboardingView", () => {
     });
 
     expect(markup).toContain("Ready to create first questions");
-    expect(markup).toContain("Everything needed for the first question batch is in place.");
+    expect(markup).toContain("Everything needed for the first question is in place.");
     expect(markup).toContain("<button type=\"submit\">Create first questions</button>");
   });
 

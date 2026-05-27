@@ -182,15 +182,15 @@ function generatedHealthcareRecordQuestionSet() {
         severity: "medium",
         summary: "기존 병원 앱이나 메모로 충분하다는 반례가 필요함",
         whyItMatters: "새 앱 전환 이유가 약하면 진료 기록 통합 가치가 과장될 수 있습니다.",
-        questionText: "기존 병원 앱이나 메모로 충분하다는 반례는 무엇인가요?",
+        questionText: "환자의 진료 기록과 복약 알림을 기존 메모로 충분히 관리한다는 반례는 무엇인가요?",
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "전환 이유와 반례 리서치 방향을 정합니다.",
         ambiguityDimension: "assumption_pressure",
         ambiguityRoutingPath: "human_judgment",
-        researchQuestion: "기존 병원 앱이나 메모로 충분하다는 공개 반례를 확인합니다.",
+        researchQuestion: "환자의 진료 기록과 복약 알림이 기존 메모로 충분하다는 공개 반례를 확인합니다.",
         possibleRoutes: ["question", "missing_con_evidence"],
-        suggestedResearchTask: "병원 앱 리뷰와 환자 커뮤니티에서 기존 도구로 충분하다는 반례 자료를 찾습니다."
+        suggestedResearchTask: "환자 커뮤니티와 진료 기록 앱 리뷰에서 기존 메모와 복약 알림으로 충분하다는 반례 자료를 찾습니다."
       }
     ]
   };
@@ -228,7 +228,7 @@ function generatedFounderValidationQuestionSet() {
           },
           {
             id: "traceable_spec_builder",
-            label: "근거 추적 스펙을 원하는 빌더",
+            label: "근거 추적 스펙을 원하는 창업자",
             value: "근거 추적 product spec이 필요한 founder를 먼저 검증합니다.",
             primaryDetail: "traceable spec 가치를 확인합니다.",
             secondaryDetail: "비즈니스 검증보다 개발 handoff로 좁혀질 수 있습니다."
@@ -324,7 +324,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.questions[0]?.answerOptions?.map((option) => option.label)).toEqual([
       "유료 인터뷰를 준비하는 창업자",
       "막연한 아이디어를 정리하는 창업자",
-      "근거 추적 스펙을 원하는 빌더"
+      "근거 추적 스펙을 원하는 창업자"
     ]);
   });
 
@@ -524,6 +524,41 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
 
     expect(parsed.ok).toBe(false);
     expect(parsed.issues.join("\n")).toContain("user-facing generated question fields must avoid internal planning jargon");
+  });
+
+
+  it("rejects initial meta answer options that are not real domain choices", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedQuestionSetWithFirstOptions([
+        {
+          id: "proceed",
+          label: "진행",
+          value: "이 방향으로 진행합니다.",
+          primaryDetail: "다음 단계로 갑니다.",
+          secondaryDetail: "구체 고객은 남아 있습니다."
+        },
+        {
+          id: "hold",
+          label: "보류",
+          value: "지금은 보류합니다.",
+          primaryDetail: "결정을 늦춥니다.",
+          secondaryDetail: "다음 확인이 필요합니다."
+        },
+        {
+          id: "more_research",
+          label: "추가 리서치",
+          value: "추가 리서치를 진행합니다.",
+          primaryDetail: "근거를 더 봅니다.",
+          secondaryDetail: "보호자 후보는 아직 정해지지 않습니다."
+        }
+      ]),
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("real domain choices");
   });
 
   it("rejects generated questions that do not expose the ambiguity dimension and routing path", () => {

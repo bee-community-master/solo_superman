@@ -988,7 +988,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           businessCriticIntensity: intensity,
           businessCriticIntensitySelectionStatus: "confirmed"
         });
-        expect(records(queue.active)).toHaveLength(5);
+        expect(records(queue.active)).toHaveLength(1);
         expect(analyzeData).toMatchObject({
           deterministicOutputs: [
             expect.objectContaining({
@@ -3408,19 +3408,16 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(activeBatch).toMatchObject({
         kind: "DecisionQueueProjection"
       });
-      expect(activeItems).toHaveLength(5);
+      expect(activeItems).toHaveLength(1);
       expect(firstQuestion).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
-        topicKey: "primary_customer_narrowing",
         severity: "high",
         whyItMatters: expect.any(String),
         decisionItUnlocks: expect.any(String),
         expectedAnswerType: "choice",
-        answerOptions: expect.arrayContaining([
-          expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
-        ]),
-        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+        answerOptions: expect.arrayContaining([expect.objectContaining({ label: expect.any(String) })]),
+        possibleRoutes: expect.arrayContaining(["question"])
       });
 
       const answer = await postJson(app, `/api/v1/questions/${firstQuestion.queueItemId as string}/answers`, {
