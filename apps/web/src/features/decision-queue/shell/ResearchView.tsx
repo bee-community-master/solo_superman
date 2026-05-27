@@ -342,7 +342,7 @@ function VisibleChatGptResearchHandoff({
   const handoff = visibleChatGptResearchHandoffForTask(task);
 
   return (
-    <aside className="chatgpt-visible-research-handoff">
+    <aside className="chatgpt-visible-research-handoff research-action-assist">
       <div className="research-evidence-matrix-heading">
         <strong>{copy.research.visibleChatGptHandoffTitle}</strong>
         <a href={handoff.openUrl} rel="noopener noreferrer" target="_blank">
@@ -377,7 +377,7 @@ function ImportedResearchResultPending({
 
   return (
     <aside className="research-card-source-trace research-imported-result-pending" aria-label={copy.research.importedResultPendingTitle}>
-      <p>{copy.research.importedResultPendingTitle}</p>
+      <strong>{copy.research.importedResultPendingTitle}</strong>
       <p>{copy.research.importedResultPendingDescription}</p>
       <dl className="research-evidence-grid">
         <div>
@@ -514,90 +514,115 @@ export function ResearchView({ controller }: ResearchViewProps) {
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
-                  <div>
-                    <span>{statusLabel}</span>
-                    <h3>{task.objective}</h3>
-                    <p>{card?.title ?? summaryLabel}</p>
-                    {card?.cardType ? (
-                      <p className="research-recovery">
-                        {summaryLabel} · {impactLabel}
-                        {card.blocksPlanning ? ` · ${copy.research.planningBlockedSuffix}` : ""}
-                        {terminalOutcomeLabel ? ` · ${terminalOutcomeLabel}` : ""}
-                      </p>
+                  <div className="research-card-main">
+                    <header className="research-card-header">
+                      <h3>{task.objective}</h3>
+                      <span className="research-status-badge">{statusLabel}</span>
+                    </header>
+                    <p className="research-card-summary">{card?.title ?? summaryLabel}</p>
+                    <dl className="research-card-facts">
+                      <div>
+                        <dt>{copy.research.gateStatus}</dt>
+                        <dd>{statusLabel}</dd>
+                      </div>
+                      <div>
+                        <dt>{copy.research.decisionContext}</dt>
+                        <dd>{summaryLabel}</dd>
+                      </div>
+                      <div>
+                        <dt>{copy.research.researchImpact}</dt>
+                        <dd>{impactLabel}</dd>
+                      </div>
+                      {terminalOutcomeLabel ? (
+                        <div>
+                          <dt>{copy.research.terminalOutcome}</dt>
+                          <dd>{terminalOutcomeLabel}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                    {card?.blocksPlanning ? (
+                      <p className="research-recovery">{copy.research.planningBlockedSuffix}</p>
                     ) : null}
                     {card?.terminalRationale ? <p className="research-recovery">{copy.research.rationale}: {card.terminalRationale}</p> : null}
                     {recoveryActionLabels.length ? <p className="research-recovery">{recoveryActionLabels.join(" / ")}</p> : null}
-                    {card?.additionalQuestions?.length ? (
-                      <div className="research-additional-questions">
-                        <p>{copy.research.additionalQuestions}</p>
-                        <ul>
-                          {card.additionalQuestions.map((question) => (
-                            <li key={question}>{question}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
                     {retainedSourceRefs.length ? (
-                      <div className="research-card-source-trace">
+                      <aside className="research-card-source-trace" aria-label={copy.research.sourceTrace}>
                         <p>{copy.research.sourceTrace}</p>
                         <ul>
                           {retainedSourceRefs.map((sourceRef) => (
                             <li key={sourceRef}>{sourceRef}</li>
                           ))}
                         </ul>
-                      </div>
+                      </aside>
+                    ) : null}
+                    {card?.additionalQuestions?.length ? (
+                      <aside className="research-additional-questions" aria-label={copy.research.additionalQuestions}>
+                        <p>{copy.research.additionalQuestions}</p>
+                        <ul>
+                          {card.additionalQuestions.map((question) => (
+                            <li key={question}>{question}</li>
+                          ))}
+                        </ul>
+                      </aside>
                     ) : null}
                     {pendingImportedResult ? (
                       <ImportedResearchResultPending copy={copy} result={pendingImportedResult} />
                     ) : null}
                   </div>
                   {canImportResearch ? (
-                    <div className="answer-box">
+                    <div className="answer-box research-import-box">
                       {visibleChatGptImportHint ? (
                         <p className="research-recovery">{visibleChatGptImportHint}</p>
                       ) : null}
                       {canUseVisibleChatGptHandoff ? (
                         <VisibleChatGptResearchHandoff copy={copy} task={task} />
                       ) : null}
-                      <textarea
-                        aria-label={`${copy.research.importResearchAriaPrefix} ${task.objective}`}
-                        value={researchDrafts[task.researchTaskId] ?? ""}
-                        onChange={(event) =>
-                          setResearchDrafts((current) => ({
-                            ...current,
-                            [task.researchTaskId]: event.target.value
-                          }))
-                        }
-                        rows={3}
-                      />
-                      <button type="button" disabled={isBusy} onClick={() => void importResearchResult(task.researchTaskId)}>
-                        {copy.research.importResult}
+                      <label className="research-import-field">
+                        <span>{copy.research.importResult}</span>
+                        <textarea
+                          aria-label={`${copy.research.importResearchAriaPrefix} ${task.objective}`}
+                          value={researchDrafts[task.researchTaskId] ?? ""}
+                          onChange={(event) =>
+                            setResearchDrafts((current) => ({
+                              ...current,
+                              [task.researchTaskId]: event.target.value
+                            }))
+                          }
+                          rows={3}
+                        />
+                      </label>
+                      <div className="card-actions research-primary-actions">
+                        <button type="button" disabled={isBusy} onClick={() => void importResearchResult(task.researchTaskId)}>
+                          {copy.research.importResult}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="research-card-action-zone">
+                    <div className="card-actions research-primary-actions">
+                      <button
+                        type="button"
+                        disabled={isBusy || !hasActiveResearchAllowlist || !canStartReadOnlyRun}
+                        onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
+                      >
+                        {copy.research.startReadOnlyRun}
                       </button>
                     </div>
-                  ) : null}
-                  <div className="card-actions">
-                    <button
-                      type="button"
-                      disabled={isBusy || !hasActiveResearchAllowlist || !canStartReadOnlyRun}
-                      onClick={() => void startReadOnlyResearchRun(task.researchTaskId)}
-                    >
-                      {copy.research.startReadOnlyRun}
-                    </button>
+                    {card && !card.terminalOutcome && card.availableOutcomes.length ? (
+                      <div className="card-actions research-secondary-actions">
+                        {card.availableOutcomes.map((outcome) => (
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            key={outcome}
+                            onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
+                          >
+                            {copy.research.terminalOutcomeLabels[outcome]}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  {card && !card.terminalOutcome && card.availableOutcomes.length ? (
-                    <div className="card-actions">
-                      {card.availableOutcomes.map((outcome) => (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          key={outcome}
-                          onClick={() => void resolveResearchCard(card.cardId, outcome, card.title)}
-                        >
-                          {copy.research.terminalOutcomeLabels[outcome]}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
                 </article>
               );
             })}

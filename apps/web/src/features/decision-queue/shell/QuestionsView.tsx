@@ -201,9 +201,10 @@ function ResearchFollowUpSourceTrace({
   const sourceTrace = researchFollowUpSourceTrace(item);
 
   return sourceTrace ? (
-    <p className="research-source-trace">
-      {copy.questions.researchFollowUpSourceTrace}: {sourceTrace}
-    </p>
+    <aside className="question-source-trace" aria-label={copy.questions.researchFollowUpSourceTrace}>
+      <strong>{copy.questions.researchFollowUpSourceTrace}</strong>
+      <p>{sourceTrace}</p>
+    </aside>
   ) : null;
 }
 
@@ -413,15 +414,17 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
 
                     return (
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
-                      <div>
-                        <span>{copy.questions.queueItemStateLabels[item.state]}</span>
-                        <h4>{item.title}</h4>
+                      <div className="queue-card-main">
+                        <header className="queue-card-header">
+                          <h4>{item.title}</h4>
+                          <span className="queue-state-badge">{copy.questions.queueItemStateLabels[item.state]}</span>
+                        </header>
                         {isBusinessCriticQueueItem(item) ? (
-                          <p className="mode-summary">
+                          <p className="mode-summary question-business-context">
                             {businessCriticSummary(copy, item)}
                           </p>
                         ) : null}
-                        {item.whyItMatters || item.decisionItUnlocks ? (
+                        {item.whyItMatters || item.decisionItUnlocks || item.nextValidationAction ? (
                           <dl className="question-coaching-context">
                             {item.whyItMatters ? (
                               <div>
@@ -435,25 +438,28 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                                 <dd>{item.decisionItUnlocks}</dd>
                               </div>
                             ) : null}
+                            {item.nextValidationAction ? (
+                              <div>
+                                <dt>{copy.questions.nextValidation}</dt>
+                                <dd>{item.nextValidationAction}</dd>
+                              </div>
+                            ) : null}
                           </dl>
-                        ) : null}
-                        {item.nextValidationAction ? (
-                          <p className="research-recovery">{copy.questions.nextValidation}: {item.nextValidationAction}</p>
                         ) : null}
                         <ResearchFollowUpSourceTrace copy={copy} item={item} />
                         {item.additionalQuestions?.length ? (
-                          <div className="research-additional-questions">
+                          <aside className="research-additional-questions" aria-label={copy.questions.researchAdditionalQuestions}>
                             <p>{copy.questions.researchAdditionalQuestions}</p>
                             <ul>
                               {item.additionalQuestions.map((question) => (
                                 <li key={question}>{question}</li>
                               ))}
                             </ul>
-                          </div>
+                          </aside>
                         ) : null}
                       </div>
                       {section.id === "active" && item.state === "active" ? (
-                        <div className="answer-box">
+                        <div className="answer-box question-answer-panel">
                           <p className="answer-format-help">
                             <strong>{copy.questions.answerFormatLabels[answerFormatKind]}</strong>
                             <span>{copy.questions.answerFormatDescriptions[answerFormatKind]}</span>
