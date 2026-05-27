@@ -834,7 +834,37 @@ function hasNegatedRiskClaim(value: string) {
 }
 
 function sourceRetainedRef(result: ResearchResultProjection) {
-  return result.sourceUrl ?? result.sourceTitle ?? result.researchResultId;
+  if (result.sourceUrl) {
+    return result.sourceUrl;
+  }
+
+  if (result.sourceTitle) {
+    return result.sourceTitle;
+  }
+
+  const summary = userFacingResearchText(result.resultSummary, "");
+  const findingMatch = /-\s*\[(?:supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/isu.exec(
+    summary.replace(/\r?\n/gu, " ")
+  );
+  const finding = findingMatch?.[1]
+    ?.replace(/\s+—\s+https?:\/\/\S+\s*$/iu, "")
+    .replace(/\s+—\s+.+?\s+https?:\/\/\S+\s*$/iu, "")
+    .trim();
+
+  if (finding) {
+    return compactSummary(finding, "source-linked finding");
+  }
+
+  const humanDecisionMatch = /Human decision needed:\s*(.+?)(?=\s+[A-Z][A-Za-z ]+:|$)/isu.exec(
+    summary.replace(/\r?\n/gu, " ")
+  );
+  const humanDecision = humanDecisionMatch?.[1]?.trim();
+
+  if (humanDecision) {
+    return compactSummary(humanDecision, "human decision needed");
+  }
+
+  return "출처 내용이 아직 정리되지 않았습니다.";
 }
 
 function retainedSourceRefs(result: ResearchResultProjection, pack?: DecisionEvidencePackProjection) {
