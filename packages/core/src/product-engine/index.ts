@@ -2566,13 +2566,47 @@ function compactAnswerExcerpt(answer: string) {
 }
 
 function readableEvidenceContextExcerpt(value: string) {
-  const userFacingValue = stripInternalResearchMetaText(value);
+  const userFacingValue = stripInternalResearchMetaText(value)
+    .replace(/\bFind decision evidence for:\s*/giu, "")
+    .replace(/\bFind evidence for:\s*/giu, "")
+    .replace(/\bBroaden research for:\s*/giu, "더 넓게 확인: ")
+    .replace(/\bBroaden research beyond existing notes for:\s*/giu, "기존 리서치 메모를 넘어 더 넓게 확인: ");
   const compacted = ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS.reduce(
     (current, pattern) => current.replace(pattern, ANSWER_EXCERPT_REDACTED_VALUE),
     userFacingValue.replace(/\s+/gu, " ").trim()
   );
 
   return compacted.length > 220 ? compacted.slice(0, 220).trimEnd() : compacted;
+}
+
+function structuredFindingSourceLabel(value: string) {
+  const normalized = stripInternalResearchMetaText(value);
+  const findingMatch = normalized.replace(/\r?\n/gu, " ").match(
+    /-\s*\[(?:supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/isu
+  );
+  const finding = findingMatch?.[1]
+    ?.replace(/\s+—\s+https?:\/\/\S+\s*$/iu, "")
+    .replace(/\s+—\s+.+?\s+https?:\/\/\S+\s*$/iu, "")
+    .trim();
+
+  if (finding) {
+    return `source-linked finding: ${finding}`;
+  }
+
+  const humanDecisionMatch = normalized.replace(/\r?\n/gu, " ").match(
+    /Human decision needed:\s*(.+?)(?=\s+[A-Z][A-Za-z ]+:|$)/isu
+  );
+  const humanDecision = humanDecisionMatch?.[1]?.trim();
+
+  if (humanDecision) {
+    return humanDecision;
+  }
+
+  if (/source_quality_insufficient|usable finding 없음|no usable(?: source-linked)? finding/iu.test(normalized)) {
+    return "공개 리서치에서 usable source-linked finding을 찾지 못했습니다.";
+  }
+
+  return normalized ? compactAnswerExcerpt(normalized) : null;
 }
 
 function researchSourceLabel(researchResult: ResearchResultProjection) {
@@ -2587,7 +2621,7 @@ function researchSourceLabel(researchResult: ResearchResultProjection) {
     return sourceTitle;
   }
 
-  return sourceUrl || sourceTitle || researchResult.researchResultId;
+  return sourceUrl || sourceTitle || structuredFindingSourceLabel(researchResult.resultSummary) || "출처 내용이 아직 정리되지 않았습니다.";
 }
 
 function researchSynthesisContextText(
