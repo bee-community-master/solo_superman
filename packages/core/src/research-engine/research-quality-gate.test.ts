@@ -103,6 +103,74 @@ describe("Decision-linked research quality gate", () => {
     });
   });
 
+  it("does not turn rejected public-web noise into pro evidence or follow-up question snippets", () => {
+    const researchTask = task({
+      objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: [
+        "Research objective:",
+        "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        "Queries used:",
+        "- 이혼 준비 재무 현금흐름 생계비 결제 의향 후기 상담",
+        "Usable findings:",
+        "- usable finding 없음",
+        "Rejected noise:",
+        "- count: 2",
+        "- encykorea 인류의 기원 unrelated encyclopedia",
+        "- support.microsoft PC 초기화 unrelated OS help",
+        "Limitations:",
+        "- source_quality_insufficient: no usable finding remained after relevance filtering.",
+        "Human decision needed:",
+        "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다."
+      ].join("\n"),
+      limitationNotes: "source_quality_insufficient: 공개 검색 결과에서 usable source-linked finding이 없었습니다."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const serializedQuestion = matrix.additionalQuestions.join("\n");
+
+    expect(matrix.balanceStatus).toBe("source_quality_insufficient");
+    expect(matrix.proEvidence).toEqual([]);
+    expect(matrix.conEvidence).toEqual([]);
+    expect(serializedQuestion).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다");
+    expect(serializedQuestion).not.toContain("enc");
+    expect(serializedQuestion).not.toContain("인류");
+    expect(serializedQuestion).not.toContain("support.microsoft");
+    expect(serializedQuestion).not.toContain("PC 초기화");
+  });
+
+  it("uses only structured supports and weakens findings for public-web evidence synthesis", () => {
+    const researchTask = task({
+      objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: [
+        "Research objective:",
+        "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        "Queries used:",
+        "- 이혼 준비 재무 현금흐름 생계비 결제 의향 후기 상담",
+        "Usable findings:",
+        "- [supports] 이혼 준비자는 생계비와 현금흐름을 계산하는 유료 상담 결제 의향을 후기에 남겼다. — 이혼 전 재무 상담 후기 https://example.org/divorce-paid",
+        "- [weakens] 무료 법률구조와 커뮤니티 조언이 대체재로 언급되어 앱 결제 전환은 낮을 수 있다. — 무료 대체재 비교 https://example.org/divorce-free-alternatives",
+        "Rejected noise:",
+        "- count: 1",
+        "- OS 도움말 결과 제외",
+        "Limitations:",
+        "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+      ].join("\n"),
+      limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.balanceStatus).toBe("balanced");
+    expect(matrix.proEvidence[0]?.summary).toContain("유료 상담 결제 의향");
+    expect(matrix.conEvidence[0]?.summary).toContain("무료 법률구조");
+    expect(matrix.proEvidence[0]?.summary).not.toContain("https://example.org");
+    expect(matrix.conEvidence[0]?.summary).not.toContain("https://example.org");
+  });
+
   it("fails high-impact pro-only evidence as explicit research_insufficient instead of decision-ready", () => {
     const researchTask = task();
     const researchResult = result({

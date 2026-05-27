@@ -91,6 +91,17 @@ const CON_EVIDENCE_MARKERS = ["con:", "risk:", "risks:", "반대", "우려", "�
 const CON_EVIDENCE_SNIPPET_MARKERS = ["con:", "risk:", "risks:", "risk", "risks", "반대", "우려", "부정", "caution"] as const;
 const UNCERTAINTY_MARKERS = ["uncertain", "unknown", "불확실", "limitation", "한계"] as const;
 
+type StructuredResearchFindingLabel = "supports" | "weakens" | "uncertain";
+
+interface StructuredResearchFindings {
+  readonly isStructuredSummary: boolean;
+  readonly sourceQualityInsufficient: boolean;
+  readonly findings: readonly {
+    readonly label: StructuredResearchFindingLabel;
+    readonly summary: string;
+  }[];
+}
+
 function trimOrNull(value: string | undefined) {
   const trimmed = value?.trim();
 
@@ -200,6 +211,52 @@ function neutralEvidenceSummaryOrFallback(
   const neutralSummary = neutralizeEvidenceStancePrefix(userFacingResearchText(evidenceItems[0]?.summary, fallback));
 
   return compactSummary(neutralSummary, fallback);
+}
+
+function stripStructuredFindingSourceSuffix(value: string) {
+  return value
+    .replace(/\s+—\s+https?:\/\/\S+\s*$/iu, "")
+    .replace(/\s+—\s+.+?\s+https?:\/\/\S+\s*$/iu, "")
+    .trim();
+}
+
+function parseStructuredResearchFindings(value: string): StructuredResearchFindings {
+  const isStructuredSummary =
+    /\bUsable findings:/imu.test(value) ||
+    /^\s*-\s*\[(?:supports|weakens|uncertain)\]/imu.test(value) ||
+    /source_quality_insufficient/iu.test(value);
+
+  if (!isStructuredSummary) {
+    return {
+      isStructuredSummary: false,
+      sourceQualityInsufficient: false,
+      findings: []
+    };
+  }
+
+  const normalized = value.replace(/\r?\n/gu, " ");
+  const findings = [...normalized.matchAll(/-\s*\[(supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/giu)]
+    .flatMap((match) => {
+      const [, label, rawSummary] = match;
+      const summary = compactSummary(stripStructuredFindingSourceSuffix(rawSummary ?? ""), "");
+
+      return summary
+        ? [
+            {
+              label: label?.toLowerCase() as StructuredResearchFindingLabel,
+              summary
+            }
+          ]
+        : [];
+    });
+
+  return {
+    isStructuredSummary: true,
+    sourceQualityInsufficient:
+      /source_quality_insufficient|usable finding 없음|no usable(?: source-linked)? finding/iu.test(value) ||
+      findings.length === 0,
+    findings
+  };
 }
 
 type AdditionalQuestionAnswerIntent =
@@ -669,6 +726,27 @@ function additionalQuestionForEvidenceGap(input: {
   const topic = userFacingQuestionText(input.objective) || "이번 주장";
   const contextText = userFacingResearchText(input.contextText, "");
   const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
+  if (input.balanceStatus === "source_quality_insufficient" && input.proEvidence.length === 0 && input.conEvidence.length === 0) {
+    const uncertaintySummary = input.uncertainties.length
+      ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
+      : "공개 리서치에서 유의미한 근거를 찾지 못했습니다";
+    const promptSentence =
+      "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다. 어떤 조건이 확인되면 이 방향을 진행하거나 보류하시겠습니까?";
+    const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
+
+    return [
+      `${topic}${koreanObjectParticleFor(topic)} 판단할 공개 리서치 단서를 확인했지만, usable source-linked finding으로 쓸 만한 근거는 아직 없습니다.`,
+      "",
+      `한계와 불확실성은 ${uncertaintySummary}입니다.`,
+      contextText ? `현재 맥락은 ${compactSummary(contextText, contextText)}입니다.` : null,
+      "",
+      promptSentence,
+      "",
+      unlockSentence
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+  }
   const usesStanceFraming = answerIntent === "evidence_judgment" || answerIntent === "binary_choice";
   const proSummary = neutralEvidenceSummaryOrFallback(
     input.proEvidence,
@@ -1001,21 +1079,44 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
   );
   const resultText = `${userFacingResultSummary} ${userFacingLimitationNotes}`.toLowerCase();
   const token = `${input.researchResult.researchResultId}_v${input.synthesisVersion}`;
-  const hasPro = includesAny(resultText, PRO_EVIDENCE_MARKERS);
-  const hasCon =
-    includesAny(resultText, CON_EVIDENCE_MARKERS) ||
-    (/\brisks?\b/.test(resultText) && !hasNegatedRiskClaim(resultText));
-  const hasUncertainty = includesAny(resultText, UNCERTAINTY_MARKERS);
+  const structuredFindings = parseStructuredResearchFindings(input.researchResult.resultSummary);
+  const proFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "supports")
+        .map((finding) => finding.summary)
+    : [];
+  const conFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "weakens")
+        .map((finding) => finding.summary)
+    : [];
+  const uncertainFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "uncertain")
+        .map((finding) => finding.summary)
+    : [];
+  const hasPro = structuredFindings.isStructuredSummary
+    ? proFindingSummaries.length > 0
+    : includesAny(resultText, PRO_EVIDENCE_MARKERS);
+  const hasCon = structuredFindings.isStructuredSummary
+    ? conFindingSummaries.length > 0
+    : includesAny(resultText, CON_EVIDENCE_MARKERS) ||
+      (/\brisks?\b/.test(resultText) && !hasNegatedRiskClaim(resultText));
+  const hasUncertainty = structuredFindings.isStructuredSummary
+    ? uncertainFindingSummaries.length > 0 || structuredFindings.sourceQualityInsufficient
+    : includesAny(resultText, UNCERTAINTY_MARKERS);
   const proEvidence = hasPro
     ? [
         {
           evidenceItemId: itemId("evidence_pro", token, 1),
           kind: "pro" as const,
-          summary: evidenceSnippet(
-            userFacingResultSummary,
-            PRO_EVIDENCE_MARKERS,
-            "Imported result supports the claim."
-          )
+          summary: structuredFindings.isStructuredSummary
+            ? compactSummary(proFindingSummaries[0] ?? "", "Imported result supports the claim.")
+            : evidenceSnippet(
+                userFacingResultSummary,
+                PRO_EVIDENCE_MARKERS,
+                "Imported result supports the claim."
+              )
         }
       ]
     : [];
@@ -1024,20 +1125,25 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
         {
           evidenceItemId: itemId("evidence_con", token, 1),
           kind: "con" as const,
-          summary: evidenceSnippet(
-            userFacingResultSummary,
-            CON_EVIDENCE_SNIPPET_MARKERS,
-            "Imported result raises counter-evidence or risk."
-          )
+          summary: structuredFindings.isStructuredSummary
+            ? compactSummary(conFindingSummaries[0] ?? "", "Imported result raises counter-evidence or risk.")
+            : evidenceSnippet(
+                userFacingResultSummary,
+                CON_EVIDENCE_SNIPPET_MARKERS,
+                "Imported result raises counter-evidence or risk."
+              )
         }
       ]
     : [];
+  const uncertaintySummary = structuredFindings.isStructuredSummary && uncertainFindingSummaries.length > 0
+    ? compactSummary(uncertainFindingSummaries[0] ?? "", userFacingLimitationNotes)
+    : userFacingLimitationNotes;
   const uncertainties = hasUncertainty || input.researchResult.limitationNotes
     ? [
         {
           evidenceItemId: itemId("evidence_uncertainty", token, 1),
           kind: "uncertainty" as const,
-          summary: userFacingLimitationNotes
+          summary: uncertaintySummary
         }
       ]
     : [];
