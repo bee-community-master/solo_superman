@@ -66,7 +66,7 @@ describe("single-session product loop smoke", () => {
           title: "Public senior pet care evidence",
           url: "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412",
           snippet:
-            "Public companion animal material discusses recurring pet care needs that can support senior pet medical record research.",
+            "반려동물 보호자 유형과 노령 반려동물 의료 기록, 돌봄 후기, 보험 비용, 상담 대체재 니즈를 확인할 수 있는 공개 자료입니다.",
           retrievedAt: now()
         }
       ]

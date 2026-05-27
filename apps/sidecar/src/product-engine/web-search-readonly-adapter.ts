@@ -98,6 +98,20 @@ export interface WebSearchReadOnlySearchCandidate {
 
 type SearchCandidate = WebSearchReadOnlySearchCandidate;
 
+export interface PlannedPublicWebSearchQueries {
+  readonly queries: readonly string[];
+  readonly coreTerms: readonly string[];
+  readonly intentTerms: readonly string[];
+  readonly researchObjective: string;
+}
+
+interface ReviewedPublicWebSource {
+  readonly source: WebSearchReadOnlySourceResult;
+  readonly finding: string | null;
+  readonly findingLabel: "supports" | "weakens" | "uncertain" | null;
+  readonly rejectReason?: string;
+}
+
 function defaultNow() {
   return new Date().toISOString();
 }
@@ -283,16 +297,12 @@ function cleanSearchResultSnippet(snippet: string, title: string) {
   return cleaned || title;
 }
 
-function searchQueryFromDisclosure(payload: PublicSafeResearchDisclosurePayload | undefined, run: ResearchRunProjection) {
-  const raw = payload
-    ? publicWebSearchQueryFromPayload(payload)
-    : `${run.researchTaskId} ${run.connectorId} public evidence`;
-
-  return truncateText(raw, MAX_QUERY_CHARS);
-}
-
 function stripPublicSafeSummaryLabels(value: string) {
   return value
+    .replace(/\bFind decision evidence for:\s*/giu, "")
+    .replace(/\bOriginal ambiguity:\s*/giu, "")
+    .replace(/\bDecision this should inform:\s*/giu, "")
+    .replace(/\bAmbiguity dimension:\s*/giu, "")
     .replace(/\bProduct category:\s*/giu, "")
     .replace(/\bCustomer\/problem hypothesis:\s*/giu, "")
     .replace(/\bResearch objective:\s*/giu, "")
@@ -302,6 +312,10 @@ function stripPublicSafeSummaryLabels(value: string) {
 
 function removeGenericResearchObjectiveText(value: string) {
   return value
+    .replace(/\bFind decision evidence for\b[:：]?\s*/giu, "")
+    .replace(/\bOriginal ambiguity\b[:：]?[^.。!?]{0,160}[.。!?]?/giu, "")
+    .replace(/\bDecision this should inform\b[:：]?[^.。!?]{0,160}[.。!?]?/giu, "")
+    .replace(/\bAmbiguity dimension\b[:：]?[^.。!?]{0,120}[.。!?]?/giu, "")
     .replace(/(?:첫\s*)?고객\s*세그먼트[^.。!?]{0,80}(?:구체화|좁|넓)[^.。!?]*[.。!?]?/giu, "")
     .replace(/(?:first\s+)?customer\s+segment[^.?!]{0,100}(?:narrow|broad|specific|validate)[^.?!]*[.?!]?/giu, "")
     .replace(/(?:구매자|사용자)[^.。!?]{0,80}(?:확인|구체화|검증)[^.。!?]*[.。!?]?/giu, "")
@@ -309,58 +323,346 @@ function removeGenericResearchObjectiveText(value: string) {
     .trim();
 }
 
+function normalizedSearchTerm(value: string) {
+  return value.replace(/\s+/gu, " ").trim();
+}
+
+function uniqueSearchTerms(values: readonly string[], maxTerms: number) {
+  return [
+    ...new Set(
+      values
+        .map(normalizedSearchTerm)
+        .filter((value) => value.length >= 2)
+    )
+  ].slice(0, maxTerms);
+}
+
+function includesLoose(value: string, term: string) {
+  const normalizedValue = value.toLowerCase();
+  const normalizedTerm = term.toLowerCase();
+
+  return (
+    normalizedValue.includes(normalizedTerm) ||
+    normalizedValue.replace(/\s+/gu, "").includes(normalizedTerm.replace(/\s+/gu, ""))
+  );
+}
+
+function tokenTermsFromText(value: string) {
+  const stopwords = new Set([
+    "research",
+    "objective",
+    "decision",
+    "evidence",
+    "validate",
+    "public",
+    "summary",
+    "product",
+    "category",
+    "customer",
+    "problem",
+    "hypothesis",
+    "조사",
+    "리서치",
+    "검증",
+    "근거",
+    "확인",
+    "구체화",
+    "필요",
+    "관리",
+    "정보"
+  ]);
+
+  return (value.match(/[가-힣a-z0-9]{2,}/giu) ?? [])
+    .map((term) => term.toLowerCase())
+    .filter((term) => !stopwords.has(term));
+}
+
+function coreTermsFor(objective: string, context: string) {
+  const combined = `${objective} ${context}`;
+
+  if (/(?:이혼|별거|소송|divorce|separation)/iu.test(combined)) {
+    return uniqueSearchTerms(
+      [
+        "이혼 준비",
+        "이혼",
+        "재무",
+        "현금흐름",
+        "현금 runway",
+        "생계비",
+        "divorce financial planning",
+        "cash flow"
+      ],
+      8
+    );
+  }
+
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+    return uniqueSearchTerms(["반려동물", "보호자", "의료 기록", "보험", "돌봄", "장례", "pet owner"], 8);
+  }
+
+  return uniqueSearchTerms(tokenTermsFromText(combined), 8);
+}
+
 function searchIntentTermsFor(objective: string, context: string) {
   const combined = `${objective} ${context}`;
   const isKorean = /[가-힣]/u.test(combined);
+  const commonKorean = [
+    "후기",
+    "커뮤니티",
+    "대체재",
+    "가격",
+    "상담",
+    "유료 의향",
+    "결제 의향",
+    "가입",
+    "재방문",
+    "반복 사용",
+    "통계",
+    "리포트"
+  ];
+  const commonEnglish = [
+    "reviews",
+    "community",
+    "alternatives",
+    "pricing",
+    "willingness to pay",
+    "subscription",
+    "repeat use",
+    "statistics",
+    "report"
+  ];
 
   if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
     return isKorean
-      ? "반려동물 보호자 유형 의료비 보험 돌봄 시장 조사 통계 니즈"
-      : "pet owner segments veterinary cost insurance care market research statistics needs";
+      ? uniqueSearchTerms(["보호자 유형", "의료비", "보험", "돌봄", ...commonKorean], 12)
+      : uniqueSearchTerms(["pet owner segments", "veterinary cost", "insurance", "care", ...commonEnglish], 12);
   }
 
   if (/(?:고객|세그먼트|customer|segment|persona|사용자\s*유형)/iu.test(combined)) {
     return isKorean
-      ? "고객 유형 사용자 세그먼트 시장 조사 통계 니즈"
-      : "customer segments user personas market research statistics needs";
+      ? uniqueSearchTerms(["고객 유형", "사용자 세그먼트", "시장 조사", ...commonKorean], 12)
+      : uniqueSearchTerms(["customer segments", "user personas", "market research", ...commonEnglish], 12);
   }
 
   if (/(?:구매자|결제자|buyer|payer|user)/iu.test(combined)) {
     return isKorean
-      ? "구매자 사용자 의사결정자 시장 조사 통계"
-      : "buyer user decision maker market research statistics";
+      ? uniqueSearchTerms(["구매자", "사용자", "의사결정자", ...commonKorean], 12)
+      : uniqueSearchTerms(["buyer", "user", "decision maker", ...commonEnglish], 12);
   }
 
-  return isKorean ? "시장 조사 통계 니즈 사례" : "market research statistics user needs examples";
+  return isKorean ? uniqueSearchTerms(commonKorean, 12) : uniqueSearchTerms(commonEnglish, 12);
 }
 
-function publicWebSearchQueryFromPayload(payload: PublicSafeResearchDisclosurePayload) {
+function publicWebSearchContextFromPayload(payload: PublicSafeResearchDisclosurePayload) {
   const objective = stripPublicSafeSummaryLabels(payload.researchObjective);
   const context = removeGenericResearchObjectiveText(stripPublicSafeSummaryLabels(payload.publicSafeSummary));
-  const terms = searchIntentTermsFor(objective, context);
   const objectivePart = removeGenericResearchObjectiveText(objective);
-  const raw = [context, objectivePart, terms].filter(Boolean).join(" ");
 
-  return raw || `${objective} ${payload.publicSafeSummary}`;
+  return {
+    objective: normalizedText(objectivePart || objective),
+    context: normalizedText(context)
+  };
+}
+
+function queryWithTerms(coreTerms: readonly string[], intentTerms: readonly string[], coreCount: number, intentCount: number) {
+  return truncateText([...coreTerms.slice(0, coreCount), ...intentTerms.slice(0, intentCount)].join(" "), MAX_QUERY_CHARS);
+}
+
+export function planPublicWebSearchQueries(
+  payload: PublicSafeResearchDisclosurePayload | undefined,
+  run?: ResearchRunProjection
+): PlannedPublicWebSearchQueries {
+  const fallbackContext = run ? `${run.researchTaskId} ${run.connectorId} public evidence` : "public evidence";
+  const { objective, context } = payload
+    ? publicWebSearchContextFromPayload(payload)
+    : { objective: fallbackContext, context: fallbackContext };
+  const combined = `${objective} ${context}`;
+  const isKorean = /[가-힣]/u.test(combined);
+  const coreTerms = coreTermsFor(objective, context);
+  const intentTerms = searchIntentTermsFor(objective, context);
+  const queries = uniqueSearchTerms(
+    [
+      queryWithTerms(coreTerms, intentTerms, 4, 5),
+      queryWithTerms(coreTerms.slice(1), intentTerms.slice(3), 4, 5),
+      queryWithTerms(coreTerms, intentTerms.slice(5), 6, 5),
+      ...(isKorean && /(?:이혼|divorce|separation)/iu.test(combined)
+        ? ["divorce financial planning cash flow willingness to pay alternatives"]
+        : [])
+    ].filter(Boolean),
+    4
+  );
+
+  return {
+    queries: queries.length ? queries : [truncateText(combined, MAX_QUERY_CHARS)],
+    coreTerms,
+    intentTerms,
+    researchObjective: truncateText(objective || context || fallbackContext, 360)
+  };
 }
 
 function sourceRefsFor(run: ResearchRunProjection, sources: readonly WebSearchReadOnlySourceResult[]) {
   return [...new Set([...run.sourceRefs, ...sources.map((source) => source.url)])];
 }
 
-function summaryForSources(
-  run: ResearchRunProjection,
-  query: string,
-  sources: readonly WebSearchReadOnlySourceResult[]
-) {
-  const sourceLines = sources.map((source, index) =>
-    `${index + 1}. ${source.title} — ${source.url}\n   ${truncateText(source.snippet, 420)}`
+function sourceHaystack(source: WebSearchReadOnlySourceResult) {
+  return `${source.title} ${source.snippet} ${source.url}`;
+}
+
+function matchingTerms(value: string, terms: readonly string[]) {
+  return terms.filter((term) => includesLoose(value, term));
+}
+
+function isLowQualityNoiseSource(source: WebSearchReadOnlySourceResult) {
+  const haystack = sourceHaystack(source);
+  const hostname = (() => {
+    try {
+      return new URL(source.url).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+
+  return (
+    /(^|\.)encykorea\.aks\.ac\.kr$/u.test(hostname) ||
+    /(^|\.)support\.microsoft\.com$/u.test(hostname) ||
+    /(^|\.)namu\.wiki$/u.test(hostname) ||
+    /(^|\.)wikipedia\.org$/u.test(hostname) ||
+    /(^|\.)translate\.google\.com$/u.test(hostname) ||
+    /(^|\.)tinhte\.vn$/u.test(hostname) ||
+    /(^|\.)(reddit|quora)\.com$/u.test(hostname) ||
+    /(^|\.)(blog|cafe)\.naver\.com$/u.test(hostname) ||
+    /(wiki|백과|encyclopedia|forum|thread|translate|번역|windows|pc\s*reset|pc\s*초기화|os\s*help)/iu.test(haystack)
   );
+}
+
+function hasStrongDomainMatch(source: WebSearchReadOnlySourceResult, plan: PlannedPublicWebSearchQueries) {
+  const haystack = sourceHaystack(source);
+  const planText = `${plan.researchObjective} ${plan.coreTerms.join(" ")}`;
+
+  if (/(?:이혼|divorce|separation)/iu.test(planText)) {
+    return /이혼|divorce|separation/iu.test(haystack) &&
+      /(재무|현금|현금흐름|생계비|runway|유료|결제|상담|후기|대체재|비용|financial|cash|pricing|paid|alternative|review)/iu.test(haystack);
+  }
+
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(planText)) {
+    return /반려\s*동물|반려견|반려묘|펫\b|pet\b/iu.test(haystack) &&
+      /(의료|보험|돌봄|보호자|장례|후기|비용|veterinary|insurance|care|owner|pricing|review)/iu.test(haystack);
+  }
+
+  return false;
+}
+
+function sourceRelevanceDecision(source: WebSearchReadOnlySourceResult, plan: PlannedPublicWebSearchQueries) {
+  const haystack = sourceHaystack(source);
+  const coreMatches = matchingTerms(haystack, plan.coreTerms);
+  const intentMatches = matchingTerms(haystack, plan.intentTerms);
+  const minimumCoreMatches = Math.min(2, Math.max(1, plan.coreTerms.length));
+  const strongDomainMatch = hasStrongDomainMatch(source, plan);
+  const lowQualityNoise = isLowQualityNoiseSource(source);
+  const relevant = (coreMatches.length >= minimumCoreMatches && intentMatches.length >= 1) || strongDomainMatch;
+
+  if (!relevant) {
+    return { usable: false, reason: "core/intent relevance 기준을 충족하지 못한 검색 노이즈" };
+  }
+
+  if (lowQualityNoise && !strongDomainMatch) {
+    return { usable: false, reason: "위키/백과/OS 도움말/포럼 계열 결과라 결정 근거로 쓰지 않음" };
+  }
+
+  return { usable: true, reason: "core/intent relevance 기준 통과" };
+}
+
+function findingLabelForSource(source: WebSearchReadOnlySourceResult): ReviewedPublicWebSource["findingLabel"] {
+  const text = source.snippet.toLowerCase();
+
+  if (/(반례|우려|대체재|무료|충분|낮은|거부|부담|risk|counter|alternative|free|enough|low willingness)/iu.test(text)) {
+    return "weakens";
+  }
+
+  if (/(결제\s*의향|유료\s*의향|가입|상담|후기|재방문|반복\s*사용|willingness to pay|paid|subscription|repeat use|pricing)/iu.test(text)) {
+    return "supports";
+  }
+
+  return "uncertain";
+}
+
+function findingFromSource(source: WebSearchReadOnlySourceResult) {
+  const snippet = normalizedText(source.snippet);
+  const sentences = snippet.match(/[^.!?。！？]+[.!?。！？]?/gu) ?? [snippet];
+  const decisionSentence = sentences.find((sentence) =>
+    /(이혼|재무|현금|생계비|유료|결제|상담|후기|대체재|가격|비용|반려|보험|의료|돌봄|보호자|통계|리포트|니즈|willingness|paid|pricing|alternative|review|cash|financial|pet|guardian|veterinary|insurance|care|founder|validation|workflow|question|counter-evidence|quality-gate)/iu.test(sentence)
+  );
+
+  return decisionSentence
+    ? truncateText(decisionSentence, 240)
+    : snippet
+      ? truncateText(sentences[0] ?? snippet, 240)
+      : null;
+}
+
+function reviewPublicWebSources(
+  sources: readonly WebSearchReadOnlySourceResult[],
+  plan: PlannedPublicWebSearchQueries
+) {
+  return sources.map((source): ReviewedPublicWebSource => {
+    const decision = sourceRelevanceDecision(source, plan);
+
+    if (!decision.usable) {
+      return { source, finding: null, findingLabel: null, rejectReason: decision.reason };
+    }
+
+    const finding = findingFromSource(source);
+
+    if (!finding) {
+      return {
+        source,
+        finding: null,
+        findingLabel: null,
+        rejectReason: "source 내용에서 결정에 연결되는 짧은 finding을 추출하지 못함"
+      };
+    }
+
+    return {
+      source,
+      finding,
+      findingLabel: findingLabelForSource(source)
+    };
+  });
+}
+
+function summaryForSources(
+  plan: PlannedPublicWebSearchQueries,
+  queries: readonly string[],
+  reviewedSources: readonly ReviewedPublicWebSource[],
+  limitationLines: readonly string[]
+) {
+  const usableSources = reviewedSources.filter((review) => review.finding && review.findingLabel);
+  const rejectedSources = reviewedSources.filter((review) => review.rejectReason);
+  const rejectedReasons = uniqueSearchTerms(
+    rejectedSources.map((review) => review.rejectReason ?? "관련성 또는 품질 기준 미달"),
+    3
+  );
+  const findingLines = usableSources.length
+    ? usableSources.map((review) =>
+        `- [${review.findingLabel}] ${review.finding} — ${review.source.title} ${review.source.url}`
+      )
+    : ["- usable finding 없음"];
   const summary = [
-    `Public source notes for ${run.researchTaskId}.`,
-    `Query: ${query}`,
-    `Sources reviewed: ${sources.length}`,
-    ...sourceLines
+    "Research objective:",
+    plan.researchObjective,
+    "Queries used:",
+    ...queries.map((query) => `- ${query}`),
+    "Usable findings:",
+    ...findingLines,
+    "Rejected noise:",
+    `- count: ${rejectedSources.length}`,
+    ...rejectedReasons.map((reason) => `- ${reason}`),
+    "Limitations:",
+    ...(usableSources.length ? limitationLines : ["- source_quality_insufficient: usable source-linked finding이 없어 공개 검색 결과만으로 판단하지 않습니다.", ...limitationLines]),
+    "Human decision needed:",
+    usableSources.length
+      ? "finding은 품질 게이트 검토 뒤 스펙/질문 판단에 연결해야 합니다."
+      : "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다."
   ].join("\n");
 
   return truncateText(summary, MAX_SUMMARY_CHARS);
@@ -703,7 +1005,7 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
     score += 6;
   }
 
-  if (/(보호자|의료비|보험|돌봄|니즈|segment|persona|need|care|insurance|veterinary)/iu.test(haystack)) {
+  if (/(보호자|의료비|보험|돌봄|니즈|이혼|재무|현금|현금흐름|생계비|결제|유료|상담|후기|대체재|segment|persona|need|care|insurance|veterinary|divorce|financial|cash|pricing|paid|alternative|review)/iu.test(haystack)) {
     score += 3;
   }
 
@@ -735,13 +1037,12 @@ export function rankedSearchCandidates(
     relevanceScore: searchCandidateRelevanceScore(candidate, query),
     sourceQualityScore: searchCandidateSourceQualityScore(candidate)
   }));
-  const hasRelevantCandidate = scoredCandidates.some(({ relevanceScore }) => relevanceScore > 0);
   const hasPositiveQualityCandidate = scoredCandidates.some(({ sourceQualityScore }) => sourceQualityScore > 0);
 
   return scoredCandidates
     .filter(
       ({ relevanceScore, sourceQualityScore }) =>
-        (!hasRelevantCandidate || relevanceScore > 0) &&
+        relevanceScore > 0 &&
         (!hasPositiveQualityCandidate || sourceQualityScore >= 0)
     )
     .sort(
@@ -970,15 +1271,27 @@ export function createWebSearchReadOnlyResearchAdapter(
       assertResearchRunStatusTransition(run.status, "needs_review");
       assertWebSearchRun(run);
 
-      const query = searchQueryFromDisclosure(input.disclosurePayload, run);
-      const sources = publicSourceResults(await search({
-        query,
-        maxResults,
-        maxFetchedPages,
-        timeoutMillis,
-        delayMillis,
-        now
-      }));
+      const plan = planPublicWebSearchQueries(input.disclosurePayload, run);
+      const allSources = new Map<string, WebSearchReadOnlySourceResult>();
+
+      for (const query of plan.queries) {
+        const querySources = publicSourceResults(await search({
+          query,
+          maxResults,
+          maxFetchedPages,
+          timeoutMillis,
+          delayMillis,
+          now
+        }));
+
+        for (const source of querySources) {
+          if (!allSources.has(source.url)) {
+            allSources.set(source.url, source);
+          }
+        }
+      }
+
+      const sources = [...allSources.values()];
 
       if (sources.length === 0) {
         throw new WebSearchReadOnlyAdapterError(
@@ -986,20 +1299,25 @@ export function createWebSearchReadOnlyResearchAdapter(
           "No public web sources were readable from the browser search run."
         );
       }
-      const primarySource = sources[0];
+      const limitations = [
+        "Only publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used.",
+        "Search snippets and available page text may be incomplete, so important claims still need follow-up confirmation.",
+        `Random delay range was ${delayRange.min}-${delayRange.max}ms with at most ${maxFetchedPages} fetched public page(s).`
+      ];
+      const reviewedSources = reviewPublicWebSources(sources, plan);
+      const usableSources = reviewedSources
+        .filter((review) => review.finding && review.findingLabel)
+        .map((review) => review.source);
+      const primarySource = usableSources[0];
 
       return {
         status: "needs_review",
         providerRunId: run.provider.providerRunId ?? providerRunIdFor(run),
         completedAt: now(),
         ...(primarySource ? { sourceTitle: primarySource.title, sourceUrl: primarySource.url } : {}),
-        summary: summaryForSources(run, query, sources),
-        limitations: [
-          "Only publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used.",
-          "Search snippets and available page text may be incomplete, so important claims still need follow-up confirmation.",
-          `Random delay range was ${delayRange.min}-${delayRange.max}ms with at most ${maxFetchedPages} fetched public page(s).`
-        ],
-        sourceRefs: sourceRefsFor(run, sources)
+        summary: summaryForSources(plan, plan.queries, reviewedSources, limitations),
+        limitations,
+        sourceRefs: sourceRefsFor(run, usableSources)
       };
     },
 

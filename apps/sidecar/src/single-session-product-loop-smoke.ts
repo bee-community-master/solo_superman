@@ -284,14 +284,14 @@ async function pollResearchProvider(input: {
             title: "Senior pet chronic care record needs",
             url: "https://example.com/senior-pet-care-records",
             snippet:
-              "Public evidence indicates senior pet guardians track recurring veterinary visits, medication, and chronic care routines.",
+              "노령 반려동물 보호자 후기는 의료 기록, 투약, 병원 방문, 돌봄 루틴을 반복 관리하려는 결제 의향과 재방문 니즈를 보여줍니다.",
             retrievedAt: now()
           },
           {
             title: "Pet insurance claim document burden",
             url: "https://example.org/pet-insurance-claim-documents",
             snippet:
-              "Public evidence also shows insurance and veterinary invoices create document-management burden for pet guardians.",
+              "반려동물 보호자는 보험 청구 서류와 동물병원 영수증 관리 니즈, 결제 의향, 반복 사용 가능성을 언급합니다.",
             retrievedAt: now()
           }
         ]

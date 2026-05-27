@@ -163,17 +163,17 @@ function createResearchPipelineRuntimeAdapter(input: {
     timeoutMillis: 1_000,
     search: async ({ now }) => [
       {
-        title: "Public founder validation workflow evidence",
+        title: "반려동물 보호자 의료·보험 기록 관리 근거",
         url: "https://example.com/research-pipeline-smoke",
         snippet:
-          "Public evidence supports asking sharper founder-validation questions before software implementation.",
+          "반려동물 보호자 후기는 의료 기록, 일상 돌봄, 보험 청구 비용을 함께 관리하려는 결제 의향과 반복 사용 니즈를 보여줍니다.",
         retrievedAt: now()
       },
       {
-        title: "Skeptical product validation evidence",
+        title: "반려동물 보험 청구 문서 관리 근거",
         url: "https://example.org/research-pipeline-counterpoint",
         snippet:
-          "Public evidence also highlights the need for counter-evidence and quality-gate review before planning-ready.",
+          "반려동물 보호자는 병원 영수증, 보험 청구 서류, 돌봄 기록을 반복 관리하지만 세그먼트별 전환율은 추가 품질 검토가 필요합니다.",
         retrievedAt: now()
       }
     ]
