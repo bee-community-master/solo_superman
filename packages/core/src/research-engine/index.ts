@@ -142,6 +142,41 @@ function compactSummary(value: string, fallback: string) {
   return summary || trimmed.slice(0, 280).trimEnd();
 }
 
+function translatePublicResearchSnippetToKorean(value: string) {
+  return value
+    .replace(/\b(\d+)\s+days?\s+ago\s*[·-]\s*/giu, "최근 공개 검색 요약: ")
+    .replace(
+      /\bUse this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce\.?/giu,
+      "이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다."
+    )
+    .replace(/\bcash flow\b/giu, "현금 흐름")
+    .replace(/\bdocuments\b/giu, "서류")
+    .replace(/\binsurance\b/giu, "보험")
+    .replace(/\baccount updates\b/giu, "계좌 업데이트")
+    .replace(/\bnext-step planning\b/giu, "다음 계획")
+    .replace(/\bduring and after divorce\b/giu, "이혼 전후")
+    .replace(/\bsource_quality_insufficient\b/giu, "출처 품질 부족")
+    .replace(/\busable source-linked finding\b/giu, "출처와 연결된 유의미한 근거")
+    .replace(/\busable finding\b/giu, "유의미한 근거")
+    .replace(/\bsource-linked finding\b/giu, "출처 연결 근거")
+    .replace(/\bpublic web research\b/giu, "공개 웹 리서치")
+    .replace(/\bhuman decision\b/giu, "사용자 판단")
+    .replace(/\bcurrent public evidence\b/giu, "현재 공개 근거")
+    .replace(/\bsource freshness\b/giu, "출처 최신성")
+    .replace(/\blimitations\b/giu, "한계")
+    .replace(/\bcounterexamples\b/giu, "반례")
+    .replace(/\bother perspectives\b/giu, "다른 관점")
+    .replace(/\bimplementation-ready\b/giu, "구현 준비 완료")
+    .replace(/\bcore-assumption risk\b/giu, "핵심 가설 리스크")
+    .replace(/\bassumption_pressure\b/giu, "가설 압박")
+    .replace(/\bprice proxy\b/giu, "가격 대체 지표")
+    .replace(/\bpaid intent\b/giu, "유료 의향")
+    .replace(/\bwillingness-to-pay\b/giu, "유료 의향")
+    .replace(/\bproxy\b/giu, "대체 지표")
+    .replace(/\bevidence\b/giu, "근거")
+    .replace(/\bdecision\b/giu, "판단");
+}
+
 export function stripInternalResearchMetaText(value: string) {
   return value
     .split(/\r?\n/u)
@@ -180,19 +215,61 @@ export function stripInternalResearchMetaText(value: string) {
 }
 
 function userFacingResearchText(value: string | undefined, fallback: string) {
-  const sanitized = stripInternalResearchMetaText(value ?? "");
+  const sanitized = translatePublicResearchSnippetToKorean(stripInternalResearchMetaText(value ?? ""));
 
   return sanitized || fallback;
 }
 
-function userFacingQuestionText(value: string) {
-  return value
-    .replace(/^Validate evidence for:\s*/iu, "")
-    .replace(/^Broaden research beyond existing notes for:\s*/iu, "")
-    .replace(/\bValidate\s+/giu, "")
-    .replace(/\bevidence\b/giu, "근거")
+function stripResearchObjectiveMetaText(value: string) {
+  return translatePublicResearchSnippetToKorean(value)
+    .replace(/\bFind decision (?:evidence|근거) for\b[:：]?\s*/giu, "")
+    .replace(/\bFind (?:evidence|근거) for\b[:：]?\s*/giu, "")
+    .replace(/\bValidate (?:evidence|근거) for\b[:：]?\s*/giu, "")
+    .replace(/\bBroaden research for\b[:：]?\s*/giu, "더 넓게 확인: ")
+    .replace(/\bBroaden research beyond existing notes for\b[:：]?\s*/giu, "기존 리서치 메모를 넘어 더 넓게 확인: ")
+    .replace(/\bOriginal ambiguity\b[:：]?[^.。!?]{0,220}[.。!?]?/giu, "")
+    .replace(/\bUser answer to account for\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
+    .replace(/\bDecision this should inform\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
+    .replace(/\bAmbiguity dimension\b[:：]?[^.。!?]{0,120}[.。!?]?/giu, "")
+    .replace(/\bCollect 현재 공개 근거 with 출처 최신성, 한계, and 반례 before treating the answer as 구현 준비 완료\.?/giu, "")
+    .replace(/\bReturn 출처 연결 근거s?, 한계, 다른 관점, and what still needs a 사용자 판단\.?/giu, "")
+    .replace(/현재\s+가정을\s+약하게\s+만들거나[^.。!?]{0,180}[.。!?]?/gu, "")
+    .replace(/확인\s+가능한\s+사실과\s+사용자가\s+정해야\s+할\s+가정[^.。!?]{0,220}[.。!?]?/gu, "")
+    .replace(/공개\s+사용자\s+후기,\s*커뮤니티\s+글,\s*경쟁·대체재\s+페이지,\s*가격\/정책\s+자료,\s*관련\s+리포트에서[^.。!?]{0,260}[.。!?]?/gu, "")
+    .replace(/에\s+관한\s+공개\s+단서를\s+찾습니다\.?/gu, "")
     .replace(/\s+/gu, " ")
     .trim();
+}
+
+function compactDecisionTopic(value: string) {
+  const translated = translatePublicResearchSnippetToKorean(value);
+  const decisionMatch = translated.match(
+    /\bDecision this should inform\b[:：]?\s*(.+?)(?=\s+(?:Ambiguity dimension|Collect|Return)\b|$)/isu
+  );
+  const originalAmbiguityMatch = translated.match(
+    /\bOriginal ambiguity\b[:：]?\s*(.+?)(?=\s+User answer to account for\b|$)/isu
+  );
+  const topicSeed = decisionMatch?.[1] ?? originalAmbiguityMatch?.[1] ?? value;
+  const normalized = stripResearchObjectiveMetaText(topicSeed)
+    .replace(/“[^”]{80,}”/gu, "해당 아이디어")
+    .replace(/"[^"]{80,}"/gu, "해당 아이디어")
+    .replace(/아이디어\s+해당 아이디어와\s+목표\s+해당 아이디어\s+기준으로/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  if (/유료\s*의향|돈을\s*낼\s*의향|결제\s*의향/iu.test(normalized) || /유료\s*의향|돈을\s*낼\s*의향|결제\s*의향/iu.test(translated)) {
+    return "유료 의향 핵심 가설";
+  }
+
+  if (!normalized) {
+    return "이번 판단";
+  }
+
+  return compactSummary(normalized, "이번 판단");
+}
+
+function userFacingQuestionText(value: string) {
+  return compactDecisionTopic(value);
 }
 
 function evidenceSummaryOrFallback(
@@ -767,10 +844,9 @@ function additionalQuestionForEvidenceGap(input: {
     const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
 
     return [
-      `${topic}${koreanObjectParticleFor(topic)} 판단할 공개 리서치 단서를 확인했지만, usable source-linked finding으로 쓸 만한 근거는 아직 없습니다.`,
+      `근거 공백: ${topic}${koreanObjectParticleFor(topic)} 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.`,
       "",
-      `한계와 불확실성은 ${uncertaintySummary}입니다.`,
-      contextText ? `현재 맥락은 ${compactSummary(contextText, contextText)}입니다.` : null,
+      `한계/불확실성: ${uncertaintySummary}`,
       "",
       promptSentence,
       "",

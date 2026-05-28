@@ -188,6 +188,35 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion).not.toContain("PC 초기화");
   });
 
+  it("keeps source-quality follow-up questions compact and translates English research snippets", () => {
+    const researchTask = task({
+      objective:
+        "Find decision evidence for: 아이디어 “이혼을 준비하는 사람들을 위해 현재 현금 흐름과 재무상태에 대한 간단한 설문을 진행하여 현금 runway를 계산해서 생존가능 기간을 알려준다”와 목표 “배우자의 귀책사유로 이혼을 준비하는 사람들이 자신의 생존 가능 기간을 무료로 계산해본다” 기준으로 공개 사용자 후기, 커뮤니티 글, 경쟁·대체재 페이지, 가격/정책 자료, 관련 리포트에서 유료 의향을 확인합니다. Original ambiguity: 유료 의향 핵심 가설이 반박 질문 없이 남아 있음 User answer to account for: “가입, 재방문, 결제 의향, 반복 사용 등 행동 대체 지표를 측정한다.”. Decision this should inform: 유료 의향 core-assumption risk를 알려진 리스크 또는 검증 작업으로 닫습니다. Ambiguity dimension: assumption_pressure Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready. Return source-linked findings, limitations, other perspectives, and what still needs a human decision.",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: [
+        "Usable findings:",
+        "- usable finding 없음",
+        "Limitations:",
+        "- 6 days ago · Use this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce."
+      ].join("\n"),
+      limitationNotes:
+        "6 days ago · Use this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const serializedQuestion = matrix.additionalQuestions.join("\n");
+
+    expect(serializedQuestion).toContain("근거 공백: 유료 의향 핵심 가설");
+    expect(serializedQuestion).toContain("한계/불확실성: 최근 공개 검색 요약:");
+    expect(serializedQuestion).toContain("이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획");
+    expect(serializedQuestion).not.toContain("Find decision");
+    expect(serializedQuestion).not.toContain("Original ambiguity");
+    expect(serializedQuestion).not.toContain("User answer to account for");
+    expect(serializedQuestion).not.toContain("Use this divorce financial planning checklist");
+    expect(serializedQuestion.length).toBeLessThan(700);
+  });
+
   it("uses only structured supports and weakens findings for public-web evidence synthesis", () => {
     const researchTask = task({
       objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",

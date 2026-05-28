@@ -2548,7 +2548,7 @@ function compactAnswerExcerpt(answer: string) {
 }
 
 function readableEvidenceContextExcerpt(value: string) {
-  const userFacingValue = stripInternalResearchMetaText(value)
+  const userFacingValue = plainUserFacingDecisionQueueText(stripInternalResearchMetaText(value))
     .replace(/\bFind decision evidence for:\s*/giu, "")
     .replace(/\bFind evidence for:\s*/giu, "")
     .replace(/\bBroaden research for:\s*/giu, "더 넓게 확인: ")
