@@ -15,6 +15,11 @@ Project purpose mode: {{projectPurposeMode}}
 Idea: {{rawIdea}}
 User goal/intake: {{intakeGoal}}
 Review axes: {{reviewAxes}}
+Question count: generate {{minimumQuestionCount}}-{{maximumQuestionCount}} initial questions.
+Preferred output language: {{preferredOutputLanguage}}
+Ambiguity dimension priority: {{ambiguityDimensionPriority}}
+Cross-language domain keyword expansions:
+{{domainKeywordExpansions}}
 
 JSON shape:
 {
@@ -51,9 +56,9 @@ JSON shape:
 }
 
 Rules:
-- Generate 3-15 questions in priority order. The first question must be the weakest execution-changing judgment, not a generic business onboarding question.
+- Generate {{minimumQuestionCount}}-{{maximumQuestionCount}} questions in priority order. The first question must be the weakest execution-changing judgment, not a generic business onboarding question.
 - Before writing questions, internally derive domainSignals with actors, users/buyers, artifacts/data objects, jobs/situations, pains, constraints, channels, and explicit exclusions from the idea/intake. Do not output this scratchpad except as a short domain-specific sourceSummary.
-- Internally score goal, scope/non-goals, decision_authority, success_criteria, constraints, assumption_pressure, and context for clarity and execution risk. Use the floor-gate priority goal -> scope/non-goals -> decision_authority -> success_criteria -> constraints -> assumption_pressure -> context when multiple weak dimensions remain.
+- Internally score goal, scope/non-goals, decision_authority, success_criteria, constraints, assumption_pressure, and context for clarity and execution risk. Use the configured Ambiguity dimension priority when multiple weak dimensions remain.
 - Use the review-axis metadata to decide what to ask first: first customer segment, buyer/user split, problem intensity, value proposition, first validation, risks, and open uncertainty are examples, not a fixed list.
 - Do not ask from a prefixed template. Generate questions from the specific idea, its missing judgments, and the provided review axes.
 - Apply an Idea-Fit Gate before returning JSON: every question and every answer option must be anchored in actors, jobs, situations, artifacts/data objects, pains, constraints, channels, or explicit exclusions that appear in the idea/intake. If a candidate cannot point back to the idea, discard it.
@@ -75,3 +80,4 @@ Rules:
 - For initial questions, answerOptions must be real choices in the idea domain. Do not use meta options such as proceed, hold, explain more, or do more research; those belong only to follow-up cards.
 - Avoid jargon such as primary customer, MVP, planning-ready, high-impact gate, pro/con, or quality-gate in user-facing fields.
 - Keep all user-facing strings in the user's language.
+- Use the cross-language domain keyword expansions only for research/search planning fields; do not switch user-facing question copy away from the preferred output language.

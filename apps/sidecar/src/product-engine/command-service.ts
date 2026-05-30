@@ -219,6 +219,7 @@ import {
   webSearchReadOnlyResearchAdapterOptionsFromEnv,
   webSearchReadOnlyAdapterFailureMessage
 } from "./web-search-readonly-adapter";
+import { applyResearchGateEnvDefaultsFromProjectConfig, loadSoloProjectConfig } from "./project-config";
 import {
   DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME,
   autoImplementationRunId,
@@ -2969,6 +2970,7 @@ export function createProductEngineCommandService(
   const autoImplementationPullRequestMutationAdapter =
     options.autoImplementationPullRequestMutationAdapter ?? ghAutoImplementationPullRequestMutationAdapter;
   const researchRuntimeAdapterFactory = options.researchRuntimeAdapterFactory;
+  applyResearchGateEnvDefaultsFromProjectConfig(loadSoloProjectConfig());
 
   async function synchronizeAutoImplementationRunWorkspaceState(run: AutoImplementationRun) {
     try {
@@ -4478,8 +4480,17 @@ export function createProductEngineCommandService(
       return researchRuntimeAdapterFactory(adapterKind);
     }
 
+    const projectResearchConfig = adapterKind === "web_search_readonly" ? loadSoloProjectConfig().research : undefined;
+
     return adapterKind === "web_search_readonly"
-      ? createWebSearchReadOnlyResearchAdapter(webSearchReadOnlyResearchAdapterOptionsFromEnv())
+      ? createWebSearchReadOnlyResearchAdapter({
+          ...(projectResearchConfig?.localCorpusDir
+            ? { localCorpusDir: projectResearchConfig.localCorpusDir }
+            : {}),
+          ...(projectResearchConfig?.preferredLanguage ? { language: projectResearchConfig.preferredLanguage } : {}),
+          ...(projectResearchConfig?.region ? { region: projectResearchConfig.region } : {}),
+          ...webSearchReadOnlyResearchAdapterOptionsFromEnv()
+        })
       : createFakeReadOnlyResearchAdapter();
   }
 

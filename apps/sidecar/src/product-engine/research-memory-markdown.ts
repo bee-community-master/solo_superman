@@ -94,6 +94,61 @@ function sourceReference(result: ResearchResultProjection, pack: DecisionEvidenc
   ].filter(Boolean).join(" — ") || result.researchResultId;
 }
 
+export function summarizeResearchMemoryMarkdown(markdown: string, maxLength = 420) {
+  const lines = markdown.split(/\r?\n/u);
+  const summaryLines = sectionLines(lines, "Summary", 3);
+  const supportLines = sectionLines(lines, "Supporting signals", 2);
+  const counterLines = sectionLines(lines, "Counterpoints / risks", 2);
+  const limitationLines = sectionLines(lines, "Limitations and implication scope", 2);
+  const candidates = [
+    ...summaryLines,
+    ...supportLines,
+    ...counterLines,
+    ...limitationLines
+  ]
+    .map((line) => line.replace(/^[-#]\s*/u, "").trim())
+    .filter((line) => line && line !== "n/a");
+  const unique = [...new Set(candidates)];
+  const text = unique.length
+    ? unique.join(" ")
+    : markdown
+        .replaceAll(/[#|`*_>-]+/gu, " ")
+        .replaceAll(/\s+/gu, " ")
+        .trim();
+
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3).trim()}...` : text;
+}
+
+function sectionLines(lines: readonly string[], heading: string, maxLines: number) {
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}` || line.trim() === `### ${heading}`);
+
+  if (start < 0) {
+    return [];
+  }
+
+  const selected: string[] = [];
+
+  for (const line of lines.slice(start + 1)) {
+    if (/^#{2,3}\s/u.test(line)) {
+      break;
+    }
+
+    const trimmed = line.trim();
+
+    if (!trimmed || /^[-|: ]+$/u.test(trimmed)) {
+      continue;
+    }
+
+    selected.push(trimmed);
+
+    if (selected.length >= maxLines) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
 export function researchMemoryMarkdownFileName(input: ResearchMemoryMarkdownInput) {
   return [
     slugPart(input.task.researchTaskId),

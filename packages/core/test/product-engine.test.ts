@@ -3031,7 +3031,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatLimit: 16,
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 근거 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
+            /리서치 메모리 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
           ),
           decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),

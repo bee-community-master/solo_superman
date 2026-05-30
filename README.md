@@ -48,6 +48,12 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 로컬 첫 화면 도달과 기본 실행에는 OpenAI API key, ChatGPT web credential, 또는 ChatGPT Pro 세션이 필요하지 않습니다. backend 질문/리서치 preview를 시작할 때 UI는 ChatGPT 웹 세션을 검사하지 않고 로컬 Codex CLI의 `codex login status`만 확인합니다. Windows에서는 이 Codex CLI 확인과 `codex auth login`을 WSL 안에서 실행합니다. 필요하면 백그라운드 Terminal을 열어 Codex 브라우저 로그인 화면으로 이어지게 합니다. ChatGPT 브라우저 세션을 사용하는 별도 기능은 사용자 승인 흐름이 필요하며 기본 preview 조건이 아닙니다. Solo Superman은 어떤 credential도 수집하거나 저장하지 않습니다. 자세한 문제 해결은 [`docs/troubleshooting_KO.md`](docs/troubleshooting_KO.md)를 참고합니다. 기여자 온보딩과 아키텍처 문서는 [`docs/README.md`](docs/README.md)에서 시작합니다.
 
+## 리서치와 질문 설정
+
+Solo Superman은 repo/workspace root의 선택적 `projectConfig.json`과 `.solo-superman/projectConfig.json`을 읽습니다. 두 파일이 같은 값을 정의하면 `.solo-superman` 설정이 우선합니다. 지원 설정은 `questionGeneration.initialQuestionCount`, `questionGeneration.reviewAxes`, `questionGeneration.ambiguityDimensions`, `questionGeneration.language`, `questionGeneration.domainKeywordExpansions`, `research.localCorpusDir`, `research.preferredLanguage`, `research.region`, `research.evidenceConflictRatio`, `research.gates.minimumUsableFindings`입니다.
+
+읽기 전용 웹 리서치는 환경변수로도 조절할 수 있습니다: `SOLO_RESEARCH_WEB_MAX_RESULTS`, `SOLO_RESEARCH_WEB_MAX_FETCHED_PAGES`, `SOLO_RESEARCH_WEB_TIMEOUT_MS`, `SOLO_RESEARCH_WEB_MIN_DELAY_MS`, `SOLO_RESEARCH_WEB_MAX_DELAY_MS`, `SOLO_RESEARCH_WEB_ENGINE`(`duckduckgo`, `bing`, `google.co.kr`, `naver`), `SOLO_RESEARCH_LANGUAGE`, `SOLO_RESEARCH_REGION`, `SOLO_RESEARCH_LOCAL_CORPUS_DIR`, `SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE`, `SOLO_RESEARCH_MINIMUM_USABLE_FINDINGS`, `MAX_EVIDENCE_CONFLICT_RATIO`. `research.localCorpusDir` 또는 `SOLO_RESEARCH_LOCAL_CORPUS_DIR`가 있으면 오프라인 리서치가 브라우저 검색 adapter를 열지 않고 해당 폴더의 Markdown, TXT, best-effort PDF 텍스트를 랭킹해 사용합니다.
+
 ## 배포 범위
 
 - 현재 권장 공개 방식: 제한 베타 형태의 테크니컬 프리뷰
