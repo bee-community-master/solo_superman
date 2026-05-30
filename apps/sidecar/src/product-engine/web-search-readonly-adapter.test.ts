@@ -111,6 +111,24 @@ describe("web_search_readonly background research adapter", () => {
 
     expect(() =>
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_TIMEOUT_MS: "999"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_TIMEOUT_MS must be between 1000 and 30000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MIN_DELAY_MS: "9000"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MIN_DELAY_MS must be between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "1"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MAX_DELAY_MS must be between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MAX_DELAY_MS: "9000"
       })
     ).toThrow("between 1000 and 6000");

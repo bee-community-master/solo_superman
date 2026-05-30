@@ -173,6 +173,18 @@ function optionalPositiveIntegerFromEnv(env: NodeJS.ProcessEnv, name: string) {
   return parsed;
 }
 
+function assertEnvIntegerRange(
+  value: number | undefined,
+  name: string,
+  min: number,
+  max: number,
+  example: number
+) {
+  if (value !== undefined && (value < min || value > max)) {
+    throw new Error(`${name} must be between ${min} and ${max}. Example: ${name}=${example}.`);
+  }
+}
+
 function optionalSearchEngineFromEnv(env: NodeJS.ProcessEnv, name: string): WebSearchReadOnlySearchEngine | undefined {
   const value = env[name]?.trim();
 
@@ -200,25 +212,11 @@ export function webSearchReadOnlyResearchAdapterOptionsFromEnv(
   const language = env[WEB_SEARCH_READONLY_ENV.language]?.trim() || undefined;
   const region = env[WEB_SEARCH_READONLY_ENV.region]?.trim() || undefined;
 
-  if (maxResults && maxResults > MAX_SEARCH_RESULTS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxResults} must be between 1 and ${MAX_SEARCH_RESULTS}. Example: ${WEB_SEARCH_READONLY_ENV.maxResults}=5.`);
-  }
-
-  if (maxFetchedPages && maxFetchedPages > MAX_FETCH_PAGES) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxFetchedPages} must be between 1 and ${MAX_FETCH_PAGES}. Example: ${WEB_SEARCH_READONLY_ENV.maxFetchedPages}=3.`);
-  }
-
-  if (timeoutMillis && timeoutMillis > MAX_TIMEOUT_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.timeoutMillis} must be between 1000 and ${MAX_TIMEOUT_MILLIS}. Example: ${WEB_SEARCH_READONLY_ENV.timeoutMillis}=15000.`);
-  }
-
-  if (minDelayMillis && minDelayMillis < DEFAULT_MIN_DELAY_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.minDelayMillis} must be between ${DEFAULT_MIN_DELAY_MILLIS} and ${MAX_DELAY_MILLIS}. Example: ${WEB_SEARCH_READONLY_ENV.minDelayMillis}=1000.`);
-  }
-
-  if (maxDelayMillis && maxDelayMillis > MAX_DELAY_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be between ${DEFAULT_MIN_DELAY_MILLIS} and ${MAX_DELAY_MILLIS}. Example: ${WEB_SEARCH_READONLY_ENV.maxDelayMillis}=6000.`);
-  }
+  assertEnvIntegerRange(maxResults, WEB_SEARCH_READONLY_ENV.maxResults, 1, MAX_SEARCH_RESULTS, 5);
+  assertEnvIntegerRange(maxFetchedPages, WEB_SEARCH_READONLY_ENV.maxFetchedPages, 1, MAX_FETCH_PAGES, 3);
+  assertEnvIntegerRange(timeoutMillis, WEB_SEARCH_READONLY_ENV.timeoutMillis, 1_000, MAX_TIMEOUT_MILLIS, 15_000);
+  assertEnvIntegerRange(minDelayMillis, WEB_SEARCH_READONLY_ENV.minDelayMillis, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS, 1_000);
+  assertEnvIntegerRange(maxDelayMillis, WEB_SEARCH_READONLY_ENV.maxDelayMillis, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS, 6_000);
 
   if (minDelayMillis && maxDelayMillis && maxDelayMillis < minDelayMillis) {
     throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be greater than or equal to ${WEB_SEARCH_READONLY_ENV.minDelayMillis}. Example: ${WEB_SEARCH_READONLY_ENV.minDelayMillis}=1000 ${WEB_SEARCH_READONLY_ENV.maxDelayMillis}=6000.`);

@@ -3504,6 +3504,91 @@ describe("PR-04 ProductEngine reducer", () => {
     );
   });
 
+  it("marks conflict-review research follow-up tasks distinctly from generic research", () => {
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
+    const conflictPlanned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        sourceQueueItemId: "queue_conflict_review_source",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(conflictPlanned.accepted).toBe(true);
+
+    const conflictTaskId = conflictPlanned.nextState.researchState.taskIds[0];
+    const conflictPlannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const conflictImported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId: conflictTaskId,
+        result: [
+          "Research objective:",
+          "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+          "Usable findings:",
+          "- [supports] 유료 상담 결제 의향을 후기에 남겼다. — 이혼 전 재무 상담 후기 https://example.org/divorce-paid",
+          "- [weakens] 무료 법률구조와 커뮤니티 조언이 대체재로 언급되었다. — 무료 대체재 비교 https://example.org/divorce-free-alternatives",
+          "Limitations:",
+          "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+        ].join("\n"),
+        limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다.",
+        sourceReliability: "medium"
+      }, 2),
+      conflictPlannedState
+    );
+
+    expect(conflictImported.accepted).toBe(true);
+
+    const conflictImportedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...conflictImported.events[0],
+        eventId: "evt_conflict_review_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const conflictResultId = conflictImportedState.researchState.results[0]?.researchResultId;
+    const conflictSynthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, {
+        researchResultId: conflictResultId
+      }, 3),
+      conflictImportedState
+    );
+
+    expect(conflictSynthesized.accepted).toBe(true);
+    expect(conflictSynthesized.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          uncertaintyType: "conflict",
+          possibleRoutes: expect.arrayContaining(["conflict_detected"]),
+          questionText: expect.stringContaining("Conflict review:")
+        })
+      ])
+    );
+    expect(conflictSynthesized.nextState.researchState.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceQueueItemId: expect.stringMatching(/^queue_research_followup_/),
+          routeOutcome: "conflict_review"
+        })
+      ])
+    );
+  });
+
   it("persists a decision-linked Evidence Pack and keeps unknown quality gates in review", () => {
     const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
     const planned = reduceProductEngineCommand(
