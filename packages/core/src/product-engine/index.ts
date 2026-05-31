@@ -71,6 +71,7 @@ import {
   type AmbiguityAnswerSelectionMode,
   type AmbiguityExpectedAnswerType,
   type AmbiguityIssueSnapshot,
+  type AmbiguityQuestionContextSnapshot,
   type BusinessCriticalQuestionCategory,
   type BusinessCriticIntensity,
   type BusinessCriticIntensityAuditSnapshot,
@@ -1106,6 +1107,8 @@ interface OnboardingQuestionContext {
 }
 
 const QUESTION_CONTEXT_MAX_CHARS = 72;
+const IDEA_CONTEXT_LABEL = "이 아이디어";
+const GOAL_CONTEXT_LABEL = "이번 목표";
 
 function compactOnboardingContextText(value: string | undefined) {
   const compacted = value?.replace(/\s+/gu, " ").trim();
@@ -1133,39 +1136,28 @@ function generatedQuestionSetContextText(context: OnboardingQuestionContext) {
   return [context.idea, context.goal].filter(Boolean).join("\n");
 }
 
-function ideaContextLabel() {
-  return "이 아이디어";
-}
-
-function goalContextLabel() {
-  return "이번 목표";
-}
-
 function contextProfileId(context: OnboardingQuestionContext) {
   return primaryCustomerContextProfileForText(generatedQuestionSetContextText(context))?.id;
 }
 
 function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuestionContext) {
-  const ideaLabel = ideaContextLabel();
-  const goalLabel = goalContextLabel();
-
   switch (contextProfileId(context)) {
     case "pet_lifecycle": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 보호자 유형은 누구이고, 그 보호자는 의료·급여·일상·보험·장례 중 어떤 문제를 지금 겪고 있나요?`,
+          `${IDEA_CONTEXT_LABEL}를 가장 먼저 테스트할 보호자 유형은 누구이고, 그 보호자는 의료·급여·일상·보험·장례 중 어떤 문제를 지금 겪고 있나요?`,
         buyer_user_split:
           "반려동물 기록과 비용 관리는 보호자가 직접 결정하나요, 아니면 가족·동물병원·보험사가 따로 관여하나요?",
         problem_pain_intensity:
           "이 반려동물 관리 아이디어를 떠올리게 한 보호자의 실제 불편은 의료기록, 급여·일상, 보험·비용, 장례 준비 중 언제 생기나요?",
         value_prop_switching_reason:
-          `보호자가 병원 앱, 메모, 사진첩, 보험 앱을 두고 ${ideaLabel}를 선택하게 만들 이유 하나는 무엇인가요?`,
+          `보호자가 병원 앱, 메모, 사진첩, 보험 앱을 두고 ${IDEA_CONTEXT_LABEL}를 선택하게 만들 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "보호자는 지금 반려동물 기록과 비용 정보를 어디에 흩어 관리하고, 그 방식이 괜찮을 때와 불편할 때는 언제인가요?",
         payment_hesitation_reason:
           "보호자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 보호자에게 어떻게 확인할까요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 보호자가 반려동물 기록이나 비용 자료를 실제로 맡기려는지 어떻게 작게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1191,19 +1183,19 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
     case "local_commerce": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 매장/손님 유형은 누구이고, 예약·픽업 주문·단골 혜택 중 어떤 상황을 겪고 있나요?`,
+          `${IDEA_CONTEXT_LABEL}를 가장 먼저 테스트할 매장/손님 유형은 누구이고, 예약·픽업 주문·단골 혜택 중 어떤 상황을 겪고 있나요?`,
         buyer_user_split:
           "이 예약·주문·단골 관리 문제는 매장 운영자가 비용을 내고 손님이 쓰나요, 아니면 손님이 직접 가치를 느끼나요?",
         problem_pain_intensity:
           "이 아이디어를 떠올리게 한 매장이나 손님의 실제 불편은 언제 생기고 어떤 손실로 이어지나요?",
         value_prop_switching_reason:
-          `매장이나 손님이 전화, 메신저, 배달앱, 쿠폰 수첩을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
+          `매장이나 손님이 전화, 메신저, 배달앱, 쿠폰 수첩을 두고 ${IDEA_CONTEXT_LABEL}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "지금 매장과 손님은 예약·주문·단골 혜택을 어떤 도구로 처리하고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         payment_hesitation_reason:
           "매장이나 손님이 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 한 매장의 예약·픽업 주문·단골 혜택 관리를 수동으로 도와 실제 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1229,19 +1221,19 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
     case "founder_validation": {
       const questionByTopic: Readonly<Record<string, string>> = {
         primary_customer_narrowing:
-          `${ideaLabel}를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?`,
+          `${IDEA_CONTEXT_LABEL}를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?`,
         buyer_user_split:
           "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
         problem_pain_intensity:
           "이 제품 아이디어를 떠올리게 한 창업자의 실제 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
         value_prop_switching_reason:
-          `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
+          `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${IDEA_CONTEXT_LABEL}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         payment_hesitation_reason:
           "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
         mvp_validation_scope:
-          `${goalLabel}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1274,40 +1266,40 @@ const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (conte
     const profile = primaryCustomerContextProfileForText(generatedQuestionSetContextText(context));
 
     return profile
-      ? `${ideaContextLabel()}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
-      : `${ideaContextLabel()}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
+      ? `${IDEA_CONTEXT_LABEL}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
+      : `${IDEA_CONTEXT_LABEL}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
   },
   buyer_user_split: () =>
     "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
   problem_pain_intensity: () =>
     "이 아이디어를 떠올리게 한 실제 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
   value_prop_switching_reason: () =>
-    `그 사람이 지금 쓰는 방법을 두고 ${ideaContextLabel()}를 선택하게 만들 쉬운 이유 하나는 무엇인가요?`,
+    `그 사람이 지금 쓰는 방법을 두고 ${IDEA_CONTEXT_LABEL}를 선택하게 만들 쉬운 이유 하나는 무엇인가요?`,
   alternative_dissatisfaction_gap: () =>
     "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
   payment_hesitation_reason: () =>
     "사용자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
   mvp_validation_scope: () =>
-    `${goalContextLabel()}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
+    `${GOAL_CONTEXT_LABEL}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
   first_validation_experiment: () =>
     "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
 };
 
 const PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
   personal_workflow_context: () =>
-    `${ideaContextLabel()}를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?`,
+    `${IDEA_CONTEXT_LABEL}를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?`,
   personal_usage_frequency: () =>
     "그 일이 얼마나 자주 반복되고, 매번 무엇이 가장 귀찮거나 오래 걸리나요?",
   personal_gui_fit: () =>
     "첫 버전에서 꼭 화면으로 보고 눌러야 하는 순간은 어디인가요?",
   personal_implementation_feasibility: () =>
-    `${goalContextLabel()}에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?`,
+    `${GOAL_CONTEXT_LABEL}에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?`,
   personal_local_data_security: () =>
     "어떤 파일, 계정, 개인정보, 비밀값은 읽거나 저장하면 안 되나요?",
   personal_maintainability_boundary: () =>
     "이번 버전에서 일부러 만들지 않을 기능과 나중에도 관리하고 싶지 않은 일은 무엇인가요?",
   personal_success_criteria: () =>
-    `${goalContextLabel()}에 비춰, 첫 버전이 성공했다고 느낄 쉬운 기준은 무엇인가요?`
+    `${GOAL_CONTEXT_LABEL}에 비춰, 첫 버전이 성공했다고 느낄 쉬운 기준은 무엇인가요?`
 };
 
 function contextualOnboardingQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
@@ -1334,7 +1326,7 @@ function contextualQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQue
   return plainUserFacingDecisionQueueText(seed.question);
 }
 
-function questionContextSnapshot(context: OnboardingQuestionContext) {
+function questionContextSnapshot(context: OnboardingQuestionContext): AmbiguityQuestionContextSnapshot | undefined {
   return context.idea || context.goal
     ? {
         ...(context.idea ? { idea: context.idea } : {}),
@@ -2069,6 +2061,7 @@ function createAmbiguityIssuesFromSeeds(input: {
   const token = stableToken(
     `${input.sessionId}:${input.specRef}:${input.mode}:${input.intensity ?? "none"}:${input.source}`
   );
+  const sharedQuestionContext = questionContextSnapshot(context);
 
   return input.seeds.map((seed, index) => {
     const contextText = generatedQuestionSetContextText(context);
@@ -2093,7 +2086,6 @@ function createAmbiguityIssuesFromSeeds(input: {
       : seed.answerSelectionMode ?? (expectedAnswerType === "rank" ? "ranked" : undefined);
     const ambiguityDimension = inferredAmbiguityDimensionForSeed(seed);
     const ambiguityRoutingPath = inferredAmbiguityRoutingPathForSeed(seed);
-    const questionContext = questionContextSnapshot(context);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -2132,7 +2124,7 @@ function createAmbiguityIssuesFromSeeds(input: {
         : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,
       sourceRef: seed.sourceRef ?? (input.source === "generated_json" ? `generated_question:${seed.topicKey}` : seed.topicKey),
-      ...(questionContext ? { questionContext } : {})
+      ...(sharedQuestionContext ? { questionContext: sharedQuestionContext } : {})
     };
   });
 }

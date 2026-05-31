@@ -193,26 +193,27 @@ function QuestionPromptBlock({
   readonly item: QueueItemProjection;
 }) {
   const context = item.questionContext;
-  const hasContext = Boolean(context?.idea || context?.goal);
 
-  if (!hasContext) {
+  if (!context || (!context.idea && !context.goal)) {
     return <h4>{item.title}</h4>;
   }
+
+  const { goal, idea } = context;
 
   return (
     <section className="question-prompt-block" aria-label={copy.questions.questionContextTitle}>
       <p className="question-prompt-block__title">{copy.questions.questionContextTitle}</p>
       <dl className="question-prompt-block__rows">
-        {context?.idea ? (
+        {idea ? (
           <div>
             <dt>{copy.questions.questionContextIdea} -</dt>
-            <dd>"{context.idea}"</dd>
+            <dd>"{idea}"</dd>
           </div>
         ) : null}
-        {context?.goal ? (
+        {goal ? (
           <div>
             <dt>{copy.questions.questionContextGoal} -</dt>
-            <dd>"{context.goal}"</dd>
+            <dd>"{goal}"</dd>
           </div>
         ) : null}
         <div className="question-prompt-block__question">
