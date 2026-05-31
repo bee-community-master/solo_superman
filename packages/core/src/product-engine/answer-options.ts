@@ -3,6 +3,11 @@ import type {
   AmbiguityExpectedAnswerType
 } from "@solo-superman/contracts";
 import { plainUserFacingDecisionQueueText } from "./user-facing-text";
+import {
+  domainDerivedAnswerOptionsForTopic,
+  extractIdeaFitDomainSignals,
+  ideaFitDomainAnchorTerms
+} from "./idea-fit-questioning";
 
 export type AnswerOptionSeed = {
   readonly topicKey: string | undefined;
@@ -1048,16 +1053,28 @@ function contextualAnswerOptionsForQuestion(
     return topicAnswerOptions;
   }
 
+  const signals = extractIdeaFitDomainSignals(contextText ? { rawIdea: contextText } : {});
+  const domainDerivedOptions = domainDerivedAnswerOptionsForTopic(topicKey, expectedAnswerType, signals);
+
+  if (domainDerivedOptions.length) {
+    return domainDerivedOptions;
+  }
+
   if (topicKey && IDEA_FIT_ANSWER_OPTION_REQUIRED_TOPIC_KEYS.has(topicKey)) {
     return [];
   }
 
-  return answerOptionsForQuestion(topicKey, expectedAnswerType);
+  return ideaFitDomainAnchorTerms(signals).length ? answerOptionsForQuestion(topicKey, expectedAnswerType) : [];
 }
 
 export function answerOptionsForSeed(seed: AnswerOptionSeed) {
-  return (
-    seed.answerOptions?.map(plainUserFacingAnswerOption) ??
-    contextualAnswerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType, seed.contextText)
-  );
+  if (seed.answerOptions) {
+    return seed.answerOptions.map(plainUserFacingAnswerOption);
+  }
+
+  if (!seed.contextText) {
+    return [];
+  }
+
+  return contextualAnswerOptionsForQuestion(seed.topicKey, seed.expectedAnswerType, seed.contextText);
 }

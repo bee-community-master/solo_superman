@@ -16,6 +16,28 @@ const DEFAULT_READY_TIMEOUT_MS = 60_000;
 const WRONG_TOKEN = "intentionally-wrong-local-run-token";
 const RUNTIME_STATUS_PATH = "/api/v1/runtime/status";
 
+export function nodeVersionRequirementMessage(version = process.versions.node) {
+  const major = Number.parseInt(String(version).split(".")[0] ?? "", 10);
+
+  if (Number.isInteger(major) && major >= 24) {
+    return null;
+  }
+
+  return [
+    "Solo Superman requires Node 24+. Please upgrade Node.js before running.",
+    `Current Node.js version: ${version || "unknown"}`,
+    "After upgrading, rerun the README one-line install/start command."
+  ].join("\n");
+}
+
+export function assertSupportedNodeVersion(version = process.versions.node) {
+  const message = nodeVersionRequirementMessage(version);
+
+  if (message) {
+    throw new Error(message);
+  }
+}
+
 function parsePreferredPort(env, name, fallback) {
   const value = envValue(env, name, String(fallback));
 
@@ -304,6 +326,7 @@ async function startOnce(config) {
 }
 
 export async function runLocalWeb() {
+  assertSupportedNodeVersion();
   let lastError = null;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {

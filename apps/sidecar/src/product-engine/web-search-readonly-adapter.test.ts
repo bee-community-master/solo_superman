@@ -1,3 +1,6 @@
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildResearchRunIdempotencyKey,
@@ -12,6 +15,7 @@ import {
 } from "@solo-superman/contracts";
 import {
   createWebSearchReadOnlyResearchAdapter,
+  planPublicWebSearchQueries,
   rankedSearchCandidates,
   WebSearchReadOnlyAdapterError,
   webSearchReadOnlyResearchAdapterOptionsFromEnv
@@ -69,14 +73,22 @@ describe("web_search_readonly background research adapter", () => {
         SOLO_RESEARCH_WEB_MAX_FETCHED_PAGES: "2",
         SOLO_RESEARCH_WEB_TIMEOUT_MS: "9000",
         SOLO_RESEARCH_WEB_MIN_DELAY_MS: "1000",
-        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "6000"
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "6000",
+        SOLO_RESEARCH_WEB_ENGINE: "google.co.kr",
+        SOLO_RESEARCH_LANGUAGE: "ko",
+        SOLO_RESEARCH_REGION: "kr",
+        SOLO_RESEARCH_LOCAL_CORPUS_DIR: "/tmp/research-corpus"
       })
     ).toEqual({
       maxResults: 6,
       maxFetchedPages: 2,
       timeoutMillis: 9000,
       minDelayMillis: 1000,
-      maxDelayMillis: 6000
+      maxDelayMillis: 6000,
+      searchEngine: "google.co.kr",
+      language: "ko",
+      region: "kr",
+      localCorpusDir: "/tmp/research-corpus"
     });
 
     expect(() =>
@@ -89,19 +101,43 @@ describe("web_search_readonly background research adapter", () => {
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MAX_RESULTS: "99"
       })
-    ).toThrow("at most 10");
+    ).toThrow("between 1 and 10");
 
     expect(() =>
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MIN_DELAY_MS: "1"
       })
-    ).toThrow("at least 1000");
+    ).toThrow("between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_TIMEOUT_MS: "999"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_TIMEOUT_MS must be between 1000 and 30000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MIN_DELAY_MS: "9000"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MIN_DELAY_MS must be between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "1"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MAX_DELAY_MS must be between 1000 and 6000");
 
     expect(() =>
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MAX_DELAY_MS: "9000"
       })
-    ).toThrow("at most 6000");
+    ).toThrow("between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_ENGINE: "unknown"
+      })
+    ).toThrow("duckduckgo, bing, google.co.kr, or naver");
   });
 
   it("starts a queued public-web run without credential or write access", async () => {
@@ -127,7 +163,7 @@ describe("web_search_readonly background research adapter", () => {
         {
           title: `Result for ${input.query}`,
           url: "https://example.com/public-founder-evidence",
-          snippet: "Public evidence snippet about founder workflow research.",
+          snippet: "Founder workflow reviews compare pricing, willingness to pay, paid alternatives, and repeat use for onboarding tools.",
           retrievedAt: input.now()
         }
       ]
@@ -155,8 +191,9 @@ describe("web_search_readonly background research adapter", () => {
         expect.stringContaining("Only publicly reachable web pages were checked")
       ])
     });
-    expect(result.summary).toContain("Public source notes for");
-    expect(result.summary).toContain("Public evidence snippet about founder workflow research.");
+    expect(result.summary).toContain("Research objective:");
+    expect(result.summary).toContain("Usable findings:");
+    expect(result.summary).toContain("Founder workflow reviews compare pricing");
     expect(result.summary).not.toContain("quality-gate review");
     expect(result.summary).not.toContain("snippet retained for review");
     expect(result.summary).not.toContain("Con: Browser search snippets can be incomplete");
@@ -170,7 +207,7 @@ describe("web_search_readonly background research adapter", () => {
           title: "zhihu.comhttps://www.zhihu.com › question",
           url: "https://www.zhihu.com/question/123",
           snippet:
-            "반려동물 보호자가 의료 기록과 보험 정보를 함께 찾는다. Full page text was unavailable before timeout, so only the search-result summary is shown.",
+            "반려동물 보호자 후기는 의료 기록, 보험 비용, 돌봄 상담 대체재를 함께 비교한다. Full page text was unavailable before timeout, so only the search-result summary is shown.",
           retrievedAt: input.now()
         }
       ]
@@ -185,27 +222,33 @@ describe("web_search_readonly background research adapter", () => {
       updatedAt: "2026-05-05T00:01:00.000Z"
     });
 
-    const result = await adapter.pollResult({ researchRun: runningRun, disclosurePayload });
+    const result = await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "반려동물 보호자 보험/의료 관리 니즈 검증",
+        publicSafeSummary: "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 반려동물 보호자가 의료 기록과 보험 비용, 돌봄 상담 대체재를 비교한다."
+      }
+    });
 
     expect(result.sourceTitle).toBe("zhihu.com — 123");
-    expect(result.summary).toContain("반려동물 보호자가 의료 기록과 보험 정보를 함께 찾는다.");
+    expect(result.summary).toContain("반려동물 보호자 후기는 의료 기록, 보험 비용, 돌봄 상담 대체재를 함께 비교한다.");
     expect(result.summary).not.toContain("zhihu.comhttps://");
     expect(result.summary).not.toContain("Full page text was unavailable");
     expect(result.summary).not.toContain("search-result summary is shown");
   });
 
   it("builds public web queries from idea context instead of generic ambiguity wording", async () => {
-    let seenQuery = "";
+    const seenQueries: string[] = [];
     const adapter = createWebSearchReadOnlyResearchAdapter({
       now: () => "2026-05-05T00:03:00.000Z",
       search: async (input) => {
-        seenQuery = input.query;
+        seenQueries.push(input.query);
 
         return [
           {
             title: "Public pet market report",
             url: "https://example.com/pet-market-report",
-            snippet: "반려동물 보호자 유형과 의료비, 보험 니즈를 다룬 공개 리포트.",
+            snippet: "반려동물 보호자 유형과 의료비, 보험 니즈, 돌봄 후기, 상담 대체재를 다룬 공개 리포트.",
             retrievedAt: input.now()
           }
         ];
@@ -230,11 +273,235 @@ describe("web_search_readonly background research adapter", () => {
       }
     });
 
-    expect(seenQuery).toContain("반려동물 전생애주기 통합 관리 앱");
-    expect(seenQuery).toContain("보험 청구");
-    expect(seenQuery).toContain("반려동물 보호자 유형");
-    expect(seenQuery).not.toContain("Product category:");
-    expect(seenQuery).not.toContain("첫 고객 세그먼트가 너무 넓음");
+    const joinedQueries = seenQueries.join(" ");
+    expect(seenQueries.length).toBeGreaterThanOrEqual(2);
+    expect(joinedQueries).toContain("반려동물");
+    expect(joinedQueries).toContain("보험");
+    expect(joinedQueries).toContain("보호자 유형");
+    expect(joinedQueries).not.toContain("Product category:");
+    expect(joinedQueries).not.toContain("첫 고객 세그먼트가 너무 넓음");
+  });
+
+  it("plans short Korean-first queries for divorce runway paid-intent research without internal labels", () => {
+    const plan = planPublicWebSearchQueries({
+      researchObjective:
+        "Find decision evidence for: 이혼 준비자를 위한 현금 runway와 유료 의향 검증. Original ambiguity: 구매 의향이 확인되지 않음. Decision this should inform: MVP paid coaching scope. Ambiguity dimension: assumption_pressure",
+      publicSafeSummary:
+        "Product category: 이혼 준비 재무 코칭 앱. Customer/problem hypothesis: 이혼 준비자가 별거/소송 전 현금흐름과 생계비 runway를 계산하고 유료 상담 또는 앱 결제 의향이 있는지 확인한다. Research objective: 이혼 준비자를 위한 현금 runway와 유료 의향 검증."
+    });
+
+    const joinedQueries = plan.queries.join(" ");
+
+    expect(plan.queries.length).toBeGreaterThanOrEqual(2);
+    expect(plan.queries.length).toBeLessThanOrEqual(4);
+    expect(plan.queries.every((query) => query.length <= 220)).toBe(true);
+    expect(joinedQueries).toContain("이혼 준비");
+    expect(joinedQueries).toContain("재무");
+    expect(joinedQueries).toMatch(/현금흐름|현금 runway/u);
+    expect(joinedQueries).toContain("생계비");
+    expect(joinedQueries).toMatch(/결제 의향|유료 의향/u);
+    expect(joinedQueries).toMatch(/후기|상담|대체재/u);
+    expect(joinedQueries).not.toContain("Find decision evidence for");
+    expect(joinedQueries).not.toContain("Original ambiguity");
+    expect(joinedQueries).not.toContain("Decision this should inform");
+    expect(joinedQueries).not.toContain("Ambiguity dimension");
+    expect(plan.language).toBe("mixed");
+  });
+
+  it("returns ranked offline corpus results when localCorpusDir is configured", async () => {
+    const corpusRoot = await mkdtemp(join(tmpdir(), "solo-research-corpus-"));
+    await mkdir(join(corpusRoot, "nested"));
+    await writeFile(
+      join(corpusRoot, "pet-market.md"),
+      "# 반려동물 시장\n\n반려동물 보호자는 의료 기록, 보험 청구, 돌봄 루틴을 반복 관리하며 유료 앱 결제 의향을 보인다.\n",
+      "utf8"
+    );
+    await writeFile(
+      join(corpusRoot, "unrelated.txt"),
+      "A generic document about unrelated desktop setup.",
+      "utf8"
+    );
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      localCorpusDir: corpusRoot,
+      maxResults: 2
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_local_corpus",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    const result = await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "반려동물 보호자 보험/의료 관리 니즈 검증",
+        publicSafeSummary:
+          "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 보호자가 의료 기록과 보험 청구, 돌봄 루틴을 관리한다."
+      }
+    });
+
+    expect(result.sourceTitle).toBe("pet-market.md");
+    expect(result.sourceUrl).toContain("local-corpus://");
+    expect(result.summary).toContain("반려동물 보호자는 의료 기록");
+    expect(result.sourceRefs.some((ref) => ref.startsWith("local-corpus://"))).toBe(true);
+  });
+
+  it("uses Korean regional search endpoint when region is configured without an explicit engine", async () => {
+    const seenEngines: string[] = [];
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      region: "kr",
+      search: async (input) => {
+        seenEngines.push(input.searchEngine ?? "");
+
+        return [
+          {
+            title: "반려동물 의료비 조사",
+            url: "https://example.org/pet-medical-cost",
+            snippet: "반려동물 보호자는 의료비와 보험 청구 관리 니즈가 있다."
+          }
+        ];
+      }
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_region",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "반려동물 보호자 보험/의료 관리 니즈 검증",
+        publicSafeSummary:
+          "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 보호자가 의료 기록과 보험 청구, 돌봄 루틴을 관리한다."
+      }
+    });
+
+    expect(seenEngines).toEqual(expect.arrayContaining(["google.co.kr"]));
+  });
+
+  it("keeps only relevant source-linked findings when public search returns unrelated encyclopedia and OS help noise", async () => {
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      search: async (input) => [
+        {
+          title: "인류의 기원",
+          url: "https://encykorea.aks.ac.kr/Article/E0047400",
+          snippet: "인류의 기원과 진화에 대한 백과사전 설명.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "PC 초기화 방법",
+          url: "https://support.microsoft.com/ko-kr/windows/reset-your-pc",
+          snippet: "Windows PC 초기화와 복구 옵션을 설명합니다.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "현금영수증 unrelated forum",
+          url: "https://example.net/forum/cash-receipt",
+          snippet: "편의점 현금영수증 발급 방법을 묻는 무관 포럼 글.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "이혼 전 재무 상담 후기와 비용",
+          url: "https://example.org/divorce-financial-planning-pricing",
+          snippet:
+            "이혼 준비 과정에서 현금흐름, 생계비, 재무 상담 비용, 유료 상담 결제 의향, 대체재로 무료 커뮤니티 조언을 비교한 후기.",
+          retrievedAt: input.now()
+        }
+      ]
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_divorce",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    const result = await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective:
+          "Find decision evidence for: 이혼 준비자를 위한 현금 runway와 유료 의향 검증. Original ambiguity: 구매 의향이 확인되지 않음. Decision this should inform: MVP paid coaching scope. Ambiguity dimension: assumption_pressure",
+        publicSafeSummary:
+          "Product category: 이혼 준비 재무 코칭 앱. Customer/problem hypothesis: 이혼 준비자가 별거/소송 전 현금흐름과 생계비 runway를 계산하고 유료 상담 또는 앱 결제 의향이 있는지 확인한다."
+      }
+    });
+
+    expect(result.sourceTitle).toBe("이혼 전 재무 상담 후기와 비용");
+    expect(result.sourceUrl).toBe("https://example.org/divorce-financial-planning-pricing");
+    expect(result.sourceRefs).toEqual(expect.arrayContaining(["https://example.org/divorce-financial-planning-pricing"]));
+    expect(result.sourceRefs).not.toContain("https://encykorea.aks.ac.kr/Article/E0047400");
+    expect(result.summary).toContain("Usable findings:");
+    expect(result.summary).toContain("[weakens]");
+    expect(result.summary).toContain("이혼 준비 과정에서 현금흐름");
+    expect(result.summary).toContain("Rejected noise:");
+    expect(result.summary).toContain("- count: 3");
+    expect(result.summary).not.toContain("인류의 기원");
+    expect(result.summary).not.toContain("PC 초기화");
+    expect(result.summary).not.toContain("support.microsoft");
+  });
+
+  it("does not use unrelated public results as fallback evidence when no usable source is found", async () => {
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      search: async (input) => [
+        {
+          title: "인류의 기원",
+          url: "https://encykorea.aks.ac.kr/Article/E0047400",
+          snippet: "인류의 기원과 진화에 대한 백과사전 설명.",
+          retrievedAt: input.now()
+        },
+        {
+          title: "PC 초기화 방법",
+          url: "https://support.microsoft.com/ko-kr/windows/reset-your-pc",
+          snippet: "Windows PC 초기화와 복구 옵션을 설명합니다.",
+          retrievedAt: input.now()
+        }
+      ]
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_noise_only",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    const result = await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        publicSafeSummary:
+          "Product category: 이혼 준비 재무 코칭 앱. Customer/problem hypothesis: 이혼 준비자가 현금흐름과 생계비 runway를 계산하고 유료 상담 또는 결제 의향이 있는지 확인한다."
+      }
+    });
+
+    expect(result.sourceTitle).toBeUndefined();
+    expect(result.sourceUrl).toBeUndefined();
+    expect(result.sourceRefs).toEqual(["queue_item_web"]);
+    expect(result.summary).toContain("Usable findings:");
+    expect(result.summary).toContain("usable finding 없음");
+    expect(result.summary).toContain("source_quality_insufficient");
+    expect(result.summary).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
+    expect(result.summary).not.toContain("인류의 기원");
+    expect(result.summary).not.toContain("PC 초기화");
+    expect(result.summary).not.toContain("support.microsoft");
   });
 
   it("drops unrelated search-engine noise when relevant public-web candidates are available", () => {
@@ -288,7 +555,7 @@ describe("web_search_readonly background research adapter", () => {
     ]);
   });
 
-  it("keeps fallback candidates when public search exposes no relevance signal", () => {
+  it("drops fallback candidates when public search exposes no relevance signal", () => {
     const ranked = rankedSearchCandidates(
       [
         {
@@ -306,8 +573,7 @@ describe("web_search_readonly background research adapter", () => {
       1
     );
 
-    expect(ranked).toHaveLength(1);
-    expect(ranked[0]?.url).toBe("https://example.com/a");
+    expect(ranked).toEqual([]);
   });
 
   it("fails safely when the browser search is blocked", async () => {

@@ -14,6 +14,12 @@ import {
   CANONICAL_INITIAL_SPEC_SECTIONS
 } from "@solo-superman/contracts";
 import { plainUserFacingDecisionQueueText } from "./user-facing-text";
+import {
+  extractIdeaFitDomainSignals,
+  ideaFitDomainAnchorTerms,
+  textHasDisallowedGenericPersona,
+  textHasIdeaFitDomainAnchor
+} from "./idea-fit-questioning";
 
 export const GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION =
   "solo-superman-generated-ambiguity-questions.v1";
@@ -114,12 +120,16 @@ const GENERIC_PERSONA_GUARDS = [
 ] as const;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP|paid\s+intent|proxy|validation\s+experiment)\b/iu;
+const INITIAL_META_ANSWER_OPTION_PATTERN =
+  /^(?:진행|진행한다|보류|보류한다|더\s*설명|추가\s*설명|추가\s*리서치|리서치\s*필요|검증\s*후\s*결정|모름|알\s*수\s*없음)$/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
   /^(?:추가\s*리서치(?:가)?\s*(?:필요|하기|진행)?|자료\s*더\s*찾기|근거\s*더\s*찾기|리서치\s*필요|do\s+more\s+research|additional\s+research\s+needed|research\s+needed)$/iu;
 const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =
   /(?:공개|출처|자료|후기|커뮤니티|리포트|보고서|통계|가이드|가격|정책|규정|경쟁|대체재|사례|리뷰|forum|community|review|report|source|public|statistic|guide|policy|pricing|competitor|alternative|case)/iu;
 const RESEARCH_SKEPTICAL_CUE_PATTERN =
   /(?:반례|반대|부족|약하|흔들|불확실|한계|위험|실패|다른|여전히|남는|counter|contrary|weaken|missing|gap|uncertain|uncertainty|limit|risk|fail|skeptical)/iu;
+const RESEARCH_REMAINING_HUMAN_JUDGMENT_CUE_PATTERN =
+  /(?:남(?:는|은)\s*(?:판단|결정|선택|불확실)|사용자\s*(?:판단|결정|선택)|사람이\s*(?:판단|결정|선택)|리서치(?:로|만으로)?\s*(?:정할|결정할|판단할)\s*수\s*없|human\s+judgment|remaining\s+(?:decision|judgment)|cannot\s+be\s+(?:answered|decided))/iu;
 const DECISION_AXIS_PATTERNS = [
   /(?:누구|어떤\s*(?:고객|사용자|보호자|사람|조직|세그먼트)|who|customer|user|segment)/iu,
   /(?:기능|어디까지|범위|무엇을\s*(?:만들|제공|포함)|feature|scope)/iu,
@@ -176,6 +186,10 @@ function researchTaskHasSkepticalCue(value: string | undefined) {
   return Boolean(value && RESEARCH_SKEPTICAL_CUE_PATTERN.test(value));
 }
 
+function researchTaskHasRemainingHumanJudgmentCue(value: string | undefined) {
+  return Boolean(value && RESEARCH_REMAINING_HUMAN_JUDGMENT_CUE_PATTERN.test(value));
+}
+
 function questionHasMultipleDecisionAxes(question: string) {
   const questionMarkCount = (question.match(/[?？]/gu) ?? []).length;
 
@@ -188,7 +202,7 @@ function questionHasMultipleDecisionAxes(question: string) {
     0
   );
 
-  return matchedAxisCount >= 3;
+  return matchedAxisCount >= 2;
 }
 
 function ideaFitCuePatternForContext(contextText: string | undefined) {
@@ -292,9 +306,16 @@ function contextualGeneratedQuestionIssues(
   ].join("\n");
   const isPetLifecycleContext = PET_LIFECYCLE_CONTEXT_PATTERN.test(combinedContext);
   const ideaFitCuePattern = ideaFitCuePatternForContext(contextText);
+  const domainSignals = extractIdeaFitDomainSignals(contextText ? { rawIdea: contextText } : {});
+  const domainAnchorTerms = ideaFitDomainAnchorTerms(domainSignals);
 
   questions.forEach((question, questionIndex) => {
-    if (ideaFitCuePattern && !ideaFitCuePattern.test(question.question)) {
+    if (
+      (domainAnchorTerms.length > 0 &&
+        !textHasIdeaFitDomainAnchor(question.question, domainSignals) &&
+        !(ideaFitCuePattern?.test(question.question))) ||
+      (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(question.question))
+    ) {
       issue(
         issues,
         `$.questions[${questionIndex}].questionText`,
@@ -322,7 +343,12 @@ function contextualGeneratedQuestionIssues(
 
       const hasGenericPersona = optionTextHasGenericPersona(optionText);
 
-      if (ideaFitCuePattern && !ideaFitCuePattern.test(optionText)) {
+      if (
+        (domainAnchorTerms.length > 0 &&
+          !textHasIdeaFitDomainAnchor(optionText, domainSignals) &&
+          !(ideaFitCuePattern?.test(optionText))) ||
+        (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(optionText))
+      ) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
@@ -330,7 +356,15 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (optionTextHasDisallowedGenericPersona(optionText, contextText)) {
+      if (INITIAL_META_ANSWER_OPTION_PATTERN.test(option.label)) {
+        issue(
+          issues,
+          `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
+          "initial generated answer options must be real domain choices, not progress/hold/explain meta actions"
+        );
+      }
+
+      if (textHasDisallowedGenericPersona(optionText, domainSignals) || optionTextHasDisallowedGenericPersona(optionText, contextText)) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
@@ -463,6 +497,9 @@ function parseGeneratedQuestion(
       if (!researchTaskHasSkepticalCue(suggestedResearchTask)) {
         issue(issues, `${path}.suggestedResearchTask`, "must name what would weaken the assumption or what uncertainty should remain");
       }
+      if (!researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask)) {
+        issue(issues, `${path}.suggestedResearchTask`, "must name the remaining human judgment after current research");
+      }
     }
     if (!routes.includes("research_needed")) {
       issue(issues, `${path}.routes`, "must include research_needed when ambiguityRoutingPath is current_research");
@@ -484,8 +521,8 @@ function parseGeneratedQuestion(
     .filter((option): option is AmbiguityAnswerOption => option !== null);
   const requiresOptions = expectedAnswerType !== "text";
 
-  if (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 10)) {
-    issue(issues, `${path}.answerOptions`, "must include 3-10 options for non-text generated questions");
+  if (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) {
+    issue(issues, `${path}.answerOptions`, "must include 3-5 options for non-text generated questions");
   }
   if (!requiresOptions && rawOptions.length > 0) {
     issue(issues, `${path}.answerOptions`, "must be omitted or empty for open text questions");
@@ -514,9 +551,10 @@ function parseGeneratedQuestion(
         isGenericResearchTask(suggestedResearchTask) ||
         !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
         !researchTaskHasSkepticalCue(suggestedResearchTask) ||
+        !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
         !routes.includes("research_needed"))) ||
     (ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask)) ||
-    (requiresOptions && answerOptions.length < 3) ||
+    (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) ||
     (!requiresOptions && rawOptions.length > 0)
   ) {
     return null;

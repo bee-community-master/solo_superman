@@ -2268,7 +2268,7 @@ describe("PR-02 sidecar health shell", () => {
           ambiguityRoutingPath: "current_research",
           researchQuestion: "Check which pet records guardians repeatedly mention losing, re-requesting, or failing to keep current.",
           possibleRoutes: ["question", "research_needed"],
-          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples or remaining uncertainty."
+          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples and the remaining human judgment about which record to prioritize."
         },
         {
           sectionRef: "Value Proposition",
@@ -7494,18 +7494,11 @@ describe("PR-02 sidecar health shell", () => {
           generatedQuestionCount: 16,
           openQuestionCount: 16,
           answeredQuestionCount: 0,
-          visibleQuestionDebtCount: 5,
+          visibleQuestionDebtCount: 1,
           completionPercent: 0
         }
       });
-      expect(activeItems).toHaveLength(5);
-      expect(activeItems.map((item) => item.topicKey)).toEqual([
-        "problem_pain_intensity",
-        "primary_customer_narrowing",
-        "mvp_validation_scope",
-        "alternative_dissatisfaction_gap",
-        "buyer_user_split"
-      ]);
+      expect(activeItems).toHaveLength(1);
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
         sectionRef: "Problem",
@@ -7514,19 +7507,6 @@ describe("PR-02 sidecar health shell", () => {
         expectedAnswerType: "text",
         answerOptions: [],
         possibleRoutes: expect.arrayContaining(["question", "research_needed"])
-      });
-      expect(activeItems[1]).toMatchObject({
-        cardType: "question",
-        sectionRef: "Target Customer",
-        topicKey: "primary_customer_narrowing",
-        severity: "high",
-        whyItMatters: expect.any(String),
-        decisionItUnlocks: expect.any(String),
-        expectedAnswerType: "choice",
-        answerOptions: expect.arrayContaining([
-          expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
-        ]),
-        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
       const validationSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {
@@ -7795,7 +7775,7 @@ describe("PR-02 sidecar health shell", () => {
         ])
       });
 
-      const secondQuestionId = (activeItems[1] as Readonly<Record<string, unknown>>).queueItemId as string;
+      const secondQuestionId = ((refetchedQueueData.active as readonly Readonly<Record<string, unknown>>[])[0] as Readonly<Record<string, unknown>>).queueItemId as string;
       const staleAnswer = await storageApp.request(`/api/v1/questions/${secondQuestionId}/answers`, {
         method: "POST",
         headers: {

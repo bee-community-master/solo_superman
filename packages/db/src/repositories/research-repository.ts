@@ -190,7 +190,9 @@ function pendingReviewCardForTask(task: ResearchTaskProjection): ResearchReviewC
     researchTaskId: task.researchTaskId,
     cardType: outcomeMetadata.cardType,
     title:
-      task.routeOutcome === "missing_con_evidence"
+      task.routeOutcome === "conflict_review"
+        ? `상충 근거 검토 필요: ${task.objective}`
+        : task.routeOutcome === "missing_con_evidence"
         ? `다른 관점 확인 필요: ${task.objective}`
         : `Research review: ${task.objective}`,
     state: "pending_manual_result",

@@ -2,6 +2,11 @@ import {
   derivePendingResearchReviewCardOutcomeMetadata,
   deriveResearchReviewCardOutcomeMetadata
 } from "@solo-superman/contracts";
+import {
+  evidenceGateConfigFromEnv
+} from "./evidenceGateConfig";
+
+export * from "./evidenceGateConfig";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -90,6 +95,17 @@ const PRO_EVIDENCE_MARKERS = ["pro:", "찬성", "supports", "support", "긍정",
 const CON_EVIDENCE_MARKERS = ["con:", "risk:", "risks:", "반대", "우려", "부정", "caution"] as const;
 const CON_EVIDENCE_SNIPPET_MARKERS = ["con:", "risk:", "risks:", "risk", "risks", "반대", "우려", "부정", "caution"] as const;
 const UNCERTAINTY_MARKERS = ["uncertain", "unknown", "불확실", "limitation", "한계"] as const;
+
+type StructuredResearchFindingLabel = "supports" | "weakens" | "uncertain";
+
+interface StructuredResearchFindings {
+  readonly isStructuredSummary: boolean;
+  readonly sourceQualityInsufficient: boolean;
+  readonly findings: readonly {
+    readonly label: StructuredResearchFindingLabel;
+    readonly summary: string;
+  }[];
+}
 
 function trimOrNull(value: string | undefined) {
   const trimmed = value?.trim();
@@ -200,6 +216,52 @@ function neutralEvidenceSummaryOrFallback(
   const neutralSummary = neutralizeEvidenceStancePrefix(userFacingResearchText(evidenceItems[0]?.summary, fallback));
 
   return compactSummary(neutralSummary, fallback);
+}
+
+function stripStructuredFindingSourceSuffix(value: string) {
+  return value
+    .replace(/\s+—\s+https?:\/\/\S+\s*$/iu, "")
+    .replace(/\s+—\s+.+?\s+https?:\/\/\S+\s*$/iu, "")
+    .trim();
+}
+
+function parseStructuredResearchFindings(value: string): StructuredResearchFindings {
+  const isStructuredSummary =
+    /\bUsable findings:/imu.test(value) ||
+    /^\s*-\s*\[(?:supports|weakens|uncertain)\]/imu.test(value) ||
+    /source_quality_insufficient/iu.test(value);
+
+  if (!isStructuredSummary) {
+    return {
+      isStructuredSummary: false,
+      sourceQualityInsufficient: false,
+      findings: []
+    };
+  }
+
+  const normalized = value.replace(/\r?\n/gu, " ");
+  const findings = [...normalized.matchAll(/-\s*\[(supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/giu)]
+    .flatMap((match) => {
+      const [, label, rawSummary] = match;
+      const summary = compactSummary(stripStructuredFindingSourceSuffix(rawSummary ?? ""), "");
+
+      return summary
+        ? [
+            {
+              label: label?.toLowerCase() as StructuredResearchFindingLabel,
+              summary
+            }
+          ]
+        : [];
+    });
+
+  return {
+    isStructuredSummary: true,
+    sourceQualityInsufficient:
+      /source_quality_insufficient|usable finding 없음|no usable(?: source-linked)? finding/iu.test(value) ||
+      findings.length === 0,
+    findings
+  };
 }
 
 type AdditionalQuestionAnswerIntent =
@@ -665,10 +727,58 @@ function additionalQuestionForEvidenceGap(input: {
   readonly conEvidence: readonly { readonly summary: string }[];
   readonly uncertainties: readonly { readonly summary: string }[];
   readonly contextText?: string;
+  readonly conflictReview?: boolean;
 }) {
   const topic = userFacingQuestionText(input.objective) || "이번 주장";
   const contextText = userFacingResearchText(input.contextText, "");
   const answerIntent = additionalQuestionAnswerIntentForObjective(input.objective);
+  if (input.conflictReview) {
+    const proSummary = neutralEvidenceSummaryOrFallback(
+      input.proEvidence,
+      "이 방향을 지지하는 근거가 일부 확인되었습니다"
+    );
+    const conSummary = neutralEvidenceSummaryOrFallback(
+      input.conEvidence,
+      "이 방향을 약하게 만드는 근거도 일부 확인되었습니다"
+    );
+    const uncertaintySummary = input.uncertainties.length
+      ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
+      : "서로 다른 출처가 같은 결론으로 모이지 않습니다";
+
+    return [
+      `Conflict review: ${topic}${koreanObjectParticleFor(topic)} 둘러싼 공개 근거가 서로 다른 방향을 가리킵니다.`,
+      "",
+      `지지 신호는 ${proSummary}입니다.`,
+      `약화 신호는 ${conSummary}입니다.`,
+      `한계와 불확실성은 ${uncertaintySummary}입니다.`,
+      contextText ? `현재 맥락은 ${compactSummary(contextText, contextText)}입니다.` : null,
+      "",
+      "어느 근거를 다음 판단의 기준으로 삼고, 어떤 조건이 확인되면 방향을 수정하시겠습니까?"
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+  }
+  if (input.balanceStatus === "source_quality_insufficient" && input.proEvidence.length === 0 && input.conEvidence.length === 0) {
+    const uncertaintySummary = input.uncertainties.length
+      ? evidenceSummaryOrFallback(input.uncertainties, "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다")
+      : "공개 리서치에서 유의미한 근거를 찾지 못했습니다";
+    const promptSentence =
+      "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다. 어떤 조건이 확인되면 이 방향을 진행하거나 보류하시겠습니까?";
+    const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
+
+    return [
+      `${topic}${koreanObjectParticleFor(topic)} 판단할 공개 리서치 단서를 확인했지만, usable source-linked finding으로 쓸 만한 근거는 아직 없습니다.`,
+      "",
+      `한계와 불확실성은 ${uncertaintySummary}입니다.`,
+      contextText ? `현재 맥락은 ${compactSummary(contextText, contextText)}입니다.` : null,
+      "",
+      promptSentence,
+      "",
+      unlockSentence
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n");
+  }
   const usesStanceFraming = answerIntent === "evidence_judgment" || answerIntent === "binary_choice";
   const proSummary = neutralEvidenceSummaryOrFallback(
     input.proEvidence,
@@ -756,7 +866,37 @@ function hasNegatedRiskClaim(value: string) {
 }
 
 function sourceRetainedRef(result: ResearchResultProjection) {
-  return result.sourceUrl ?? result.sourceTitle ?? result.researchResultId;
+  if (result.sourceUrl) {
+    return result.sourceUrl;
+  }
+
+  if (result.sourceTitle) {
+    return result.sourceTitle;
+  }
+
+  const summary = userFacingResearchText(result.resultSummary, "");
+  const findingMatch = /-\s*\[(?:supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/isu.exec(
+    summary.replace(/\r?\n/gu, " ")
+  );
+  const finding = findingMatch?.[1]
+    ?.replace(/\s+—\s+https?:\/\/\S+\s*$/iu, "")
+    .replace(/\s+—\s+.+?\s+https?:\/\/\S+\s*$/iu, "")
+    .trim();
+
+  if (finding) {
+    return compactSummary(finding, "source-linked finding");
+  }
+
+  const humanDecisionMatch = /Human decision needed:\s*(.+?)(?=\s+[A-Z][A-Za-z ]+:|$)/isu.exec(
+    summary.replace(/\r?\n/gu, " ")
+  );
+  const humanDecision = humanDecisionMatch?.[1]?.trim();
+
+  if (humanDecision) {
+    return compactSummary(humanDecision, "human decision needed");
+  }
+
+  return "출처 내용이 아직 정리되지 않았습니다.";
 }
 
 function retainedSourceRefs(result: ResearchResultProjection, pack?: DecisionEvidencePackProjection) {
@@ -1001,65 +1141,119 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
   );
   const resultText = `${userFacingResultSummary} ${userFacingLimitationNotes}`.toLowerCase();
   const token = `${input.researchResult.researchResultId}_v${input.synthesisVersion}`;
-  const hasPro = includesAny(resultText, PRO_EVIDENCE_MARKERS);
-  const hasCon =
-    includesAny(resultText, CON_EVIDENCE_MARKERS) ||
-    (/\brisks?\b/.test(resultText) && !hasNegatedRiskClaim(resultText));
-  const hasUncertainty = includesAny(resultText, UNCERTAINTY_MARKERS);
-  const proEvidence = hasPro
-    ? [
-        {
-          evidenceItemId: itemId("evidence_pro", token, 1),
-          kind: "pro" as const,
-          summary: evidenceSnippet(
-            userFacingResultSummary,
-            PRO_EVIDENCE_MARKERS,
-            "Imported result supports the claim."
-          )
-        }
-      ]
+  const structuredFindings = parseStructuredResearchFindings(input.researchResult.resultSummary);
+  const proFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "supports")
+        .map((finding) => finding.summary)
     : [];
-  const conEvidence = hasCon
-    ? [
-        {
-          evidenceItemId: itemId("evidence_con", token, 1),
-          kind: "con" as const,
-          summary: evidenceSnippet(
-            userFacingResultSummary,
-            CON_EVIDENCE_SNIPPET_MARKERS,
-            "Imported result raises counter-evidence or risk."
-          )
-        }
-      ]
+  const conFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "weakens")
+        .map((finding) => finding.summary)
     : [];
-  const uncertainties = hasUncertainty || input.researchResult.limitationNotes
-    ? [
-        {
-          evidenceItemId: itemId("evidence_uncertainty", token, 1),
-          kind: "uncertainty" as const,
-          summary: userFacingLimitationNotes
-        }
-      ]
+  const uncertainFindingSummaries = structuredFindings.isStructuredSummary
+    ? structuredFindings.findings
+        .filter((finding) => finding.label === "uncertain")
+        .map((finding) => finding.summary)
     : [];
+  const hasPro = structuredFindings.isStructuredSummary
+    ? proFindingSummaries.length > 0
+    : includesAny(resultText, PRO_EVIDENCE_MARKERS);
+  const hasCon = structuredFindings.isStructuredSummary
+    ? conFindingSummaries.length > 0
+    : includesAny(resultText, CON_EVIDENCE_MARKERS) ||
+      (/\brisks?\b/.test(resultText) && !hasNegatedRiskClaim(resultText));
+  const hasUncertainty = structuredFindings.isStructuredSummary
+    ? uncertainFindingSummaries.length > 0 || structuredFindings.sourceQualityInsufficient
+    : includesAny(resultText, UNCERTAINTY_MARKERS);
+  const proEvidence = structuredFindings.isStructuredSummary
+    ? proFindingSummaries.map((summary, index) => ({
+        evidenceItemId: itemId("evidence_pro", token, index + 1),
+        kind: "pro" as const,
+        summary: compactSummary(summary, "Imported result supports the claim.")
+      }))
+    : hasPro
+      ? [
+          {
+            evidenceItemId: itemId("evidence_pro", token, 1),
+            kind: "pro" as const,
+            summary: evidenceSnippet(
+              userFacingResultSummary,
+              PRO_EVIDENCE_MARKERS,
+              "Imported result supports the claim."
+            )
+          }
+        ]
+      : [];
+  const conEvidence = structuredFindings.isStructuredSummary
+    ? conFindingSummaries.map((summary, index) => ({
+        evidenceItemId: itemId("evidence_con", token, index + 1),
+        kind: "con" as const,
+        summary: compactSummary(summary, "Imported result raises counter-evidence or risk.")
+      }))
+    : hasCon
+      ? [
+          {
+            evidenceItemId: itemId("evidence_con", token, 1),
+            kind: "con" as const,
+            summary: evidenceSnippet(
+              userFacingResultSummary,
+              CON_EVIDENCE_SNIPPET_MARKERS,
+              "Imported result raises counter-evidence or risk."
+            )
+          }
+        ]
+      : [];
+  const uncertaintySummary = structuredFindings.isStructuredSummary && uncertainFindingSummaries.length > 0
+    ? compactSummary(uncertainFindingSummaries[0] ?? "", userFacingLimitationNotes)
+    : userFacingLimitationNotes;
+  const uncertainties = structuredFindings.isStructuredSummary && uncertainFindingSummaries.length > 0
+    ? uncertainFindingSummaries.map((summary, index) => ({
+        evidenceItemId: itemId("evidence_uncertainty", token, index + 1),
+        kind: "uncertainty" as const,
+        summary: compactSummary(summary, userFacingLimitationNotes)
+      }))
+    : hasUncertainty || input.researchResult.limitationNotes
+      ? [
+          {
+            evidenceItemId: itemId("evidence_uncertainty", token, 1),
+            kind: "uncertainty" as const,
+            summary: uncertaintySummary
+          }
+        ]
+      : [];
+  const gateConfig = evidenceGateConfigFromEnv();
+  const usableFindingCount = proEvidence.length + conEvidence.length;
+  const conflictRatio =
+    usableFindingCount > 0 ? Math.min(proEvidence.length, conEvidence.length) / usableFindingCount : 0;
+  const hasMinimumUsableFindingGap = usableFindingCount < gateConfig.minimumUsableFindings;
+  const hasStructuredSourceConflict = structuredFindings.isStructuredSummary &&
+    structuredFindings.findings.some((finding) => finding.label === "supports") &&
+    structuredFindings.findings.some((finding) => finding.label === "weakens");
+  const hasConfigurableConflict = hasStructuredSourceConflict &&
+    proEvidence.length > 0 &&
+    conEvidence.length > 0 &&
+    conflictRatio >= gateConfig.evidenceConflictRatio;
   const balanceStatus =
     proEvidence.length > 0 && conEvidence.length > 0
-      ? "balanced"
+      ? gateConfig.statuses.balanced
       : proEvidence.length > 0
         ? input.researchTask.impact === "high"
-          ? "missing_con_evidence"
-          : "needs_con_evidence"
+          ? gateConfig.statuses.missingConEvidence
+          : gateConfig.statuses.needsConEvidence
         : conEvidence.length > 0
-          ? "blocked_by_con_evidence"
-          : "source_quality_insufficient";
+          ? gateConfig.statuses.blockedByConEvidence
+          : gateConfig.statuses.sourceQualityInsufficient;
   const missingConEvidenceReason =
-    balanceStatus === "missing_con_evidence"
+    balanceStatus === gateConfig.statuses.missingConEvidence
       ? input.researchResult.limitationNotes ??
         "Skeptical search/import did not include enough counter-evidence for a high-impact claim."
       : undefined;
   const knownRisk =
-    balanceStatus === "balanced"
+    balanceStatus === gateConfig.statuses.balanced
       ? undefined
-      : balanceStatus === "source_quality_insufficient"
+      : balanceStatus === gateConfig.statuses.sourceQualityInsufficient
         ? `Research source was insufficient for ${input.researchTask.objective}.`
         : `Evidence remains ${balanceStatus} for ${input.researchTask.objective}.`;
 
@@ -1072,7 +1266,7 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
     conEvidence,
     uncertainties,
     additionalQuestions:
-      balanceStatus === "balanced"
+      balanceStatus === gateConfig.statuses.balanced && !hasConfigurableConflict && !hasMinimumUsableFindingGap
         ? []
         : [
             additionalQuestionForEvidenceGap({
@@ -1081,11 +1275,15 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
               proEvidence,
               conEvidence,
               uncertainties,
-              ...(input.contextText ? { contextText: input.contextText } : {})
+              ...(input.contextText ? { contextText: input.contextText } : {}),
+              ...(hasConfigurableConflict ? { conflictReview: true } : {})
             })
           ],
     balanceStatus,
-    decisionBlocked: input.researchTask.impact === "high" && balanceStatus !== "balanced",
+    decisionBlocked:
+      input.researchTask.impact === "high" &&
+      gateConfig.highImpactRequiresBalancedEvidence &&
+      balanceStatus !== gateConfig.statuses.balanced,
     ...(missingConEvidenceReason ? { missingConEvidenceReason } : {}),
     ...(knownRisk ? { knownRisk } : {})
   };
@@ -1114,24 +1312,32 @@ function qualityGateStatusFor(
   matrix: EvidenceMatrixProjection,
   checks: readonly ResearchQualityGateCheckProjection[]
 ): DecisionEvidencePackProjection["gateStatus"] {
+  const gateConfig = evidenceGateConfigFromEnv();
+  const usableFindingCount = matrix.proEvidence.length + matrix.conEvidence.length;
+
   if (checks.some((candidate) => candidate.code === "staleness" && candidate.status === "failed")) {
-    return "stale";
+    return gateConfig.statuses.stale;
   }
 
   if (
+    usableFindingCount < gateConfig.minimumUsableFindings ||
     checks.some((candidate) => candidate.status === "failed") ||
-    matrix.balanceStatus === "source_quality_insufficient" ||
-    matrix.balanceStatus === "blocked_by_con_evidence" ||
-    (task.impact === "high" && matrix.balanceStatus !== "balanced")
+    matrix.balanceStatus === gateConfig.statuses.sourceQualityInsufficient ||
+    matrix.balanceStatus === gateConfig.statuses.blockedByConEvidence ||
+    (
+      task.impact === "high" &&
+      gateConfig.highImpactRequiresBalancedEvidence &&
+      matrix.balanceStatus !== gateConfig.statuses.balanced
+    )
   ) {
-    return "research_insufficient";
+    return gateConfig.statuses.researchInsufficient;
   }
 
   if (checks.some((candidate) => candidate.status === "unknown")) {
-    return "needs_review";
+    return gateConfig.statuses.needsReview;
   }
 
-  return "accepted";
+  return gateConfig.statuses.accepted;
 }
 
 function sourceReliabilityFor(result: ResearchResultProjection): ResearchSourceReliability {
@@ -1178,6 +1384,8 @@ export function buildDecisionEvidencePack(
   const staleSensitive = researchResult.staleSensitive === true || Boolean(researchResult.sourceRequiredAfter);
   const staleFailed =
     staleSensitive && publishedAt !== null && requiredAfter !== null && publishedAt < requiredAfter;
+  const gateConfig = evidenceGateConfigFromEnv();
+  const usableFindingCount = matrix.proEvidence.length + matrix.conEvidence.length;
   const checks = [
     check(
       "source_metadata",
@@ -1201,16 +1409,20 @@ export function buildDecisionEvidencePack(
     ),
     check(
       "pro_con_balance",
-      matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
+      usableFindingCount < gateConfig.minimumUsableFindings
+        ? "failed"
+        : matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
         ? "passed"
-        : matrix.missingConEvidenceReason || matrix.balanceStatus === "needs_con_evidence"
+        : matrix.missingConEvidenceReason || matrix.balanceStatus === gateConfig.statuses.needsConEvidence
           ? researchTask.impact === "high"
             ? "failed"
             : "passed"
           : "failed",
-      matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
+      usableFindingCount < gateConfig.minimumUsableFindings
+        ? `Evidence has ${usableFindingCount} usable finding(s), below configured minimum ${gateConfig.minimumUsableFindings}.`
+        : matrix.proEvidence.length > 0 && matrix.conEvidence.length > 0
         ? "Pro and con evidence are both present."
-        : matrix.missingConEvidenceReason || matrix.balanceStatus === "needs_con_evidence"
+        : matrix.missingConEvidenceReason || matrix.balanceStatus === gateConfig.statuses.needsConEvidence
           ? researchTask.impact === "high"
             ? "High-impact claim records missing_con_evidence and remains blocked from decision-ready."
             : "Missing counterpoint evidence is explicit and connected to Known Risks/validation actions."

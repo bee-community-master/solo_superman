@@ -484,8 +484,14 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Research-generated follow-up questions");
     expect(markup).toContain("Which proof narrows the pricing risk?");
+    expect(markup).toContain('class="research-card-header"');
+    expect(markup).toContain('class="research-status-badge"');
+    expect(markup).toContain('class="research-card-facts"');
     expect(markup).toContain("Ready for review");
-    expect(markup).toContain("Follow-up question · Medium impact");
+    expect(markup).toContain("Decision context");
+    expect(markup).toContain("Follow-up question");
+    expect(markup).toContain("Impact");
+    expect(markup).toContain("Medium impact");
     expect(markup).toContain("Approve evidence");
     expect(markup).toContain("Accept risk");
     expect(markup).not.toContain("ready_for_review");

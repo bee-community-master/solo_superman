@@ -86,6 +86,7 @@ function synthesizeResearchFollowUp(input: {
   readonly objective: string;
   readonly result: string;
   readonly limitationNotes: string;
+  readonly sourceTitle?: string | null;
 }) {
   const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
   const planned = reduceProductEngineCommand(
@@ -110,7 +111,9 @@ function synthesizeResearchFollowUp(input: {
   const imported = reduceProductEngineCommand(
     command("ImportResearchResult", 1, {
       researchTaskId,
-      sourceTitle: "Research answer-flow evidence notes",
+      ...(input.sourceTitle === null
+        ? {}
+        : { sourceTitle: input.sourceTitle ?? "Research answer-flow evidence notes" }),
       result: input.result,
       limitationNotes: input.limitationNotes
     }, 2),
@@ -341,5 +344,36 @@ describe("research follow-up answer flow", () => {
       expectedAnswerType: "text",
       answerOptions: []
     });
+  });
+
+  it("uses human-readable research content instead of research result ids when source metadata is absent", () => {
+    const { activeQueueItem, followUpIssue } = synthesizeResearchFollowUp({
+      objective:
+        "Find decision evidence for: 이혼 준비자를 위한 현금 runway와 유료 의향 검증. Original ambiguity: 유료 의향 확인 필요.",
+      sourceTitle: null,
+      result: [
+        "Research objective:",
+        "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        "Queries used:",
+        "- 이혼 준비 재무 현금흐름 생계비 결제 의향 후기 상담",
+        "Usable findings:",
+        "- usable finding 없음",
+        "Rejected noise:",
+        "- count: 2",
+        "Limitations:",
+        "- source_quality_insufficient: usable source-linked finding이 없어 공개 검색 결과만으로 판단하지 않습니다.",
+        "Human decision needed:",
+        "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다."
+      ].join("\n"),
+      limitationNotes: "source_quality_insufficient: 공개 검색 결과에서 usable source-linked finding이 없었습니다."
+    });
+
+    expect(followUpIssue?.whyItMatters).toContain("출처 단서:");
+    expect(followUpIssue?.whyItMatters).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니");
+    expect(followUpIssue?.whyItMatters).not.toContain("research_result_");
+    expect(followUpIssue?.decisionItUnlocks).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니");
+    expect(followUpIssue?.decisionItUnlocks).not.toContain("research_result_");
+    expect(activeQueueItem?.whyItMatters).not.toContain("research_result_");
+    expect(activeQueueItem?.decisionItUnlocks).not.toContain("research_result_");
   });
 });

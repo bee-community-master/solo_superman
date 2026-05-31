@@ -130,6 +130,7 @@ import {
   parseGeneratedAmbiguityQuestionSetText
 } from "@solo-superman/core";
 import { buildGeneratedAmbiguityQuestionPrompt } from "./product-engine/generated-ambiguity-question-prompt";
+import { loadSoloProjectConfig } from "./product-engine/project-config";
 import type {
   AutoImplementationGitHubIssueMutationAdapter,
   AutoImplementationPullRequestMutationAdapter,
@@ -396,6 +397,47 @@ function optionalStringArrayFromBody(value: unknown, fieldName: string) {
   }
 
   return value.map((item) => stringFromBody(item, fieldName));
+}
+
+function questionCountFromBody(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "initialQuestionCount must be an object.");
+  }
+
+  const count = value as { readonly min?: unknown; readonly max?: unknown };
+  const min = count.min === undefined ? undefined : numericQuestionCountFromBody(count.min, "initialQuestionCount.min");
+  const max = count.max === undefined ? undefined : numericQuestionCountFromBody(count.max, "initialQuestionCount.max");
+
+  return { ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max }) };
+}
+
+function numericQuestionCountFromBody(value: unknown, fieldName: string) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 30) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", `${fieldName} must be an integer between 1 and 30.`);
+  }
+
+  return value;
+}
+
+function domainKeywordExpansionsFromBody(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new ProductEngineServiceError("VALIDATION_FAILED", "domainKeywordExpansions must be an object.");
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([keyword, expansions]) => [
+      keyword,
+      optionalStringArrayFromBody(expansions, `domainKeywordExpansions.${keyword}`) ?? []
+    ])
+  );
 }
 
 function stringArrayFromBody(value: unknown, fieldName: string) {
@@ -3488,13 +3530,30 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         intakeGoal: stringContentFromBody(body.intakeGoal, "intakeGoal"),
         projectPurposeMode: projectPurposeModeFromBody(body.projectPurposeMode),
         businessCriticIntensity: optionalBusinessCriticIntensityFromBody(body.businessCriticIntensity),
-        reviewAxes: optionalStringArrayFromBody(body.reviewAxes, "reviewAxes") ?? []
+        reviewAxes: optionalStringArrayFromBody(body.reviewAxes, "reviewAxes") ?? [],
+        ambiguityDimensions: optionalStringArrayFromBody(body.ambiguityDimensions, "ambiguityDimensions") ?? [],
+        language: typeof body.language === "string" ? body.language : undefined,
+        initialQuestionCount: questionCountFromBody(body.initialQuestionCount),
+        domainKeywordExpansions: domainKeywordExpansionsFromBody(body.domainKeywordExpansions)
       };
+      const projectConfig = loadSoloProjectConfig();
+      const questionConfig = projectConfig.questionGeneration;
+      const effectiveLanguage = request.language ?? questionConfig?.language;
+      const effectiveQuestionCount = request.initialQuestionCount ?? questionConfig?.initialQuestionCount;
+      const effectiveKeywordExpansions = request.domainKeywordExpansions ?? questionConfig?.domainKeywordExpansions;
       const prompt = buildGeneratedAmbiguityQuestionPrompt({
         rawIdea: request.rawIdea,
         intakeGoal: request.intakeGoal,
         projectPurposeMode: request.projectPurposeMode,
-        reviewAxes: request.reviewAxes
+        reviewAxes: request.reviewAxes.length ? request.reviewAxes : questionConfig?.reviewAxes ?? [],
+        ...(request.ambiguityDimensions.length
+          ? { ambiguityDimensions: request.ambiguityDimensions }
+          : questionConfig?.ambiguityDimensions
+            ? { ambiguityDimensions: questionConfig.ambiguityDimensions }
+            : {}),
+        ...(effectiveLanguage ? { language: effectiveLanguage } : {}),
+        ...(effectiveQuestionCount ? { initialQuestionCount: effectiveQuestionCount } : {}),
+        ...(effectiveKeywordExpansions ? { domainKeywordExpansions: effectiveKeywordExpansions } : {})
       });
       const status = await codexRuntimeAdapter.getStatus();
 
@@ -3514,7 +3573,11 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
             intakeGoal: request.intakeGoal,
             projectPurposeMode: request.projectPurposeMode,
             businessCriticIntensity: request.businessCriticIntensity ?? null,
-            reviewAxes: request.reviewAxes
+            reviewAxes: request.reviewAxes,
+            ambiguityDimensions: request.ambiguityDimensions,
+            language: request.language ?? null,
+            initialQuestionCount: request.initialQuestionCount ?? null,
+            domainKeywordExpansions: request.domainKeywordExpansions ?? null
           }),
           prompt,
           sourceRefs: [

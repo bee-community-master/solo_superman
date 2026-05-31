@@ -17,7 +17,7 @@ describe("clarification pipeline smoke", () => {
       })
     });
     expect(evidence.clarification?.generatedQuestionCount).toBeGreaterThanOrEqual(10);
-    expect(evidence.clarification?.activeQuestionCount).toBeGreaterThanOrEqual(3);
+    expect(evidence.clarification?.activeQuestionCount).toBeGreaterThanOrEqual(1);
     expect(evidence.clarification?.followUpQuestionCount).toBeGreaterThanOrEqual(1);
     expect(evidence.clarification?.researchTaskCount).toBeGreaterThanOrEqual(1);
     expect(evidence.checked).toEqual(

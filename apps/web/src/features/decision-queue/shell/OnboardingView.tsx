@@ -50,7 +50,108 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
           <span>{CONTRACT_SCHEMA_VERSION}</span>
         </div>
         <div className="session-start-layout">
-          <div className="session-login-column">
+          <div className="session-input-column">
+            <section className="start-guide goal-setup-guide" aria-label={copy.questions.firstRunAria}>
+              <h3>{copy.questions.firstRunTitle}</h3>
+              <ul>
+                {copy.questions.firstRunItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+            <label className="session-idea-field">
+              {copy.questions.rawIdea}
+              <textarea
+                value={idea}
+                onChange={(event) => setIdea(event.target.value)}
+                placeholder={copy.questions.rawIdeaPlaceholder}
+                rows={6}
+              />
+            </label>
+            <label className="session-intake-field">
+              {copy.questions.intakeAnswer}
+              <textarea
+                value={intake}
+                onChange={(event) => setIntake(event.target.value)}
+                placeholder={copy.questions.intakeAnswerPlaceholder}
+                rows={8}
+              />
+            </label>
+            <fieldset className="mode-fieldset">
+              <legend>{copy.questions.projectPurpose}</legend>
+              {copy.projectPurposeModeOptions.map((option) => (
+                <label className="mode-option" key={option.mode}>
+                  <input
+                    checked={projectPurposeMode === option.mode}
+                    name="project-purpose-mode"
+                    onChange={() => setProjectPurposeMode(option.mode)}
+                    type="radio"
+                    value={option.mode}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+              <p className="mode-help">
+                {copy.questions.purposeHelp}
+              </p>
+            </fieldset>
+            {projectPurposeMode === "business" ? (
+              <fieldset className="mode-fieldset">
+                <legend>{copy.questions.businessCriticIntensity}</legend>
+                {copy.businessCriticIntensityOptions.map((option) => (
+                  <label className="mode-option" key={option.intensity}>
+                    <input
+                      checked={businessCriticIntensity === option.intensity}
+                      name="business-critic-intensity"
+                      onChange={() => setBusinessCriticIntensity(option.intensity)}
+                      type="radio"
+                      value={option.intensity}
+                    />
+                    <span>
+                      <strong>{option.label}</strong>
+                      <small>{option.description}</small>
+                    </span>
+                  </label>
+                ))}
+                <label>
+                  {copy.questions.intensityReason}
+                  <input
+                    value={initialBusinessCriticIntensityReason}
+                    onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
+                    placeholder={copy.questions.intensityReasonPlaceholder}
+                  />
+                </label>
+                <p className="mode-help">
+                  {copy.questions.intensityHelp}
+                </p>
+              </fieldset>
+            ) : null}
+          </div>
+          <div className="session-action-column">
+            <fieldset className="mode-fieldset">
+              <legend>{copy.questions.initialResearchAutomationPermission}</legend>
+              {copy.questions.initialResearchAutomationPermissionOptions.map((option) => (
+                <label className="mode-option" key={option.permission}>
+                  <input
+                    checked={initialResearchAutomationPermission === option.permission}
+                    name="initial-research-automation-permission"
+                    onChange={() => setInitialResearchAutomationPermission(option.permission)}
+                    type="radio"
+                    value={option.permission}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+              <p className="mode-help">
+                {copy.questions.initialResearchAutomationPermissionHelp}
+              </p>
+            </fieldset>
             {visibleChatGptResearchEnabled ? (
               <section className="start-guide chatgpt-login-gate" aria-label={copy.questions.chatGptLoginAria}>
                 <div className="login-gate-copy">
@@ -109,107 +210,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                 </button>
               </div>
             </section>
-          </div>
-          <div className="session-goal-column">
-            <section className="start-guide goal-setup-guide" aria-label={copy.questions.firstRunAria}>
-              <h3>{copy.questions.firstRunTitle}</h3>
-              <ul>
-                {copy.questions.firstRunItems.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </section>
-            <label className="session-idea-field">
-              {copy.questions.rawIdea}
-              <textarea
-                value={idea}
-                onChange={(event) => setIdea(event.target.value)}
-                placeholder={copy.questions.rawIdeaPlaceholder}
-                rows={6}
-              />
-            </label>
-            <label className="session-intake-field">
-              {copy.questions.intakeAnswer}
-              <textarea
-                value={intake}
-                onChange={(event) => setIntake(event.target.value)}
-                placeholder={copy.questions.intakeAnswerPlaceholder}
-                rows={8}
-              />
-            </label>
-            <fieldset className="mode-fieldset">
-              <legend>{copy.questions.projectPurpose}</legend>
-              {copy.projectPurposeModeOptions.map((option) => (
-                <label className="mode-option" key={option.mode}>
-                  <input
-                    checked={projectPurposeMode === option.mode}
-                    name="project-purpose-mode"
-                    onChange={() => setProjectPurposeMode(option.mode)}
-                    type="radio"
-                    value={option.mode}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                  </span>
-                </label>
-              ))}
-              <p className="mode-help">
-                {copy.questions.purposeHelp}
-              </p>
-            </fieldset>
-            <fieldset className="mode-fieldset">
-              <legend>{copy.questions.initialResearchAutomationPermission}</legend>
-              {copy.questions.initialResearchAutomationPermissionOptions.map((option) => (
-                <label className="mode-option" key={option.permission}>
-                  <input
-                    checked={initialResearchAutomationPermission === option.permission}
-                    name="initial-research-automation-permission"
-                    onChange={() => setInitialResearchAutomationPermission(option.permission)}
-                    type="radio"
-                    value={option.permission}
-                  />
-                  <span>
-                    <strong>{option.label}</strong>
-                    <small>{option.description}</small>
-                  </span>
-                </label>
-              ))}
-              <p className="mode-help">
-                {copy.questions.initialResearchAutomationPermissionHelp}
-              </p>
-            </fieldset>
-            {projectPurposeMode === "business" ? (
-              <fieldset className="mode-fieldset">
-                <legend>{copy.questions.businessCriticIntensity}</legend>
-                {copy.businessCriticIntensityOptions.map((option) => (
-                  <label className="mode-option" key={option.intensity}>
-                    <input
-                      checked={businessCriticIntensity === option.intensity}
-                      name="business-critic-intensity"
-                      onChange={() => setBusinessCriticIntensity(option.intensity)}
-                      type="radio"
-                      value={option.intensity}
-                    />
-                    <span>
-                      <strong>{option.label}</strong>
-                      <small>{option.description}</small>
-                    </span>
-                  </label>
-                ))}
-                <label>
-                  {copy.questions.intensityReason}
-                  <input
-                    value={initialBusinessCriticIntensityReason}
-                    onChange={(event) => setInitialBusinessCriticIntensityReason(event.target.value)}
-                    placeholder={copy.questions.intensityReasonPlaceholder}
-                  />
-                </label>
-                <p className="mode-help">
-                  {copy.questions.intensityHelp}
-                </p>
-              </fieldset>
-            ) : null}
             <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
               <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
               <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>

@@ -337,7 +337,7 @@ describe("PR-04 ProductEngine reducer", () => {
       /\b(primary customer|Build Slice|MVP|workflow|GUI|CLI|planning-ready|tradeoff|proxy|scope creep|customer lock-in|paid intent|research_needed|high-impact gate|Spec section|completion gate|concierge|owner\/date|confidence|pivot|daemon)\b/iu
     );
     expect(visibleAnswerOptionCopy).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
-    expect(state.queueProjection.active).toHaveLength(5);
+    expect(state.queueProjection.active).toHaveLength(1);
     const visibleActiveQueueCopy = state.queueProjection.active
       .map((item) => [item.title, item.whyItMatters, item.decisionItUnlocks, item.nextValidationAction].filter(Boolean).join(" "))
       .join("\n");
@@ -347,41 +347,23 @@ describe("PR-04 ProductEngine reducer", () => {
     const activeIssueIds = new Set(state.queueProjection.active.map((item) => item.queueItemId));
     const activeIssues = state.openIssues.filter((issue) => activeIssueIds.has(issue.queueItemId));
     const rankedValueIssue = state.openIssues.find((issue) => issue.topicKey === "value_prop_switching_reason");
-    const rankedValueQueueItem = state.queueProjection.active.find(
-      (item) => item.topicKey === "value_prop_switching_reason"
-    );
 
     expect(rankedValueIssue).toMatchObject({
       expectedAnswerType: "rank",
       answerSelectionMode: "ranked"
     });
-    expect(rankedValueQueueItem).toBeUndefined();
     expect(activeIssues.every((issue) => issue.severity === "high")).toBe(true);
     expect(state.queueProjection.active.every((item) => item.state === "active")).toBe(true);
     expect(state.queueProjection.active.every((item) => item.cardType === "question")).toBe(true);
-    expect(state.queueProjection.active.map((item) => item.topicKey)).toEqual([
-      "problem_pain_intensity",
-      "primary_customer_narrowing",
-      "mvp_validation_scope",
-      "alternative_dissatisfaction_gap",
-      "buyer_user_split"
+    expect(state.queueProjection.active).toEqual([
+      expect.objectContaining({
+        sectionRef: "Problem",
+        topicKey: "problem_pain_intensity",
+        severity: "high",
+        expectedAnswerType: "text",
+        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+      })
     ]);
-    expect(state.queueProjection.active).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          sectionRef: "Target Customer",
-          topicKey: "primary_customer_narrowing",
-          severity: "high",
-          whyItMatters: expect.any(String),
-          decisionItUnlocks: expect.any(String),
-          expectedAnswerType: "choice",
-          answerOptions: expect.arrayContaining([
-            expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
-          ]),
-          possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
-        })
-      ])
-    );
     expect(state.queueProjection.next).toEqual([]);
     expect(state.queueProjection.progress).toMatchObject({
       generatedQuestionCount: 16,
@@ -390,8 +372,8 @@ describe("PR-04 ProductEngine reducer", () => {
       topicCoverageCount: 16,
       openTopicCoverageCount: 16,
       followUpBudgetRemainingCount: 256,
-      visibleQuestionDebtCount: 5,
-      activeQuestionCount: 5,
+      visibleQuestionDebtCount: 1,
+      activeQuestionCount: 1,
       completionPercent: 0
     });
     expect(state.session.phase).toBe("question_loop");
@@ -609,9 +591,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(activate.accepted).toBe(true);
     expect(activate.nextState.queueProjection.active.map((item) => item.title)).toEqual([
-      "반려동물의 전생애 정보를 한 곳에서 관리하는 앱을 가장 먼저 테스트할 보호자 유형은 누구로 좁히겠습니까?",
-      "보호자가 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾느라 가장 자주 겪는 불편은 무엇인가요?",
-      "보호자가 기존 메모, 사진첩, 병원 앱을 두고 이 앱으로 옮겨올 가장 설득력 있는 이유는 무엇인가요?"
+      "반려동물의 전생애 정보를 한 곳에서 관리하는 앱을 가장 먼저 테스트할 보호자 유형은 누구로 좁히겠습니까?"
     ]);
     eventDrafts.push(activate.events[0]);
     state = replayProductEngineEvents(
@@ -832,6 +812,199 @@ describe("PR-04 ProductEngine reducer", () => {
     }
   );
 
+
+  it("derives unknown-domain fallback options from apartment ingredient exchange signals", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea: "아파트 주민이 남은 식재료를 교환하는 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "주민들이 버리는 식재료를 줄이고 안전하게 교환할 첫 사용자를 정한다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_apartment_ingredient_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:05:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4), state);
+
+    expect(analyze.accepted).toBe(true);
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_apartment_ingredient_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:05:${index + 1}0.000Z`
+      }))
+    );
+
+    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
+    const optionCopy = firstCustomerIssue?.answerOptions?.map((option) => option.label).join("\n") ?? "";
+
+    expect(firstCustomerIssue?.expectedAnswerType).toBe("choice");
+    expect(optionCopy).toMatch(/주민/u);
+    expect(optionCopy).toMatch(/식재료|교환/u);
+    expect(optionCopy).not.toMatch(/(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u);
+  });
+
+  it("keeps invalid generated-question fallback anchored to the unknown-domain idea", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea: "아파트 주민이 남은 식재료를 교환하는 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "주민들이 버리는 식재료를 줄이고 안전하게 교환할 첫 사용자를 정한다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_apartment_invalid_generated_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:07:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: {
+          schemaVersion: "wrong",
+          questions: []
+        }
+      }, 4),
+      state
+    );
+
+    expect(analyze.accepted).toBe(true);
+    expect(analyze.events[0]?.payload).toMatchObject({
+      questionGeneration: {
+        mode: "deterministic_fallback",
+        reason: "generated_question_set_invalid"
+      }
+    });
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_apartment_invalid_generated_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:07:${index + 1}0.000Z`
+      }))
+    );
+
+    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
+    const issueCopy = [
+      firstCustomerIssue?.questionText,
+      ...(firstCustomerIssue?.answerOptions?.flatMap((option) => [
+        option.label,
+        option.primaryDetail,
+        option.secondaryDetail
+      ]) ?? [])
+    ].filter(Boolean).join("\n");
+
+    expect(firstCustomerIssue?.expectedAnswerType).toBe("choice");
+    expect(issueCopy).toMatch(/아파트|주민|식재료|교환/u);
+    expect(issueCopy).not.toMatch(/(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u);
+  });
+
+  it("falls back to text when an unregistered idea lacks enough domain signals for real options", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea: "더 좋은 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "아직 구체 고객이나 사용 상황은 정하지 않았다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_vague_domain_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:06:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4), state);
+
+    expect(analyze.accepted).toBe(true);
+    eventDrafts.push(analyze.events[0]);
+    state = replayProductEngineEvents(
+      projectId,
+      sessionId,
+      eventDrafts.map((eventDraft, index) => ({
+        ...eventDraft,
+        eventId: `evt_vague_domain_${index + 1}` as EventId,
+        sequence: index + 1,
+        occurredAt: `2026-05-05T00:06:${index + 1}0.000Z`
+      }))
+    );
+
+    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
+
+    expect(firstCustomerIssue?.expectedAnswerType).toBe("text");
+    expect(firstCustomerIssue?.answerOptions).toEqual([]);
+  });
+
   it("falls back to deterministic ambiguity questions when generated JSON is invalid", () => {
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
@@ -918,9 +1091,6 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(activeTitles).not.toContain("A focused personal workflow helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local workflow.");
     expect(activeTitles).toContain("이 아이디어를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?");
-    expect(activeTitles).toContain("얼마나 자주 반복되고");
-    expect(activeTitles).toContain("꼭 화면으로 보고 눌러야 하는 순간");
-    expect(activeTitles).toContain("이번 목표에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?");
     expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
     expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
@@ -1589,7 +1759,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(personalState.openIssues.map((issue) => issue.topicKey)).not.toEqual(
       expect.arrayContaining(["buyer_user_split", "acquisition_channel_realism"])
     );
-    expect(personalState.queueProjection.active).toHaveLength(5);
+    expect(personalState.queueProjection.active).toHaveLength(1);
     expect(personalState.queueProjection).toMatchObject({
       projectPurposeMode: "personal",
       projectPurposeModeSelectionStatus: "confirmed",
@@ -1748,7 +1918,7 @@ describe("PR-04 ProductEngine reducer", () => {
     });
     const deferredProjection = reduction.immediateProjection as DecisionQueueProjection;
     expect(deferredProjection.active.map((item) => item.queueItemId)).not.toContain(queueItemId);
-    expect(deferredProjection.active).toHaveLength(5);
+    expect(deferredProjection.active).toHaveLength(1);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1763,7 +1933,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("deferred");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
-    expect(replayed.queueProjection.active).toHaveLength(5);
+    expect(replayed.queueProjection.active).toHaveLength(1);
     expect(replayed.queueProjection.deferred).toContainEqual(
       expect.objectContaining({
         queueItemId,
@@ -1854,7 +2024,7 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ])
     });
-    expect((reduction.immediateProjection as DecisionQueueProjection).active).toHaveLength(5);
+    expect((reduction.immediateProjection as DecisionQueueProjection).active).toHaveLength(1);
 
     const replayed = replayProductEngineEvents(
       projectId,
@@ -1869,7 +2039,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.openIssues.find((issue) => issue.queueItemId === queueItemId)?.status).toBe("resolved");
     expect(replayed.queueProjection.active.some((item) => item.queueItemId === queueItemId)).toBe(false);
-    expect(replayed.queueProjection.active).toHaveLength(5);
+    expect(replayed.queueProjection.active).toHaveLength(1);
     expect(replayed.queueProjection.deferred.some((item) => item.queueItemId === queueItemId)).toBe(false);
   });
 
@@ -2027,7 +2197,7 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
-  it("defaults to a canonical five-item batch and still supports explicit 3 to 5 item selection", () => {
+  it("defaults to one active question and still supports explicit 1 to 5 item selection", () => {
     const openIssues = Array.from({ length: 6 }, (_, index) => ({
       queueItemId: `queue_explicit_${index + 1}` as QueueItemId,
       summary: `Ambiguity issue ${index + 1}`,
@@ -2059,19 +2229,13 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(implicitActivation.accepted).toBe(true);
     expect(implicitActivation.immediateProjection).toMatchObject({
       kind: "DecisionQueueProjection",
-      active: openIssues.slice(0, 5).map((issue) =>
+      active: [
         expect.objectContaining({
-          queueItemId: issue.queueItemId,
+          queueItemId: openIssues[0]?.queueItemId,
           state: "active",
-          cardType: "question",
-          answerOptions: expect.arrayContaining([
-            expect.objectContaining({
-              pro: expect.any(String),
-              con: expect.any(String)
-            })
-          ])
+          cardType: "question"
         })
-      )
+      ]
     });
     expect(explicitActivation.accepted).toBe(true);
     expect(explicitActivation.immediateProjection).toMatchObject({
@@ -2117,13 +2281,13 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(activation.accepted).toBe(true);
     expect(activation.immediateProjection).toMatchObject({
-      active: openIssues.slice(2, 7).map((issue) =>
+      active: [
         expect.objectContaining({
-          queueItemId: issue.queueItemId,
+          queueItemId: openIssues[2]?.queueItemId,
           state: "active",
           cardType: "question"
         })
-      )
+      ]
     });
   });
 
@@ -2425,99 +2589,99 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(answer.accepted).toBe(true);
     expect(broaderResearchAnswer.accepted).toBe(true);
     expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderResearchOptionValueAnswer.accepted).toBe(true);
     expect(broaderResearchOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderResearchOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderCounterEvidenceOptionValueAnswer.accepted).toBe(true);
     expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderNaturalLanguageAnswer.accepted).toBe(true);
     expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderEnglishSourceAnswer.accepted).toBe(true);
     expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderKoreanEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderEnglishEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(broaderEnglishPassiveEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "collect wider sources and counter-evidence"
+      "wider sources"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
-    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(noMoreSourcesAnswer.accepted).toBe(true);
-    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(noNeedToFindMoreSourcesAnswer.accepted).toBe(true);
-    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(noNeedToCollectMoreEvidenceAnswer.accepted).toBe(true);
-    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(noMoreEnglishResearchAnswer.accepted).toBe(true);
-    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(doNotNeedMoreResearchAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(doNotNeedMoreEvidenceAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(moreResearchNotNeededAnswer.accepted).toBe(true);
-    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
     expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research beyond existing notes"
+      "Broaden research"
     );
     expect(answer.effectPlan).toMatchObject([
       {
@@ -2593,7 +2757,7 @@ describe("PR-04 ProductEngine reducer", () => {
       topicCoverageCount: 17,
       openTopicCoverageCount: 16,
       followUpBudgetRemainingCount: 255,
-      visibleQuestionDebtCount: 5,
+      visibleQuestionDebtCount: 1,
       completionPercent: 6
     });
 
@@ -2620,7 +2784,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(replayed.queueProjection.active.map((item) => item.queueItemId)).not.toContain(answeredQueueItemId);
     expect(replayed.queueProjection.active.every((item) => item.state === "active")).toBe(true);
-    expect(replayed.queueProjection.active).toHaveLength(5);
+    expect(replayed.queueProjection.active).toHaveLength(1);
     expect(replayed.queueProjection.next).toHaveLength(1);
     expect(replayed.queueProjection.progress).toMatchObject({
       generatedQuestionCount: 17,
@@ -2888,7 +3052,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatLimit: 16,
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 근거 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
+            /리서치 메모리 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
           ),
           decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
@@ -3362,6 +3526,91 @@ describe("PR-04 ProductEngine reducer", () => {
             expect.objectContaining({ label: "수동 검증" }),
             expect.objectContaining({ label: "가격 테스트" })
           ])
+        })
+      ])
+    );
+  });
+
+  it("marks conflict-review research follow-up tasks distinctly from generic research", () => {
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
+    const conflictPlanned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        sourceQueueItemId: "queue_conflict_review_source",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(conflictPlanned.accepted).toBe(true);
+
+    const conflictTaskId = conflictPlanned.nextState.researchState.taskIds[0];
+    const conflictPlannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const conflictImported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId: conflictTaskId,
+        result: [
+          "Research objective:",
+          "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+          "Usable findings:",
+          "- [supports] 유료 상담 결제 의향을 후기에 남겼다. — 이혼 전 재무 상담 후기 https://example.org/divorce-paid",
+          "- [weakens] 무료 법률구조와 커뮤니티 조언이 대체재로 언급되었다. — 무료 대체재 비교 https://example.org/divorce-free-alternatives",
+          "Limitations:",
+          "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+        ].join("\n"),
+        limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다.",
+        sourceReliability: "medium"
+      }, 2),
+      conflictPlannedState
+    );
+
+    expect(conflictImported.accepted).toBe(true);
+
+    const conflictImportedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...conflictImported.events[0],
+        eventId: "evt_conflict_review_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const conflictResultId = conflictImportedState.researchState.results[0]?.researchResultId;
+    const conflictSynthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, {
+        researchResultId: conflictResultId
+      }, 3),
+      conflictImportedState
+    );
+
+    expect(conflictSynthesized.accepted).toBe(true);
+    expect(conflictSynthesized.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          uncertaintyType: "conflict",
+          possibleRoutes: expect.arrayContaining(["conflict_detected"]),
+          questionText: expect.stringContaining("Conflict review:")
+        })
+      ])
+    );
+    expect(conflictSynthesized.nextState.researchState.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceQueueItemId: expect.stringMatching(/^queue_research_followup_/),
+          routeOutcome: "conflict_review"
         })
       ])
     );

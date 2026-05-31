@@ -283,7 +283,7 @@ const EN_COPY = {
       label: "Onboarding",
       shortLabel: "O",
       title: "Onboarding",
-      description: "Sign in to ChatGPT and Codex, then set the goal before the first question batch."
+      description: "Sign in to ChatGPT and Codex, then set the goal before the first question."
     },
     questions: {
       label: "Questions",
@@ -374,12 +374,12 @@ const EN_COPY = {
     firstRunAria: "Goal setup guide",
     firstRunTitle: "Goal setup",
     firstRunItems: [
-      "Summarize the idea and describe the goal so Solo Superman can create the first question set.",
+      "Summarize the idea and describe the goal so Solo Superman can create the first question.",
       "For business validation, choose how strongly the app should challenge the idea.",
       "Research and implementation prep start as reviewable notes; risky actions never run automatically."
     ],
     initialQueueStartBlockers: {
-      busy: "The first question batch is already being created.",
+      busy: "The first question is already being created.",
       chatgpt_login: "Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.",
       codex_login:
         "Local Codex CLI login must be confirmed before backend questions or research prep can start.",
@@ -394,7 +394,7 @@ const EN_COPY = {
     startReadinessBlockedTitle: "Before you can start",
     startReadinessBlockedHelp: "Complete these items, then the Create first questions button will turn on.",
     startReadinessReadyTitle: "Ready to create first questions",
-    startReadinessReadyHelp: "Everything needed for the first question batch is in place.",
+    startReadinessReadyHelp: "Everything needed for the first question is in place.",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "An active session is required before changing the project purpose mode.",
       projectPurposeAlreadySelected: "Project purpose mode is already set to the selected value.",
@@ -428,7 +428,7 @@ const EN_COPY = {
       captureIntake: "Capture intake",
       draftInitialSpec: "Draft initial spec",
       analyzeAmbiguity: "Analyze ambiguity",
-      activateQuestionBatch: "Activate question batch",
+      activateQuestionBatch: "Activate next question",
       changeProjectPurposeMode: "Change project purpose mode",
       changeBusinessCriticIntensity: "Change business critic intensity",
       submitAnswer: "Submit answer",
@@ -459,7 +459,7 @@ const EN_COPY = {
     },
     chatGptLoginAria: "ChatGPT direct login gate",
     chatGptLoginTitle: "Sign in to ChatGPT in your browser first",
-    chatGptLoginDescription: "Open ChatGPT in this browser profile and sign in yourself before creating the first question batch.",
+    chatGptLoginDescription: "Open ChatGPT in this browser profile and sign in yourself before creating the first question.",
     chatGptCredentialBoundary: "Solo Superman never asks for or stores your password, 2FA code, session cookie, API key, or secrets.",
     chatGptLoginOpen: "Open ChatGPT",
     chatGptLoginAcknowledge: "I signed in to ChatGPT directly in this browser/profile.",
@@ -488,7 +488,7 @@ const EN_COPY = {
       {
         permission: "manual_only" as const,
         label: "Local questions only for now",
-        description: "Create the first batch with the local ambiguity algorithm. Public web research stays off until you enable it in the Research tab."
+        description: "Create the first question with the local ambiguity algorithm. Public web research stays off until you enable it in the Research tab."
       },
       {
         permission: "allow_codex" as const,
@@ -512,10 +512,10 @@ const EN_COPY = {
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
-    questionBatchSizeLabel: "Questions per batch",
+    questionBatchSizeLabel: "Questions to show at once",
     questionBatchSizeOption: (count: number) => `${count} questions`,
     questionBatchSizeHelp:
-      "Choose a smaller batch when the session feels heavy, or 5 when you want to move through many questions faster.",
+      "Default to one next question; choose up to 5 only when you intentionally want a larger set.",
     questionProgressTitle: "Question progress",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `${handled}/${generated} generated questions handled · ${percent}%`,
@@ -533,11 +533,11 @@ const EN_COPY = {
     questionProgressBlocked: "Blocked",
     questionProgressBacklog: "Later backlog",
     questionLoopNextActionTitle: "Question loop next action",
-    questionLoopNextActionStart: "Start or refresh the idea session before loading question batches.",
+    questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
       `Submit ${count} drafted answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
     questionLoopNextActionActive: (count: number) =>
-      `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current batch is cleared.`,
+      `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current visible question${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} cleared.`,
     questionLoopNextActionLoadNext: (count: number) =>
       `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining question debt.`,
     questionLoopNextActionBlocked: (count: number) =>
@@ -549,7 +549,7 @@ const EN_COPY = {
     },
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${open} open questions remain after ${percent}% handled across ${generated} generated questions.`,
-    questionFatigueHelp: "Answer only the current batch, carry uncertain assumptions as known risks, or pause before loading more.",
+    questionFatigueHelp: "Answer only the current question, carry uncertain assumptions as known risks, or pause before loading more.",
     questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
     researchAdditionalQuestions: "Research-generated questions",
     researchFollowUpSourceTrace: "Source trace",
@@ -829,6 +829,8 @@ const EN_COPY = {
     decisionContext: "Decision context",
     sourceReliability: "Source reliability",
     gateStatus: "Gate status",
+    researchImpact: "Impact",
+    terminalOutcome: "Outcome",
     gateChecks: "Gate checks",
     noGateChecks: "No gate checks",
     limitationRefs: "Limitations",
@@ -855,7 +857,8 @@ const EN_COPY = {
     planningBlockedSuffix: "blocks Planning-ready",
     routeOutcomeLabels: {
       research_needed: "Research needed",
-      missing_con_evidence: "Counter-evidence needed"
+      missing_con_evidence: "Counter-evidence needed",
+      conflict_review: "Conflict review needed"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "Planned",
@@ -1749,7 +1752,7 @@ const JA_COPY: typeof EN_COPY = {
       label: "オンボーディング",
       shortLabel: "O",
       title: "オンボーディング",
-      description: "ChatGPTとCodexにログインし、最初の質問セットの前に目標を設定します。"
+      description: "ChatGPTとCodexにログインし、最初の質問の前に目標を設定します。"
     },
     questions: {
       label: "質問",
@@ -1840,12 +1843,12 @@ const JA_COPY: typeof EN_COPY = {
     firstRunAria: "目標設定ガイド",
     firstRunTitle: "目標設定",
     firstRunItems: [
-      "アイデアの概要と目標を書くと、Solo Superman が最初の質問セットを作成します。",
+      "アイデアの概要と目標を書くと、Solo Superman が最初の質問を作成します。",
       "事業検証の場合は、どの程度厳しく問い直すかを自分で選びます。",
       "リサーチと実装準備はまず確認できるノートとして残し、危険な操作は自動実行しません。"
     ],
     initialQueueStartBlockers: {
-      busy: "最初の質問セットはすでに作成中です。",
+      busy: "最初の質問はすでに作成中です。",
       chatgpt_login: "見えるChatGPT Pro/Deep Research引き継ぎを許可する前に、ChatGPTへ直接ログインしたことを確認してください。",
       codex_login:
         "バックエンド質問またはリサーチ準備を始める前に、ローカルCodex CLIログインを確認する必要があります。",
@@ -1859,7 +1862,7 @@ const JA_COPY: typeof EN_COPY = {
     startReadinessBlockedTitle: "開始前に必要なこと",
     startReadinessBlockedHelp: "これらを完了すると、「最初の質問を作成」ボタンが押せるようになります。",
     startReadinessReadyTitle: "最初の質問を作成できます",
-    startReadinessReadyHelp: "最初の質問セットに必要な準備がそろっています。",
+    startReadinessReadyHelp: "最初の質問に必要な準備がそろっています。",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "プロジェクト目的を変更するにはアクティブなセッションが必要です。",
       projectPurposeAlreadySelected: "プロジェクト目的はすでに選択した値に設定されています。",
@@ -1891,7 +1894,7 @@ const JA_COPY: typeof EN_COPY = {
       captureIntake: "入力内容を記録",
       draftInitialSpec: "初期仕様を下書き",
       analyzeAmbiguity: "曖昧さを分析",
-      activateQuestionBatch: "質問バッチを有効化",
+      activateQuestionBatch: "次の質問を有効化",
       changeProjectPurposeMode: "プロジェクト目的を変更",
       changeBusinessCriticIntensity: "事業レビュー強度を変更",
       submitAnswer: "回答を送信",
@@ -1921,7 +1924,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     chatGptLoginAria: "ChatGPT直接ログイン確認",
     chatGptLoginTitle: "先にブラウザでChatGPTにログイン",
-    chatGptLoginDescription: "最初の質問セットを作成する前に、このブラウザプロファイルでChatGPTを開き、自分でログインします。",
+    chatGptLoginDescription: "最初の質問を作成する前に、このブラウザプロファイルでChatGPTを開き、自分でログインします。",
     chatGptCredentialBoundary: "Solo Supermanはパスワード、2FAコード、セッションCookie、API key、secretを要求・保存しません。",
     chatGptLoginOpen: "ChatGPTを開く",
     chatGptLoginAcknowledge: "このブラウザ/プロファイルでChatGPTに直接ログインしました。",
@@ -1950,7 +1953,7 @@ const JA_COPY: typeof EN_COPY = {
       {
         permission: "manual_only" as const,
         label: "今はローカル質問のみ",
-        description: "最初の質問セットはローカルの曖昧さ削減アルゴリズムで作ります。公開 Web リサーチは Research タブで有効化するまでオフのままです。"
+        description: "最初の質問はローカルの曖昧さ削減アルゴリズムで作ります。公開 Web リサーチは Research タブで有効化するまでオフのままです。"
       },
       {
         permission: "allow_codex" as const,
@@ -1968,7 +1971,7 @@ const JA_COPY: typeof EN_COPY = {
     businessCriticIntensity: "事業レビューの強さ",
     intensityReason: "この強さを選ぶ理由",
     intensityReasonPlaceholder: "この問い直しの強さが合う理由を書いてください。",
-    intensityHelp: "事業検証では、最初の質問セットを作る前にレビューの強さを明示する必要があります。",
+    intensityHelp: "事業検証では、最初の質問を作る前にレビューの強さを明示する必要があります。",
     running: "実行中",
     createFirstBatch: "最初の質問を作成",
     queue: "キュー",
@@ -1976,7 +1979,7 @@ const JA_COPY: typeof EN_COPY = {
     loadNextQuestions: "次の質問を読み込む",
     questionBatchSizeLabel: "1回に表示する質問数",
     questionBatchSizeOption: (count: number) => `${count}件`,
-    questionBatchSizeHelp: "負担が大きいときは少ない件数、たくさん進めたいときは5件を選べます。",
+    questionBatchSizeHelp: "通常は次の質問1件から進め、必要なときだけ最大5件まで増やせます。",
     questionProgressTitle: "質問の進捗",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `生成済み質問 ${generated}件中 ${handled}件処理 · ${percent}%`,
@@ -1994,11 +1997,11 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressBlocked: "ブロック中",
     questionProgressBacklog: "後続の未表示",
     questionLoopNextActionTitle: "質問ループの次のアクション",
-    questionLoopNextActionStart: "質問バッチを読み込む前に、アイデアセッションを開始または更新してください。",
+    questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
       `下書き回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
     questionLoopNextActionActive: (count: number) =>
-      `表示中の質問 ${count}件に回答してください。現在のバッチが片付くとループは自動で続けられます。`,
+      `表示中の質問 ${count}件に回答してください。表示中の質問が片付くとループは自動で続けられます。`,
     questionLoopNextActionLoadNext: (count: number) =>
       `残りの質問負債を減らすため、次の質問 ${count}件を読み込んでください。`,
     questionLoopNextActionBlocked: (count: number) =>
@@ -2161,7 +2164,7 @@ const JA_COPY: typeof EN_COPY = {
     businessCriticAuditHelp: "変更は監査ログに残り、現在の質問を置き換えずに新しい問い直しを追加します。",
     modeChangeReason: "モード変更理由",
     modeChangeReasonPlaceholder: "質問/リサーチ基準を変える理由を記録します。",
-    modeAuditHelp: "変更は監査ログに残り、現在の質問セットは維持されます。",
+    modeAuditHelp: "変更は監査ログに残り、現在の質問は維持されます。",
     progress: "進捗",
     pending: "保留中",
     scoreCompleteness: "完成度を採点",
@@ -2285,6 +2288,8 @@ const JA_COPY: typeof EN_COPY = {
     decisionContext: "判断文脈",
     sourceReliability: "出典信頼度",
     gateStatus: "ゲート状態",
+    researchImpact: "影響度",
+    terminalOutcome: "結果",
     gateChecks: "ゲート確認",
     noGateChecks: "ゲート確認なし",
     limitationRefs: "制約",
@@ -2311,7 +2316,8 @@ const JA_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "Planning-readyをブロック",
     routeOutcomeLabels: {
       research_needed: "リサーチが必要",
-      missing_con_evidence: "別視点の確認が必要"
+      missing_con_evidence: "別視点の確認が必要",
+      conflict_review: "相反する根拠の確認が必要"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "計画済み",
@@ -3312,7 +3318,7 @@ const KO_COPY: typeof EN_COPY = {
       "리서치와 구현 준비는 먼저 검토 가능한 노트로 남기며, 위험한 작업은 자동 실행하지 않습니다."
     ],
     initialQueueStartBlockers: {
-      busy: "첫 질문 묶음을 이미 생성 중입니다.",
+      busy: "첫 질문을 이미 생성 중입니다.",
       chatgpt_login: "보이는 ChatGPT Pro/Deep Research 위임을 허용하려면 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
       codex_login:
         "backend 질문 또는 리서치 준비를 시작하기 전에 로컬 Codex CLI 로그인이 확인되어야 합니다.",
@@ -3327,7 +3333,7 @@ const KO_COPY: typeof EN_COPY = {
     startReadinessBlockedTitle: "시작 전에 필요한 것",
     startReadinessBlockedHelp: "아래 항목을 완료하면 ‘첫 질문 만들기’ 버튼을 누를 수 있습니다.",
     startReadinessReadyTitle: "첫 질문을 만들 준비가 됐습니다",
-    startReadinessReadyHelp: "첫 질문 묶음에 필요한 준비가 모두 끝났습니다.",
+    startReadinessReadyHelp: "첫 질문에 필요한 준비가 모두 끝났습니다.",
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "프로젝트 목적을 변경하려면 활성 세션이 필요합니다.",
       projectPurposeAlreadySelected: "프로젝트 목적이 이미 선택한 값으로 설정되어 있습니다.",
@@ -3357,7 +3363,7 @@ const KO_COPY: typeof EN_COPY = {
       captureIntake: "입력 내용 기록",
       draftInitialSpec: "초기 설명서 초안 작성",
       analyzeAmbiguity: "모호성 분석",
-      activateQuestionBatch: "질문 묶음 활성화",
+      activateQuestionBatch: "다음 질문 활성화",
       changeProjectPurposeMode: "프로젝트 목적 변경",
       changeBusinessCriticIntensity: "사업 리뷰 강도 변경",
       submitAnswer: "답변 제출",
@@ -3388,7 +3394,7 @@ const KO_COPY: typeof EN_COPY = {
     },
     chatGptLoginAria: "ChatGPT 직접 로그인 확인",
     chatGptLoginTitle: "먼저 브라우저에서 ChatGPT에 로그인",
-    chatGptLoginDescription: "첫 질문 묶음을 만들기 전에 이 브라우저 프로필에서 ChatGPT를 열고 직접 로그인하세요.",
+    chatGptLoginDescription: "첫 질문을 만들기 전에 이 브라우저 프로필에서 ChatGPT를 열고 직접 로그인하세요.",
     chatGptCredentialBoundary: "Solo Superman은 비밀번호, 2FA 코드, session cookie, API key, secret을 요구하거나 저장하지 않습니다.",
     chatGptLoginOpen: "ChatGPT 열기",
     chatGptLoginAcknowledge: "이 브라우저/프로필에서 ChatGPT에 직접 로그인했습니다.",
@@ -3417,7 +3423,7 @@ const KO_COPY: typeof EN_COPY = {
       {
         permission: "manual_only" as const,
         label: "지금은 로컬 질문만 사용",
-        description: "첫 질문 묶음은 로컬 모호함 축소 알고리즘으로 만들고, 공개 웹 리서치는 Research 탭에서 켜기 전까지 비활성화합니다."
+        description: "첫 질문은 로컬 모호함 축소 알고리즘으로 만들고, 공개 웹 리서치는 Research 탭에서 켜기 전까지 비활성화합니다."
       },
       {
         permission: "allow_codex" as const,
@@ -3443,7 +3449,7 @@ const KO_COPY: typeof EN_COPY = {
     loadNextQuestions: "다음 질문 불러오기",
     questionBatchSizeLabel: "한 번에 볼 질문 수",
     questionBatchSizeOption: (count: number) => `${count}개`,
-    questionBatchSizeHelp: "답변 세션이 부담되면 적게, 많은 질문을 빠르게 처리하려면 5개로 조절하세요.",
+    questionBatchSizeHelp: "기본은 다음 질문 1개입니다. 의도적으로 묶어 처리할 때만 최대 5개까지 늘리세요.",
     questionProgressTitle: "질문 진행률",
     questionProgressSummary: (handled: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${handled}개 처리 · ${percent}%`,
@@ -3461,11 +3467,11 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressBlocked: "막힘",
     questionProgressBacklog: "나중에 볼 질문",
     questionLoopNextActionTitle: "질문 루프 다음 행동",
-    questionLoopNextActionStart: "질문 묶음을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
+    questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
       `작성한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
     questionLoopNextActionActive: (count: number) =>
-      `지금 보이는 질문 ${count}개에 답하세요. 현재 묶음이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
+      `지금 보이는 질문 ${count}개에 답하세요. 지금 보이는 질문이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
     questionLoopNextActionLoadNext: (count: number) =>
       `남은 질문 부채를 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
     questionLoopNextActionBlocked: (count: number) =>
@@ -3628,7 +3634,7 @@ const KO_COPY: typeof EN_COPY = {
     businessCriticAuditHelp: "변경은 감사 로그에 남고, 현재 질문을 교체하지 않은 채 새 검토 압력을 추가합니다.",
     modeChangeReason: "모드 변경 이유",
     modeChangeReasonPlaceholder: "질문/리서치 기준을 바꾸는 이유를 기록하세요.",
-    modeAuditHelp: "변경은 감사 로그에 남고, 현재 질문 묶음은 유지됩니다.",
+    modeAuditHelp: "변경은 감사 로그에 남고, 현재 질문은 유지됩니다.",
     progress: "진행률",
     pending: "대기 중",
     scoreCompleteness: "완성도 채점",
@@ -3750,6 +3756,8 @@ const KO_COPY: typeof EN_COPY = {
     decisionContext: "판단 맥락",
     sourceReliability: "출처 신뢰도",
     gateStatus: "게이트 상태",
+    researchImpact: "영향도",
+    terminalOutcome: "결과",
     gateChecks: "게이트 확인",
     noGateChecks: "게이트 확인 없음",
     limitationRefs: "제약",
@@ -3776,7 +3784,8 @@ const KO_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "Planning-ready 차단",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
-      missing_con_evidence: "반례 확인 필요"
+      missing_con_evidence: "반례 확인 필요",
+      conflict_review: "상충 근거 검토 필요"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "계획됨",

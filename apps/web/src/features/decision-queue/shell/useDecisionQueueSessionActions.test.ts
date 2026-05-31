@@ -67,6 +67,9 @@ describe("nextQuestionBatchIdsForActivation", () => {
     };
 
     expect(nextQuestionBatchIdsForActivation(queue)).toEqual([
+      "queue_question_1"
+    ]);
+    expect(nextQuestionBatchIdsForActivation(queue, 3)).toEqual([
       "queue_question_1",
       "queue_research_follow_up",
       "queue_legacy_question"
@@ -89,6 +92,9 @@ describe("nextQuestionBatchIdsForActivation", () => {
     };
 
     expect(nextQuestionBatchIdsForActivation(queue)).toEqual([
+      "queue_question_1"
+    ]);
+    expect(nextQuestionBatchIdsForActivation(queue, 9)).toEqual([
       "queue_question_1",
       "queue_question_2",
       "queue_question_3",
@@ -103,13 +109,13 @@ describe("nextQuestionBatchIdsForActivation", () => {
   });
 
   it("bounds requested next question batch size to the supported active batch range", () => {
-    expect(boundedQuestionBatchSize(2)).toBe(3);
+    expect(boundedQuestionBatchSize(2)).toBe(2);
     expect(boundedQuestionBatchSize(4)).toBe(4);
     expect(boundedQuestionBatchSize(9)).toBe(5);
-    expect(boundedQuestionBatchSize(Number.NaN)).toBe(5);
+    expect(boundedQuestionBatchSize(Number.NaN)).toBe(1);
   });
 
-  it("falls back to default activation when too few queued ids would violate the server batch minimum", () => {
+  it("uses visible queued ids when at least one next question is available", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",
       version: 5 as ProjectionVersion,
@@ -150,7 +156,10 @@ describe("nextQuestionBatchIdsForActivation", () => {
       deferred: []
     };
 
-    expect(nextQuestionBatchIdsForActivation(queue, 3)).toBeUndefined();
+    expect(nextQuestionBatchIdsForActivation(queue, 3)).toEqual([
+      "queue_question_1",
+      "queue_question_2"
+    ]);
     expect(queueShouldAutoActivateNextQuestionBatch(queue, 3)).toBe(true);
   });
 
@@ -986,7 +995,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(activateQuestionBatch).toHaveBeenCalledWith(
       sessionId,
       2,
-      undefined
+      ["queue_visible_next_1", "queue_visible_next_2"]
     );
   });
 

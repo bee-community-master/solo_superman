@@ -70,7 +70,7 @@ function renderQuestionsView(
     loadNextQuestionBatch: vi.fn(),
     projectPurposeMode: null,
     projections: emptyProjectionState(),
-    questionBatchSize: 5,
+    questionBatchSize: 1,
     questionProgress: DEFAULT_QUESTION_PROGRESS,
     queueRecovery: DEFAULT_QUEUE_RECOVERY,
     refreshQuestionList: vi.fn(),
@@ -176,10 +176,13 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
-    expect(markup).toContain("Questions per batch");
-    expect(markup).toContain("Choose a smaller batch when the session feels heavy");
+    expect(markup).toContain("Questions to show at once");
+    expect(markup).toContain("Default to one next question");
     expect(markup).not.toContain("Idea summary");
     expect(markup).not.toContain("Goal description");
+    expect(markup).toContain('class="queue-card-header"');
+    expect(markup).toContain('class="queue-state-badge"');
+    expect(markup).toContain('class="answer-box question-answer-panel"');
     expect(markup).toContain("Choose one");
     expect(markup).toContain("Answer choices");
     expect(markup).toContain("Decision made: Fast interviews with a narrow segment.");
@@ -390,6 +393,9 @@ describe("QuestionsView", () => {
       ]
     });
 
+    expect(markup).toContain('class="queue-card-header"');
+    expect(markup).toContain('class="queue-state-badge"');
+    expect(markup).toContain('class="answer-box question-answer-panel"');
     expect(markup).toContain("Choose one");
     expect(markup).toContain("Answer choices");
     expect(markup).toContain("Decision made: Narrows the first customer segment.");
@@ -633,6 +639,7 @@ describe("QuestionsView", () => {
       ]
     });
 
+    expect(markup).toContain('class="question-coaching-context"');
     expect(markup).toContain("Why ask this");
     expect(markup).toContain("If the painful workflow is unclear");
     expect(markup).toContain("What this answer decides");
@@ -796,7 +803,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Question loop next action");
-    expect(markup).toContain("Answer the 5 active questions; the loop can continue automatically after the current batch is cleared.");
+    expect(markup).toContain("Answer the 5 active questions; the loop can continue automatically after the current visible questions are cleared.");
     expect(markup).toContain("5/23 generated questions handled · 22%");
     expect(markup).toContain("Generated");
     expect(markup).toContain("Open debt");
@@ -813,7 +820,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
-    expect(markup).toContain("Answer only the current batch");
+    expect(markup).toContain("Answer only the current question");
     expect(markup).toContain("40 follow-up slots remain; use them deliberately.");
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
@@ -879,6 +886,8 @@ describe("QuestionsView", () => {
               state: "blocked",
               cardType: "follow_up_question",
               sourceRef: "research:research_task_demo:evidence_matrix_demo:additional_question:1",
+              whyItMatters:
+                "리서치 근거 요약:\n- 출처 단서: 공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.",
               additionalQuestions: [
                 "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
               ]
@@ -892,8 +901,10 @@ describe("QuestionsView", () => {
     expect(markup).toContain("founders report urgency 같은 단서가 확인되었습니다.");
     expect(markup).toContain("한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.");
     expect(markup).not.toContain("What evidence would resolve");
+    expect(markup).toContain('class="question-source-trace"');
     expect(markup).toContain("Source trace");
-    expect(markup).toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
+    expect(markup).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
+    expect(markup).not.toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
     expect(markup).toContain("Blocked");
     expect(markup).not.toContain(">blocked<");
   });
