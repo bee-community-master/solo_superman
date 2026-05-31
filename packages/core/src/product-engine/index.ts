@@ -265,18 +265,18 @@ export {
 
 type PrivacyMode = "local_only" | "local_with_manual_export";
 const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
-  "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 명시 선택하기 전까지 mode-specific 질문·리서치·완성도·handoff gate를 확정하지 않습니다.";
+  "사용자가 사업화 검증 중심 또는 개인 작업 흐름 구현 중심을 명시 선택하기 전까지 목적별 질문·리서치·완성도 기준을 확정하지 않습니다.";
 const PROJECT_PURPOSE_MODE_DETAILS = {
   business: {
     label: PROJECT_PURPOSE_MODE_LABELS.business,
     effect:
-      "고객, 문제 강도, 유료 의향, 대체재, 채널, 법무/운영 리스크를 질문·리서치·완성도 판단에 포함합니다.",
+      "고객, 문제 강도, 돈을 낼 이유, 대체재, 채널, 법무/운영 리스크를 질문·리서치·완성도 판단에 포함합니다.",
     skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.business
   },
   personal: {
     label: PROJECT_PURPOSE_MODE_LABELS.personal,
     effect:
-      "시장 규모나 투자자 narrative 대신 workflow 빈도, GUI 적합성, 구현 가능성, local data/security, 유지보수, 개인 성공 기준을 우선합니다.",
+      "시장 규모나 투자자 설명 대신 작업 흐름 빈도, 화면 UI 적합성, 구현 가능성, 내 컴퓨터의 데이터/보안, 유지보수, 개인 성공 기준을 우선합니다.",
     skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.personal
   }
 } as const satisfies Record<
@@ -289,10 +289,10 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
 >;
 
 const BUSINESS_CRITIC_PRESSURE_SUMMARY = {
-  balanced: "balanced: major decision group마다 최소 1개 con/critical question을 요구합니다.",
-  strong: "strong: high-impact business gap이 있으면 core-assumption challenge를 active batch 교체 없이 queued_next로 보냅니다.",
+  balanced: "균형 점검: 주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
+  strong: "강한 점검: 중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 다음 질문으로 보냅니다.",
   investor_grade:
-    "investor_grade: pricing/channel/retention/legal-ops/market timing/founder advantage pressure item 또는 Known Risk + Next Validation Action을 요구합니다."
+    "꼼꼼한 점검: 가격, 채널, 반복 사용, 운영, 시장 타이밍, 만드는 사람/팀 강점을 확인하거나 다음 확인 항목으로 남기게 합니다."
 } as const satisfies Record<BusinessCriticIntensity, string>;
 
 const EMPTY_RESEARCH_PROJECTION: ResearchEvidenceProjection = emptyResearchEvidenceProjection();
@@ -1133,12 +1133,12 @@ function generatedQuestionSetContextText(context: OnboardingQuestionContext) {
   return [context.idea, context.goal].filter(Boolean).join("\n");
 }
 
-function ideaContextLabel(context: OnboardingQuestionContext) {
-  return context.idea ? `“${context.idea}”` : "이 아이디어";
+function ideaContextLabel() {
+  return "이 아이디어";
 }
 
-function goalContextLabel(context: OnboardingQuestionContext) {
-  return context.goal ? `“${context.goal}”` : "이번 목표";
+function goalContextLabel() {
+  return "이번 목표";
 }
 
 function contextProfileId(context: OnboardingQuestionContext) {
@@ -1146,8 +1146,8 @@ function contextProfileId(context: OnboardingQuestionContext) {
 }
 
 function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuestionContext) {
-  const ideaLabel = ideaContextLabel(context);
-  const goalLabel = goalContextLabel(context);
+  const ideaLabel = ideaContextLabel();
+  const goalLabel = goalContextLabel();
 
   switch (contextProfileId(context)) {
     case "pet_lifecycle": {
@@ -1157,11 +1157,13 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         buyer_user_split:
           "반려동물 기록과 비용 관리는 보호자가 직접 결정하나요, 아니면 가족·동물병원·보험사가 따로 관여하나요?",
         problem_pain_intensity:
-          "보호자가 의료기록, 급여, 보험, 장례 준비를 관리하다가 가장 큰 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
+          "이 반려동물 관리 아이디어를 떠올리게 한 보호자의 실제 불편은 의료기록, 급여·일상, 보험·비용, 장례 준비 중 언제 생기나요?",
         value_prop_switching_reason:
           `보호자가 병원 앱, 메모, 사진첩, 보험 앱을 두고 ${ideaLabel}를 선택하게 만들 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "보호자는 지금 반려동물 기록과 비용 정보를 어디에 흩어 관리하고, 그 방식이 괜찮을 때와 불편할 때는 언제인가요?",
+        payment_hesitation_reason:
+          "보호자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 보호자에게 어떻게 확인할까요?",
         mvp_validation_scope:
           `${goalLabel}에 맞춰 첫 버전에서 의료기록, 급여·일상, 보험·의료비, 장례·말기 케어 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
@@ -1193,11 +1195,13 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         buyer_user_split:
           "이 예약·주문·단골 관리 문제는 매장 운영자가 비용을 내고 손님이 쓰나요, 아니면 손님이 직접 가치를 느끼나요?",
         problem_pain_intensity:
-          "매장이나 손님이 예약, 픽업 주문, 단골 혜택을 처리하다가 가장 큰 불편은 언제 생기고 어떤 손실로 이어지나요?",
+          "이 아이디어를 떠올리게 한 매장이나 손님의 실제 불편은 언제 생기고 어떤 손실로 이어지나요?",
         value_prop_switching_reason:
           `매장이나 손님이 전화, 메신저, 배달앱, 쿠폰 수첩을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "지금 매장과 손님은 예약·주문·단골 혜택을 어떤 도구로 처리하고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+        payment_hesitation_reason:
+          "매장이나 손님이 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
         mvp_validation_scope:
           `${goalLabel}에 맞춰 첫 버전에서 예약, 픽업 주문, 단골 혜택 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
@@ -1229,11 +1233,13 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         buyer_user_split:
           "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
         problem_pain_intensity:
-          "창업자가 아이디어를 스펙과 고객 질문으로 바꾸는 과정에서 가장 큰 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
+          "이 제품 아이디어를 떠올리게 한 창업자의 실제 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
         value_prop_switching_reason:
           `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${ideaLabel}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
           "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+        payment_hesitation_reason:
+          "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
         mvp_validation_scope:
           `${goalLabel}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
@@ -1268,38 +1274,40 @@ const BUSINESS_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (conte
     const profile = primaryCustomerContextProfileForText(generatedQuestionSetContextText(context));
 
     return profile
-      ? `${ideaContextLabel(context)}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
-      : `${ideaContextLabel(context)}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
+      ? `${ideaContextLabel()}를 가장 먼저 테스트할 ${profile.questionSubject}은 누구이고, ${profile.personReference}은 지금 어떤 상황에 있나요?`
+      : `${ideaContextLabel()}를 가장 먼저 써볼 사람은 누구이고, 그 사람은 지금 어떤 상황에 있나요?`;
   },
   buyer_user_split: () =>
     "그 사람이 직접 돈을 내거나 승인할 수 있나요? 아니라면 누가 결정하고 누가 실제로 쓰나요?",
   problem_pain_intensity: () =>
-    "그 사람이 겪는 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
-  value_prop_switching_reason: (context) =>
-    `그 사람이 지금 쓰는 방법을 두고 ${ideaContextLabel(context)}를 선택하게 만들 쉬운 이유 하나는 무엇인가요?`,
+    "이 아이디어를 떠올리게 한 실제 불편은 언제 생기고, 시간·돈·스트레스 중 무엇을 가장 크게 쓰게 하나요?",
+  value_prop_switching_reason: () =>
+    `그 사람이 지금 쓰는 방법을 두고 ${ideaContextLabel()}를 선택하게 만들 쉬운 이유 하나는 무엇인가요?`,
   alternative_dissatisfaction_gap: () =>
     "지금은 어떤 방법으로 버티고 있고, 그 방법이 괜찮을 때와 답답할 때는 각각 언제인가요?",
-  mvp_validation_scope: (context) =>
-    `${goalContextLabel(context)}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
+  payment_hesitation_reason: () =>
+    "사용자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
+  mvp_validation_scope: () =>
+    `${goalContextLabel()}에 가장 도움이 되는 첫 버전 기능 하나와 이번에 만들지 않을 기능 하나는 무엇인가요?`,
   first_validation_experiment: () =>
     "제품을 만들기 전에 “이게 필요하다”는 실제 반응을 어떻게 작게 확인할 수 있나요?"
 };
 
 const PERSONAL_ONBOARDING_QUESTION_TEXT_BY_TOPIC: Readonly<Record<string, (context: OnboardingQuestionContext) => string>> = {
-  personal_workflow_context: (context) =>
-    `${ideaContextLabel(context)}를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?`,
+  personal_workflow_context: () =>
+    `${ideaContextLabel()}를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?`,
   personal_usage_frequency: () =>
     "그 일이 얼마나 자주 반복되고, 매번 무엇이 가장 귀찮거나 오래 걸리나요?",
   personal_gui_fit: () =>
     "첫 버전에서 꼭 화면으로 보고 눌러야 하는 순간은 어디인가요?",
-  personal_implementation_feasibility: (context) =>
-    `${goalContextLabel(context)}에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?`,
+  personal_implementation_feasibility: () =>
+    `${goalContextLabel()}에 맞춰 가장 작게 만든다면 어떤 입력을 받아 어떤 결과 하나만 내면 충분한가요?`,
   personal_local_data_security: () =>
     "어떤 파일, 계정, 개인정보, 비밀값은 읽거나 저장하면 안 되나요?",
   personal_maintainability_boundary: () =>
     "이번 버전에서 일부러 만들지 않을 기능과 나중에도 관리하고 싶지 않은 일은 무엇인가요?",
-  personal_success_criteria: (context) =>
-    `${goalContextLabel(context)}에 비춰, 첫 버전이 성공했다고 느낄 쉬운 기준은 무엇인가요?`
+  personal_success_criteria: () =>
+    `${goalContextLabel()}에 비춰, 첫 버전이 성공했다고 느낄 쉬운 기준은 무엇인가요?`
 };
 
 function contextualOnboardingQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
@@ -1323,21 +1331,16 @@ function contextualQuestionText(seed: AmbiguityIssueSeed, context: OnboardingQue
     return onboardingQuestion;
   }
 
-  const question = plainUserFacingDecisionQueueText(seed.question);
+  return plainUserFacingDecisionQueueText(seed.question);
+}
 
-  if (context.idea && context.goal) {
-    return `아이디어 “${context.idea}”와 목표 “${context.goal}”에 맞춰, ${question}`;
-  }
-
-  if (context.idea) {
-    return `아이디어 “${context.idea}”에 맞춰, ${question}`;
-  }
-
-  if (context.goal) {
-    return `목표 “${context.goal}”에 맞춰, ${question}`;
-  }
-
-  return question;
+function questionContextSnapshot(context: OnboardingQuestionContext) {
+  return context.idea || context.goal
+    ? {
+        ...(context.idea ? { idea: context.idea } : {}),
+        ...(context.goal ? { goal: context.goal } : {})
+      }
+    : undefined;
 }
 
 function contextualSuggestedResearchTask(seed: AmbiguityIssueSeed, context: OnboardingQuestionContext) {
@@ -1407,6 +1410,8 @@ function weakeningCueForSeed(seed: AmbiguityIssueSeed) {
       return "선택한 고객 후보보다 더 급한 후보가 있거나 해당 후보가 문제를 자주 겪지 않는 사례";
     case "buyer_user_split":
       return "돈을 내는 사람과 실제 사용자가 분리되어 인터뷰·가격·메시지가 달라지는 사례";
+    case "payment_hesitation_reason":
+      return "사용자가 기능은 좋다고 말하지만 실제로 돈을 내거나 승인하지 않는 사례";
     case "problem_pain_intensity":
       return "문제가 드물거나 기존 방식으로 충분히 해결되어 시간·돈·스트레스 부담이 약한 사례";
     case "value_prop_switching_reason":
@@ -1512,78 +1517,80 @@ function contextualResearchQuestionForSeed(
 
 const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
   {
-    sectionRef: "Target Customer",
-    topicKey: "primary_customer_narrowing",
-    uncertaintyType: "vague",
-    severity: "high",
-    summary: "첫 고객 세그먼트가 너무 넓음",
-    whyItMatters: "첫 고객이 좁혀지지 않으면 문제 강도, 채널, MVP scope 판단이 모두 흔들립니다.",
-    question: "가장 먼저 검증할 primary customer는 어떤 상황의 누구인가?",
-    expectedAnswerType: "choice",
-    decisionItUnlocks: "primary_customer decision과 Target Customer section의 검증 채널을 잠급니다.",
-    routes: ["question", "decision_candidate"]
-  },
-  {
-    sectionRef: "Target Customer",
-    topicKey: "buyer_user_split",
-    uncertaintyType: "missing",
-    severity: "high",
-    summary: "구매자와 실제 사용자가 같은지 확인되지 않음",
-    whyItMatters: "구매자와 사용자가 다르면 가격, 인터뷰 대상, 채널, 메시지가 모두 달라집니다.",
-    question: "돈을 내는 사람과 실제 사용하는 사람은 같은가, 다르다면 각각 누구인가?",
-    expectedAnswerType: "choice",
-    decisionItUnlocks: "buyer/user split과 Target Customer section의 interview target을 잠급니다.",
-    routes: ["question", "decision_candidate"]
-  },
-  {
     sectionRef: "Problem",
     topicKey: "problem_pain_intensity",
     uncertaintyType: "missing",
     severity: "high",
     summary: "문제 빈도와 강도가 아직 측정되지 않음",
-    whyItMatters: "문제가 드물거나 약하면 value proposition과 validation plan이 재작성됩니다.",
+    whyItMatters: "문제가 드물거나 약하면 사용자가 선택할 이유와 확인 계획을 다시 써야 합니다.",
     question: "이 문제가 얼마나 자주, 얼마나 큰 비용으로 발생하는가?",
     expectedAnswerType: "text",
-    decisionItUnlocks: "problem decision과 Success Criteria의 pain threshold를 잠급니다.",
+    decisionItUnlocks: "문제 판단과 성공 기준에서 어느 정도 불편해야 중요한지 정합니다.",
     routes: ["question", "research_needed"]
   },
   {
-    sectionRef: "Value Proposition",
-    topicKey: "value_prop_switching_reason",
-    uncertaintyType: "decision_required",
+    sectionRef: "Target Customer",
+    topicKey: "primary_customer_narrowing",
+    uncertaintyType: "vague",
     severity: "high",
-    summary: "대체재 대비 전환 이유가 결정되지 않음",
-    whyItMatters: "전환 이유가 없으면 MVP 기능과 메시지가 경쟁 대체재를 이길 수 없습니다.",
-    question: "사용자가 현재 대체재를 버리고 이 제품으로 전환할 이유는 무엇인가?",
-    expectedAnswerType: "rank",
-    decisionItUnlocks: "value decision과 Differentiation section의 핵심 claim을 잠급니다.",
+    summary: "첫 고객 세그먼트가 너무 넓음",
+    whyItMatters: "첫 고객이 좁혀지지 않으면 문제 강도, 채널, 첫 버전 범위 판단이 모두 흔들립니다.",
+    question: "가장 먼저 검증할 primary customer는 어떤 상황의 누구인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "첫 고객 판단과 Target Customer 항목의 검증 채널을 정합니다.",
     routes: ["question", "decision_candidate"]
-  },
-  {
-    sectionRef: "Current Alternatives",
-    topicKey: "alternative_dissatisfaction_gap",
-    uncertaintyType: "missing_con_evidence",
-    severity: "medium",
-    summary: "현재 대체재와 불만족 지점이 균형 있게 검증되지 않음",
-    whyItMatters: "대체재 만족/불만족 근거 없이 차별화를 확정하면 Founder Brief 신뢰도가 낮아집니다.",
-    question: "현재 대체재는 무엇이고, 충분히 좋은 상황과 불만족이 생기는 상황은 각각 언제인가?",
-    expectedAnswerType: "evidence",
-    decisionItUnlocks: "alternatives claim의 pro/con evidence gate와 differentiation 판단을 엽니다.",
-    routes: ["research_needed", "missing_con_evidence"],
-    suggestedResearchTask: "대체재 만족/불만족 근거를 균형 있게 수집합니다."
   },
   {
     sectionRef: "MVP Scope",
     topicKey: "mvp_validation_scope",
     uncertaintyType: "decision_required",
     severity: "high",
-    summary: "MVP에 반드시 포함할 기능과 제외할 기능이 불명확함",
-    whyItMatters: "MVP scope가 흐리면 Build Slice가 커지고 Planning Handoff가 blocker 상태로 남습니다.",
+    summary: "첫 버전에 반드시 포함할 기능과 제외할 기능이 불명확함",
+    whyItMatters: "첫 버전 범위가 흐리면 구현 범위가 커지고 계획 넘기기가 막힐 수 있습니다.",
     question: "첫 Build Slice에서 반드시 검증해야 할 기능과 제외할 기능은 무엇인가?",
     expectedAnswerType: "choice",
     answerSelectionMode: "multiple",
-    decisionItUnlocks: "mvp_scope decision과 Build Slice readiness를 잠급니다.",
+    decisionItUnlocks: "첫 버전 기능 범위와 구현 준비 여부를 정합니다.",
     routes: ["question", "decision_candidate", "deferred"]
+  },
+  {
+    sectionRef: "Current Alternatives",
+    topicKey: "alternative_dissatisfaction_gap",
+    uncertaintyType: "missing_con_evidence",
+    severity: "high",
+    summary: "현재 대체재와 불만족 지점이 균형 있게 검증되지 않음",
+    whyItMatters: "지금 쓰는 방법이 충분한 순간을 모르면 새 제품이 꼭 필요한 이유가 약해집니다.",
+    question: "현재 대체재는 무엇이고, 충분히 좋은 상황과 불만족이 생기는 상황은 각각 언제인가?",
+    expectedAnswerType: "evidence",
+    decisionItUnlocks: "기존 방식으로 충분한 경우와 전환 이유를 나눠 판단합니다.",
+    routes: ["research_needed", "missing_con_evidence"],
+    suggestedResearchTask: "대체재 만족/불만족 근거를 균형 있게 수집합니다."
+  },
+  {
+    sectionRef: "Target Customer",
+    topicKey: "buyer_user_split",
+    uncertaintyType: "missing",
+    severity: "high",
+    summary: "돈을 내거나 사용을 승인할 사람이 확인되지 않음",
+    whyItMatters: "돈을 내는 사람과 실제 사용자가 다르면 가격, 인터뷰 대상, 채널, 메시지가 모두 달라집니다.",
+    question: "돈을 내는 사람과 실제 사용하는 사람은 같은가, 다르다면 각각 누구인가?",
+    expectedAnswerType: "choice",
+    decisionItUnlocks: "누구에게 보여주고 누구에게 돈 이야기를 물어볼지 정합니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Value Proposition",
+    topicKey: "payment_hesitation_reason",
+    businessCriticCategory: "paid_intent",
+    uncertaintyType: "missing_con_evidence",
+    severity: "high",
+    summary: "사용자가 돈을 내기 망설일 이유가 아직 확인되지 않음",
+    whyItMatters: "돈을 내기 어려운 이유를 모르면 좋은 기능을 만들어도 매출로 이어지지 않을 수 있습니다.",
+    question: "사용자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
+    expectedAnswerType: "experiment",
+    decisionItUnlocks: "돈 이야기를 지금 확인할 대상과 방법을 정합니다.",
+    routes: ["question", "missing_con_evidence", "deferred"],
+    suggestedResearchTask: "사용자가 비슷한 서비스에 돈을 내지 않는 이유와 실제 결제 전 행동 신호를 확인합니다."
   },
   {
     sectionRef: "Validation Plan",
@@ -1602,11 +1609,23 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     topicKey: "success_metric_measurability",
     uncertaintyType: "vague",
     severity: "high",
-    summary: "성공/실패 기준이 측정 가능하지 않음",
-    whyItMatters: "측정 기준이 없으면 completeness score와 pivot trigger를 신뢰할 수 없습니다.",
-    question: "첫 실험의 성공과 실패를 어떤 수치 또는 관찰 신호로 판단할 것인가?",
+    summary: "반복 사용을 보여줄 쉬운 신호가 정해지지 않음",
+    whyItMatters: "반복 사용 신호가 없으면 한 번의 관심이 계속 쓸 가치로 이어지는지 알 수 없습니다.",
+    question: "사용자가 다시 돌아온다고 볼 수 있는 가장 쉬운 행동 신호는 무엇인가요?",
     expectedAnswerType: "text",
-    decisionItUnlocks: "success_criteria decision과 completion gate 판단을 잠급니다.",
+    decisionItUnlocks: "첫 확인에서 계속 쓸 만하다는 기준을 정합니다.",
+    routes: ["question", "decision_candidate"]
+  },
+  {
+    sectionRef: "Value Proposition",
+    topicKey: "value_prop_switching_reason",
+    uncertaintyType: "decision_required",
+    severity: "high",
+    summary: "대체재 대비 전환 이유가 결정되지 않음",
+    whyItMatters: "전환 이유가 없으면 첫 버전 기능과 메시지가 경쟁 대체재를 이길 수 없습니다.",
+    question: "사용자가 현재 대체재를 버리고 이 제품으로 전환할 이유는 무엇인가?",
+    expectedAnswerType: "rank",
+    decisionItUnlocks: "가치 판단과 차별화 항목의 핵심 주장을 정합니다.",
     routes: ["question", "decision_candidate"]
   },
   {
@@ -1704,6 +1723,7 @@ const BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY: Readonly<Record<string, BusinessCri
   problem_pain_intensity: "customer_pain",
   value_prop_switching_reason: "alternatives",
   alternative_dissatisfaction_gap: "alternatives",
+  payment_hesitation_reason: "paid_intent",
   mvp_validation_scope: "mvp_validation",
   first_validation_experiment: "mvp_validation",
   success_metric_measurability: "mvp_validation",
@@ -1724,16 +1744,16 @@ const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "strong",
     businessCriticPressureKind: "core_assumption_challenge",
     businessCriticRepeatGroup: "paid_intent_core_assumption",
-    nextValidationAction: "Run a willingness-to-pay test or explicitly carry this as a Known Risk.",
+    nextValidationAction: "이번 주에 실제 사용 후보에게 돈을 내기 망설이는 이유를 확인하거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "missing_con_evidence",
     severity: "high",
-    summary: "유료 의향 핵심 가설이 반박 질문 없이 남아 있음",
-    whyItMatters: "사업화 모드의 high-impact gap은 지불 의향이 틀렸을 때 계획 전체가 무너질 수 있습니다.",
-    question: "사용자가 돈을 내지 않을 가장 강한 이유는 무엇이며, 이번 주에 어떻게 검증할 것인가?",
+    summary: "사용자가 돈을 내기 망설일 이유가 아직 확인되지 않음",
+    whyItMatters: "돈을 내기 어려운 이유를 모르면 좋은 기능을 만들어도 매출로 이어지지 않을 수 있습니다.",
+    question: "사용자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 누구에게 어떻게 확인할까요?",
     expectedAnswerType: "experiment",
-    decisionItUnlocks: "paid intent core-assumption risk를 Known Risk 또는 validation action으로 닫습니다.",
+    decisionItUnlocks: "돈을 받을 수 있는지 먼저 확인할지, 다음 확인 항목으로 남길지 정합니다.",
     routes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "유료 의향을 약하게 만드는 다른 관점과 willingness-to-pay proxy를 확인합니다."
+    suggestedResearchTask: "사용자가 비슷한 서비스에 돈을 내지 않는 이유와 실제 결제 전 행동 신호를 확인합니다."
   },
   {
     sectionRef: "Validation Plan",
@@ -1763,16 +1783,16 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "investor_grade",
     businessCriticPressureKind: "investor_pressure_pass",
     businessCriticRepeatGroup: "pricing_pressure",
-    nextValidationAction: "Define a price proxy test or carry pricing as a Known Risk with owner/date.",
+    nextValidationAction: "가격을 보여주고 거절 이유를 물을 작은 확인 방법을 정하거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "missing_con_evidence",
     severity: "high",
     summary: "가격 검증 pressure item이 닫히지 않음",
-    whyItMatters: "가격 저항을 모르면 매출 가능성과 target segment가 검증되지 않습니다.",
-    question: "어떤 가격에서 누가 거절할 것이며, 그 거절 신호를 어떻게 수집할 것인가?",
+    whyItMatters: "가격을 보고 망설이는 이유를 모르면 어떤 사용자에게 팔 수 있는지 흐려집니다.",
+    question: "어떤 가격을 보여주면 누가 망설일 것 같고, 그 반응을 어떻게 확인할까요?",
     expectedAnswerType: "experiment",
-    decisionItUnlocks: "pricing pressure pass를 evidence 또는 Known Risk + Next Validation Action으로 닫습니다.",
+    decisionItUnlocks: "가격을 바로 확인할지, 다음 확인 항목으로 남길지 정합니다.",
     routes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "pricing proxy와 경쟁 대체재 가격 근거를 수집합니다."
+    suggestedResearchTask: "비슷한 서비스 가격, 무료 대안, 사용자가 가격 때문에 거절한 사례를 확인합니다."
   },
   {
     sectionRef: "Validation Plan",
@@ -1781,14 +1801,14 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "investor_grade",
     businessCriticPressureKind: "investor_pressure_pass",
     businessCriticRepeatGroup: "retention_proxy_pressure",
-    nextValidationAction: "Define the smallest retention proxy before claiming repeat value.",
+    nextValidationAction: "사용자가 다시 돌아올지 보여주는 가장 작은 행동 신호를 정합니다.",
     uncertaintyType: "missing",
     severity: "high",
-    summary: "retention proxy pressure item이 정의되지 않음",
+    summary: "반복 사용 신호가 아직 정해지지 않음",
     whyItMatters: "반복 사용 신호가 없으면 초기 관심이 지속 가치로 이어지는지 알 수 없습니다.",
-    question: "첫 버전에서 반복 가치가 있음을 보여줄 retention proxy는 무엇인가?",
+    question: "첫 버전에서 사용자가 다시 돌아온다고 볼 수 있는 가장 쉬운 행동은 무엇인가요?",
     expectedAnswerType: "text",
-    decisionItUnlocks: "retention proxy pressure pass를 success criteria에 연결합니다.",
+    decisionItUnlocks: "반복 사용 여부를 판단할 쉬운 기준을 정합니다.",
     routes: ["question", "deferred", "repeat_limit_reached"]
   },
   {
@@ -1798,14 +1818,14 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "investor_grade",
     businessCriticPressureKind: "investor_pressure_pass",
     businessCriticRepeatGroup: "market_timing_pressure",
-    nextValidationAction: "Capture the market timing evidence or explicitly defer it as a Known Risk.",
+    nextValidationAction: "왜 지금 확인해야 하는지 보여주는 단서를 찾거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "unsupported",
     severity: "high",
     summary: "시장 타이밍 pressure item이 근거 없이 남아 있음",
     whyItMatters: "왜 지금인지 설명하지 못하면 Founder Brief의 urgency narrative가 약해집니다.",
     question: "왜 지금 이 문제가 더 급해졌고, 그 신호가 사라지면 어떤 검증이 실패하는가?",
     expectedAnswerType: "evidence",
-    decisionItUnlocks: "market timing pressure pass를 evidence 또는 Known Risk로 닫습니다.",
+    decisionItUnlocks: "지금 시작해야 하는 이유를 근거로 남길지, 아직 모르는 항목으로 남길지 정합니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
     suggestedResearchTask: "market timing을 뒷받침하는 단서와 약하게 만드는 사례를 수집합니다."
   },
@@ -1816,14 +1836,14 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "investor_grade",
     businessCriticPressureKind: "investor_pressure_pass",
     businessCriticRepeatGroup: "legal_ops_pressure",
-    nextValidationAction: "Name the legal/ops/security assumption and the next owner/date validation.",
+    nextValidationAction: "판매나 운영을 막을 수 있는 조건과 다음 확인 행동을 적습니다.",
     uncertaintyType: "missing",
     severity: "high",
     summary: "법무/운영/security pressure item이 명시되지 않음",
     whyItMatters: "법무·운영·보안 리스크가 숨겨지면 초기 판매/배포 가능성이 과신됩니다.",
-    question: "가장 먼저 판매 또는 운영을 막을 법무/운영/security 리스크는 무엇이며, 다음 검증 행동은 무엇인가?",
+    question: "가장 먼저 판매나 운영을 막을 수 있는 법무·운영·보안 문제는 무엇이고, 다음에 무엇을 확인할까요?",
     expectedAnswerType: "text",
-    decisionItUnlocks: "legal/ops/security pressure pass를 Known Risk 또는 validation action으로 닫습니다.",
+    decisionItUnlocks: "지금 확인할 운영 문제와 나중에 남길 문제를 정합니다.",
     routes: ["question", "deferred", "repeat_limit_reached"]
   },
   {
@@ -1833,14 +1853,14 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     businessCriticIntensityMinimum: "investor_grade",
     businessCriticPressureKind: "investor_pressure_pass",
     businessCriticRepeatGroup: "founder_advantage_pressure",
-    nextValidationAction: "Validate the founder advantage or carry it as an explicit narrative risk.",
+    nextValidationAction: "이 팀이 더 잘 풀 수 있다는 근거를 확인하거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "unsupported",
     severity: "high",
     summary: "founder advantage pressure item이 근거 없이 남아 있음",
     whyItMatters: "창업자 우위가 약하면 투자심사급 narrative에서 방어 가능성이 낮아집니다.",
-    question: "왜 이 founder/team이 지금 이 문제를 더 잘 풀 수 있으며, 그 주장을 반박할 근거는 무엇인가?",
+    question: "왜 이 만드는 사람/팀이 이 문제를 더 잘 풀 수 있고, 그 생각이 틀릴 수 있는 이유는 무엇인가요?",
     expectedAnswerType: "evidence",
-    decisionItUnlocks: "founder advantage pressure pass를 evidence 또는 Known Risk로 닫습니다.",
+    decisionItUnlocks: "만드는 사람/팀의 강점을 근거로 남길지, 아직 모르는 항목으로 남길지 정합니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
     suggestedResearchTask: "founder advantage 주장과 그 주장을 약하게 만드는 사례를 수집합니다."
   }
@@ -2073,6 +2093,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       : seed.answerSelectionMode ?? (expectedAnswerType === "rank" ? "ranked" : undefined);
     const ambiguityDimension = inferredAmbiguityDimensionForSeed(seed);
     const ambiguityRoutingPath = inferredAmbiguityRoutingPathForSeed(seed);
+    const questionContext = questionContextSnapshot(context);
 
     return {
       queueItemId: `queue_${token}_${index + 1}` as QueueItemId,
@@ -2110,7 +2131,8 @@ function createAmbiguityIssuesFromSeeds(input: {
         ? BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT
         : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,
-      sourceRef: seed.sourceRef ?? (input.source === "generated_json" ? `generated_question:${seed.topicKey}` : seed.topicKey)
+      sourceRef: seed.sourceRef ?? (input.source === "generated_json" ? `generated_question:${seed.topicKey}` : seed.topicKey),
+      ...(questionContext ? { questionContext } : {})
     };
   });
 }
@@ -2319,7 +2341,8 @@ function queueItemProjectionFromIssue(
     ...(answerSelectionMode ? { answerSelectionMode } : {}),
     ...(answerOptions ? { answerOptions } : {}),
     ...(issue.possibleRoutes ? { possibleRoutes: issue.possibleRoutes } : {}),
-    ...(issue.sourceRef ? { sourceRef: issue.sourceRef } : {})
+    ...(issue.sourceRef ? { sourceRef: issue.sourceRef } : {}),
+    ...(issue.questionContext ? { questionContext: issue.questionContext } : {})
   };
 }
 

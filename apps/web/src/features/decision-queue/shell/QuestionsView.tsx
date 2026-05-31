@@ -185,6 +185,50 @@ function ResearchFollowUpSourceTrace({
   ) : null;
 }
 
+function QuestionPromptBlock({
+  copy,
+  item
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly item: QueueItemProjection;
+}) {
+  const context = item.questionContext;
+  const hasContext = Boolean(context?.idea || context?.goal);
+
+  if (!hasContext) {
+    return <h4>{item.title}</h4>;
+  }
+
+  return (
+    <section className="question-prompt-block" aria-label={copy.questions.questionContextTitle}>
+      <p className="question-prompt-block__title">{copy.questions.questionContextTitle}</p>
+      <dl className="question-prompt-block__rows">
+        {context?.idea ? (
+          <div>
+            <dt>{copy.questions.questionContextIdea}</dt>
+            <span aria-hidden="true">-</span>
+            <dd>"{context.idea}"</dd>
+          </div>
+        ) : null}
+        {context?.goal ? (
+          <div>
+            <dt>{copy.questions.questionContextGoal}</dt>
+            <span aria-hidden="true">-</span>
+            <dd>"{context.goal}"</dd>
+          </div>
+        ) : null}
+        <div className="question-prompt-block__question">
+          <dt>{copy.questions.questionContextQuestion}</dt>
+          <span aria-hidden="true">-</span>
+          <dd>
+            <h4>{item.title}</h4>
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
@@ -393,7 +437,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                     <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div>
                         <span>{copy.questions.queueItemStateLabels[item.state]}</span>
-                        <h4>{item.title}</h4>
+                        <QuestionPromptBlock copy={copy} item={item} />
                         {isBusinessCriticQueueItem(item) ? (
                           <p className="mode-summary">
                             {businessCriticSummary(copy, item)}

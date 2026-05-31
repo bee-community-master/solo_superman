@@ -58,7 +58,7 @@ const RESEARCH_FOLLOW_UP_FALLBACK_OPTIONS = [
     "검증 후 결정",
     "지금 확정하지 않고 다음 검증에서 확인할 조건을 답변에 남긴다.",
     "보류 이유와 다음 확인 조건을 답변 흐름 안에 남길 수 있습니다.",
-    "Known Risk로 공식 이관하려면 카드의 Known Risk 전용 동작을 사용해야 합니다."
+    "나중에 확인할 리스크로 공식 이관하려면 카드의 전용 동작을 사용해야 합니다."
   ),
   researchFollowUpAnswerOption(
     "narrow_scope_before_answer",
@@ -96,7 +96,7 @@ function petLifecycleCustomerAnswerOptions(): readonly AmbiguityAnswerOption[] {
       "insurance_cost_sensitive_guardians",
       "보험·의료비 관리가 필요한 보호자",
       "보험 청구와 의료비 관리 부담이 큰 보호자를 먼저 테스트한다.",
-      "지불 의향과 반복 사용 신호를 의료비·보험 서류 관리에서 빠르게 확인할 수 있습니다.",
+      "돈을 낼 이유와 반복 사용 신호를 의료비·보험 서류 관리에서 빠르게 확인할 수 있습니다.",
       "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
     ),
     researchFollowUpAnswerOption(

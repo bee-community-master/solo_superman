@@ -216,7 +216,7 @@ function generatedFounderValidationQuestionSet() {
             id: "paid_interview_prep_founder",
             label: "유료 인터뷰를 준비하는 창업자",
             value: "유료 customer interview를 준비하는 창업자를 먼저 검증합니다.",
-            primaryDetail: "질문 품질과 지불 의향이 직접 연결됩니다.",
+            primaryDetail: "질문 품질과 돈을 낼 이유가 직접 연결됩니다.",
             secondaryDetail: "팀 협업 요구는 별도 확인이 필요합니다."
           },
           {

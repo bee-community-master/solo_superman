@@ -113,7 +113,7 @@ const GENERIC_PERSONA_GUARDS = [
   }
 ] as const;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
-  /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
+  /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP|paid\s+intent|proxy|validation\s+experiment)\b/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
   /^(?:추가\s*리서치(?:가)?\s*(?:필요|하기|진행)?|자료\s*더\s*찾기|근거\s*더\s*찾기|리서치\s*필요|do\s+more\s+research|additional\s+research\s+needed|research\s+needed)$/iu;
 const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =

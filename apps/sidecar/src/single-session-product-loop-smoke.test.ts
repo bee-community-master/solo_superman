@@ -15,7 +15,7 @@ describe("single-session product loop smoke", () => {
       loop: {
         generatedQuestionCount: expect.any(Number),
         activeQuestionCount: 5,
-        firstQuestionTopicKey: "primary_customer_narrowing",
+        firstQuestionTopicKey: "problem_pain_intensity",
         petDomainQuestionSignalCount: expect.any(Number),
         staleFounderOptionCount: 0,
         answeredQuestionCount: 1,

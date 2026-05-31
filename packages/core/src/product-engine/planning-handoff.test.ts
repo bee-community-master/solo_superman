@@ -44,7 +44,7 @@ function founderBriefFixture(overrides: Partial<FounderBriefProjection> = {}): F
     version: READY_PROJECTION_VERSION,
     projectPurposeMode: "business",
     projectPurposeModeLabel: "사업화 검증 중심",
-    projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/유료 의향/채널 리스크를 검증합니다.",
+    projectPurposeModeNarrative: "사업화 검증 중심: 고객/문제/돈을 낼 이유/채널 리스크를 검증합니다.",
     skippedCommercializationAxes: [],
     exportReady: true,
     problemCustomerValue: "Planning Handoff customer/problem/value summary",
@@ -262,7 +262,7 @@ function baseReadyState(): ProductEngineStateSnapshot {
           objective: "Validate the handoff decision evidence.",
           projectPurposeMode: "business",
           projectPurposeModeLabel: "사업화 검증 중심",
-          projectPurposeModeEffect: "고객/문제/유료 의향/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
+          projectPurposeModeEffect: "고객/문제/돈을 낼 이유/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
           routeOutcome: "research_needed",
           impact: "high",
           status: "evidence_ready",
@@ -351,7 +351,7 @@ function baseReadyState(): ProductEngineStateSnapshot {
       projectPurposeMode: "business",
       projectPurposeModeSelectionStatus: "confirmed",
       projectPurposeModeLabel: "사업화 검증 중심",
-      projectPurposeModeEffect: "고객/문제/유료 의향/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
+      projectPurposeModeEffect: "고객/문제/돈을 낼 이유/대체재/채널/법무·운영 리스크를 completion gate와 다음 검증 행동에 유지합니다.",
       skippedCommercializationAxes: [],
       compositeScore: 92,
       readinessLabel: "spec_ready",
@@ -561,7 +561,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
     expect(reduction.deterministicOutputs).toEqual([
       expect.objectContaining({
         outputType: "planning_handoff_artifact",
-        outputRef: "handoff_09eca92ee7c42d6b985a3e99dd352899",
+        outputRef: "handoff_755f6080407b95c396095743ba3bccb2",
         payload: expect.objectContaining({
           verdict: "planning_ready",
           artifactKind: "PlanningHandoffArtifact"

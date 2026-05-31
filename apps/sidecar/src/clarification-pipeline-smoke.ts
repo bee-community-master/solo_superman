@@ -382,7 +382,7 @@ function flowBlockers(result: ClarificationFlowResult) {
     blockers.push("activated queue must expose generated question count for a long clarification session");
   }
 
-  for (const requiredFormat of ["open_text", "single_choice", "multi_select", "ranked_choice", "experiment_plan"]) {
+  for (const requiredFormat of ["open_text", "single_choice", "multi_select", "evidence_judgment", "experiment_plan"]) {
     if (!answerFormatKinds.includes(requiredFormat)) {
       blockers.push(`clarification queue must expose ${requiredFormat} answer format cards; received ${answerFormatKinds.join(", ")}`);
     }
@@ -463,7 +463,7 @@ function passedEvidence(result: ClarificationFlowResult): ClarificationPipelineS
       "intake answer accepted for a business-mode founder idea",
       "initial Living Product Spec drafted and analyzed",
       "active question batch generated with progress metrics",
-      "active/refilled question cards expose open-text, one-of-many, one-or-more, ranked, and experiment answer formats",
+    "active/refilled question cards expose open-text, one-of-many, one-or-more, evidence, and experiment answer formats",
       "answer submission moved one active question and created follow-up debt",
       "research-needed answer produced a source-linked planned research task",
       "completeness projection keeps question debt blocking planning readiness",

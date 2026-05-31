@@ -306,7 +306,7 @@ describe("research follow-up answer flow", () => {
     expect(followUpIssue?.answerOptions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
-        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "돈이나 시간을 낼 이유" }),
         expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
       ])
     );
@@ -315,7 +315,7 @@ describe("research follow-up answer flow", () => {
       answerSelectionMode: "multiple",
       answerOptions: expect.arrayContaining([
         expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
-        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "돈이나 시간을 낼 이유" }),
         expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
       ])
     });

@@ -57,7 +57,7 @@ describe("decision queue language copy", () => {
     ).toContain("強い事業レビュー");
     expect(
       DECISION_QUEUE_COPY.ko.questions.sessionActionReasons.businessCriticKnownRiskDeferred
-    ).toContain("Known Risk");
+    ).toContain("나중에 확인");
     expect(DECISION_QUEUE_COPY.en.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
     expect(DECISION_QUEUE_COPY.ja.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");
     expect(DECISION_QUEUE_COPY.ko.layout.sidecarUnavailableRecovery).toContain("pnpm start:local");

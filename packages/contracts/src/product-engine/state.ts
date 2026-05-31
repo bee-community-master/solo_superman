@@ -193,6 +193,11 @@ export interface AmbiguityAnswerOption {
   readonly con: string;
 }
 
+export interface AmbiguityQuestionContextSnapshot {
+  readonly idea?: string;
+  readonly goal?: string;
+}
+
 export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
   readonly sectionRef?: string;
@@ -223,6 +228,7 @@ export interface AmbiguityIssueSnapshot {
   readonly repeatLimit?: number;
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly sourceRef?: string;
+  readonly questionContext?: AmbiguityQuestionContextSnapshot;
 }
 
 export type RequiredDecisionRef =

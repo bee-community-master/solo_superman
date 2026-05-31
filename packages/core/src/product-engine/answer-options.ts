@@ -57,15 +57,15 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "compare_two",
       "두 후보를 병렬 비교",
       "상위 두 후보를 남기고 같은 기준으로 비교 검증한다.",
-      "성급한 확정을 줄이고 tradeoff가 보입니다.",
+      "성급한 확정을 줄이고 장단점이 보입니다.",
       "질문/리서치 부채가 한 번 더 남습니다."
     ),
     answerOption(
       "defer_as_risk",
       "리스크로 보류",
-      "지금은 결정하지 않고 Known Risk와 다음 검증 행동으로 남긴다.",
+      "지금은 결정하지 않고 다음에 확인할 리스크로 남긴다.",
       "불확실성을 숨기지 않고 다음 행동으로 연결합니다.",
-      "핵심 결정이면 planning-ready가 지연될 수 있습니다."
+      "핵심 결정이면 다음 단계 준비가 지연될 수 있습니다."
     )
   ],
   text: [
@@ -73,14 +73,14 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "concrete_boundary",
       "구체 기준으로 답변",
       "측정 가능한 기준, 범위, 예외를 한 문장으로 고정한다.",
-      "Spec section과 completion gate에 바로 반영하기 쉽습니다.",
+      "기획 문서와 완료 기준에 바로 반영하기 쉽습니다.",
       "근거가 약하면 과도하게 확정적으로 보일 수 있습니다."
     ),
     answerOption(
       "current_behavior",
       "현재 행동부터 설명",
       "현재 수동 방식, 빈도, 비용, 전후 행동을 먼저 서술한다.",
-      "실제 workflow와 문제 강도를 놓치지 않습니다.",
+      "실제 사용 흐름과 문제 강도를 놓치지 않습니다.",
       "최종 결정 문장으로는 한 번 더 정리가 필요합니다."
     ),
     answerOption(
@@ -88,7 +88,7 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "모름 + 다음 검증",
       "아직 모르는 상태로 두고 다음에 확인할 사람/자료/실험을 적는다.",
       "추측을 줄이고 검증 가능한 부채로 남깁니다.",
-      "답변만으로는 관련 decision이 닫히지 않습니다."
+      "답변만으로는 관련 판단이 닫히지 않습니다."
     )
   ],
   rank: [
@@ -103,7 +103,7 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "rank_by_evidence",
       "근거 강도순 정렬",
       "현재 확보된 리서치 단서와 반례가 강한 순서로 우선순위를 매긴다.",
-      "과신과 confirmation bias를 줄입니다.",
+      "과신과 한쪽으로 치우친 판단을 줄입니다.",
       "중요하지만 아직 근거가 없는 항목이 과소평가될 수 있습니다."
     ),
     answerOption(
@@ -111,7 +111,7 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "리서치 후 정렬",
       "지금은 순위를 확정하지 않고 비교 근거를 먼저 모은다.",
       "순위 결정의 품질을 높입니다.",
-      "Decision Queue burn-down이 늦어질 수 있습니다."
+      "질문 정리가 늦어질 수 있습니다."
     )
   ],
   evidence: [
@@ -134,30 +134,30 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
       "추가 리서치로 근거자료를 더 보강한다",
       "지금 답하기에는 자료가 부족하므로 더 넓은 자료를 모은다.",
       "불확실성을 정직하게 유지합니다.",
-      "답변만으로는 다음 decision이 닫히지 않습니다."
+      "답변만으로는 다음 판단이 닫히지 않습니다."
     )
   ],
   experiment: [
     answerOption(
       "interview_test",
       "인터뷰/수동 테스트",
-      "이번 주 인터뷰나 수동 concierge 테스트로 검증한다.",
+      "이번 주 인터뷰나 수동 도움 테스트로 확인한다.",
       "가장 빠르게 실제 반응을 볼 수 있습니다.",
       "표본이 작아 일반화가 어렵습니다."
     ),
     answerOption(
-      "behavior_proxy",
-      "행동 proxy 측정",
-      "가입, 재방문, 결제 의향, 반복 사용 등 행동 proxy를 측정한다.",
+      "behavior_signal",
+      "말이 아니라 행동으로 확인",
+      "가입, 재방문, 결제 시도, 반복 사용처럼 실제 행동을 확인한다.",
       "말보다 강한 신호를 얻습니다.",
       "측정 준비가 필요해 시간이 더 걸릴 수 있습니다."
     ),
     answerOption(
       "experiment_defer",
-      "실험 보류 + 조건",
-      "지금은 실험하지 않고 시작 조건과 owner/date를 남긴다.",
+      "나중에 확인할 조건 남기기",
+      "지금은 실험하지 않고 언제, 누가, 무엇을 확인할지 남긴다.",
       "실행 부담을 관리하면서 리스크를 숨기지 않습니다.",
-      "검증이 미뤄져 confidence 상승은 제한됩니다."
+      "확인이 미뤄져 확신을 높이기는 어렵습니다."
     )
   ]
 } as const satisfies Record<
@@ -200,7 +200,7 @@ const PET_LIFECYCLE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] =
     "insurance_cost_sensitive_guardian",
     "보험·의료비 관리가 필요한 보호자",
     "보험·의료비 관리가 필요한 보호자를 가장 먼저 만나 비용 관리 문제를 확인한다.",
-    "지불 의향과 반복 사용 신호를 비용 관리 문제에서 확인합니다.",
+    "돈을 낼 이유와 반복 사용 신호를 비용 관리 문제에서 확인합니다.",
     "보험이 없거나 의료비 부담이 낮은 보호자에게는 가치가 약할 수 있습니다."
   )
 ];
@@ -242,13 +242,13 @@ const PET_LIFECYCLE_VALUE_PROP_OPTIONS: readonly AmbiguityAnswerOption[] = [
     "급여·일상 루틴을 놓치지 않는다",
     "보호자가 급여, 투약, 생활 루틴을 꾸준히 관리할 수 있어 선택한다.",
     "반복 사용 이유와 알림/기록 가치를 확인할 수 있습니다.",
-    "의료비나 보험처럼 강한 지불 의향 신호는 별도 확인이 필요합니다."
+    "의료비나 보험처럼 돈을 낼 이유가 강한 문제는 별도 확인이 필요합니다."
   ),
   answerOption(
     "insurance_cost_documents",
     "보험·의료비 자료를 정리한다",
     "보호자가 보험 청구와 의료비 기록을 쉽게 정리할 수 있어 선택한다.",
-    "지불 의향과 비용 절감 가치를 빠르게 검증합니다.",
+    "돈을 낼 이유와 비용 절감 가치를 빠르게 확인합니다.",
     "보험을 쓰지 않는 보호자에게는 가치가 약할 수 있습니다."
   ),
   answerOption(
@@ -279,7 +279,7 @@ const PET_LIFECYCLE_MVP_SCOPE_OPTIONS: readonly AmbiguityAnswerOption[] = [
     "pet_insurance_cost_slice",
     "보험·의료비 정리부터 검증",
     "첫 버전은 의료비와 보험 청구 자료를 정리하는 흐름부터 검증한다.",
-    "지불 의향과 문서 정리 가치를 빠르게 확인합니다.",
+    "돈을 낼 이유와 문서 정리 가치를 빠르게 확인합니다.",
     "일상 돌봄 전체를 담는 앱이라는 인상은 약해질 수 있습니다."
   )
 ];
@@ -296,7 +296,7 @@ const PET_LIFECYCLE_VALIDATION_EXPERIMENT_OPTIONS: readonly AmbiguityAnswerOptio
     "insurance_document_walkthrough",
     "보험 청구 자료 워크스루",
     "보험·의료비 자료가 있는 보호자와 청구 준비 과정을 함께 따라가며 불편을 확인한다.",
-    "비용 문제와 지불 의향을 구체적으로 볼 수 있습니다.",
+    "비용 문제와 돈을 낼 이유를 구체적으로 볼 수 있습니다.",
     "보험 이용자가 아닌 보호자에게 일반화하기 어렵습니다."
   ),
   answerOption(
@@ -359,7 +359,7 @@ const HEALTHCARE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[] = [
     "검진·복약·생활습관을 챙기는 사용자",
     "검진, 복약, 생활습관을 챙기는 사용자를 가장 먼저 만나 예방 관리 문제를 확인한다.",
     "넓은 건강관리 시장의 대중적 사용성을 탐색할 수 있습니다.",
-    "지불 의향과 급한 문제 강도는 약하게 나올 수 있습니다."
+    "돈을 낼 이유와 급한 문제 강도는 약하게 나올 수 있습니다."
   )
 ];
 
@@ -406,7 +406,7 @@ const PERSONAL_FINANCE_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOption[
     "freelance_income_tracker",
     "수입이 불규칙한 프리랜서",
     "수입이 불규칙한 프리랜서를 가장 먼저 만나 현금흐름 관리 문제를 확인한다.",
-    "문제 강도와 지불 의향이 비교적 높게 나타날 수 있습니다.",
+    "문제 강도와 돈을 낼 이유가 비교적 뚜렷하게 나타날 수 있습니다.",
     "일반 직장인에게는 기능이 과하게 느껴질 수 있습니다."
   ),
   answerOption(
@@ -523,7 +523,7 @@ const LOCAL_COMMERCE_MVP_SCOPE_OPTIONS: readonly AmbiguityAnswerOption[] = [
     "loyalty_slice",
     "단골 혜택부터 검증",
     "첫 버전은 방문 기록과 단골 혜택 관리 흐름만 검증한다.",
-    "재방문 가치와 매장 지불 의향을 확인합니다.",
+    "재방문 가치와 매장이 돈을 낼 이유를 확인합니다.",
     "즉시 주문/예약 문제 해결은 뒤로 밀립니다."
   )
 ];
@@ -581,7 +581,7 @@ const FOUNDER_VALIDATION_PRIMARY_CUSTOMER_OPTIONS: readonly AmbiguityAnswerOptio
     "paid_interview_prep_founder",
     "유료 인터뷰를 준비하는 1인 창업자",
     "유료 고객 인터뷰를 준비하는 1인 창업자를 가장 먼저 만나 스펙과 근거 정리 문제를 확인한다.",
-    "아이디어 검증과 지불 의향이 직접 연결됩니다.",
+    "아이디어 검증과 돈을 낼 이유가 직접 연결됩니다.",
     "팀 단위 제품 기획 요구는 약하게 반영될 수 있습니다."
   ),
   answerOption(
@@ -660,7 +660,7 @@ const FOUNDER_VALIDATION_EXPERIMENT_OPTIONS: readonly AmbiguityAnswerOption[] = 
     "paid_interview_prep_test",
     "유료 인터뷰 준비 테스트",
     "유료 인터뷰를 앞둔 창업자에게 질문과 스펙 초안을 제공하고 결제/재사용 의향을 본다.",
-    "지불 의향과 실사용 압박을 동시에 확인합니다.",
+    "돈을 낼 이유와 실제 사용 압박을 동시에 확인합니다.",
     "표본 모집이 어렵고 케이스별 편차가 클 수 있습니다."
   ),
   answerOption(
@@ -812,7 +812,7 @@ const PRIMARY_CUSTOMER_CONTEXT_PROFILES: readonly PrimaryCustomerContextProfile[
           "프로그램/조직이 구매자다",
           "액셀러레이터나 교육 프로그램이 비용을 내고 창업자가 사용한다.",
           "B2B 구매 가능성을 확인합니다.",
-          "개별 창업자의 직접 지불 의향은 약하게 보일 수 있습니다."
+          "개별 창업자가 직접 돈을 낼 이유는 약하게 보일 수 있습니다."
         )
       ],
       value_prop_switching_reason: FOUNDER_VALIDATION_VALUE_PROP_OPTIONS,
@@ -848,12 +848,12 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
       "반복되는 수동 고통",
       "사용자가 같은 문제를 반복해서 수동으로 해결하고 있는지 확인한다.",
       "문제 강도와 사용 빈도를 빠르게 가늠할 수 있습니다.",
-      "반복 빈도만으로는 지불 의향까지 증명되지 않습니다."
+      "반복 빈도만으로는 돈을 낼 이유까지 증명되지 않습니다."
     ),
     answerOption(
       "budget_or_paid_intent",
-      "예산/지불 의향",
-      "해결책에 돈이나 시간을 실제로 낼 의향이 있는지 확인한다.",
+      "돈이나 시간을 낼 이유",
+      "해결책에 돈이나 시간을 실제로 쓸 이유가 있는지 확인한다.",
       "사업화 가능성과 우선순위 판단에 직접 연결됩니다.",
       "초기 인터뷰에서는 긍정 답변이 실제 결제로 이어지지 않을 수 있습니다."
     ),
@@ -861,7 +861,7 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
       "alternative_dissatisfaction",
       "기존 대안 불만",
       "현재 쓰는 대안이 무엇이고 어디에서 불만이 큰지 확인한다.",
-      "차별화와 MVP 범위를 좁히는 데 도움이 됩니다.",
+      "차별화와 첫 버전 범위를 좁히는 데 도움이 됩니다.",
       "기존 대안이 충분하면 새 제품 전환이 어려울 수 있습니다."
     ),
     answerOption(
@@ -892,21 +892,21 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
       "구매자와 사용자가 다르다",
       "돈을 내는 사람과 실제 사용하는 사람이 다르며 각각 별도로 검증해야 한다.",
       "B2B/조직형 리스크를 일찍 드러냅니다.",
-      "MVP와 검증 실험이 복잡해집니다."
+      "첫 버전과 확인 방법이 복잡해집니다."
     ),
     answerOption(
       "unknown_split",
       "아직 모른다",
       "구매자/사용자 분리는 아직 모르며 첫 인터뷰에서 확인한다.",
       "추측을 피하고 인터뷰 질문으로 전환합니다.",
-      "paid intent decision은 아직 닫히지 않습니다."
+      "돈을 낼 사람에 대한 판단은 아직 닫히지 않습니다."
     )
   ],
   mvp_validation_scope: [
     answerOption(
       "single_core_flow",
-      "핵심 flow 하나만 포함",
-      "첫 Build Slice는 핵심 검증 flow 하나만 포함하고 나머지는 제외한다.",
+      "핵심 흐름 하나만 포함",
+      "첫 버전은 핵심 확인 흐름 하나만 포함하고 나머지는 제외한다.",
       "빠르게 만들고 검증할 수 있습니다.",
       "전체 제품 경험의 매력은 약해질 수 있습니다."
     ),
@@ -920,8 +920,8 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
     answerOption(
       "scope_cut_first",
       "포함보다 제외 먼저 결정",
-      "이번 MVP에서 제외할 기능을 먼저 잠그고 남은 범위만 구현한다.",
-      "scope creep을 강하게 막습니다.",
+      "첫 버전에서 제외할 기능을 먼저 잠그고 남은 범위만 구현한다.",
+      "범위가 계속 커지는 일을 강하게 막습니다.",
       "가치제안이 너무 작아질 수 있습니다."
     )
   ],
@@ -929,21 +929,21 @@ const TOPIC_ANSWER_OPTIONS: Readonly<Partial<Record<string, readonly AmbiguityAn
     answerOption(
       "exclude_automation",
       "자동화 제외",
-      "이번 MVP에서는 완전 자동화를 제외하고 수동 확인 가능한 flow만 남긴다.",
+      "첫 버전에서는 완전 자동화를 제외하고 수동 확인 가능한 흐름만 남긴다.",
       "안전하고 검증 가능한 범위를 유지합니다.",
       "자동화 가치가 핵심이면 매력이 약해질 수 있습니다."
     ),
     answerOption(
       "exclude_integrations",
       "외부 연동 제외",
-      "이번 MVP에서는 외부 계정/서비스 연동을 제외한다.",
+      "첫 버전에서는 외부 계정/서비스 연동을 제외한다.",
       "보안·권한·운영 리스크를 줄입니다.",
-      "실사용 workflow와 거리가 생길 수 있습니다."
+      "실제 사용 흐름과 거리가 생길 수 있습니다."
     ),
     answerOption(
       "exclude_collaboration",
       "협업 기능 제외",
-      "이번 MVP에서는 팀 협업, 권한, 공유 기능을 제외한다.",
+      "첫 버전에서는 팀 협업, 권한, 공유 기능을 제외한다.",
       "개인/초기 사용 흐름을 빠르게 검증합니다.",
       "조직 구매자 검증에는 부족할 수 있습니다."
     )

@@ -661,6 +661,62 @@
   white-space: pre-line;
 }
 
+.question-prompt-block {
+  border-left: 3px solid #b2dad7;
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  padding-left: 10px;
+}
+
+.question-prompt-block__title {
+  color: var(--solo-text);
+  font-size: 0.74rem;
+  font-weight: 850;
+  margin: 0;
+}
+
+.question-prompt-block__rows {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.question-prompt-block__rows div {
+  align-items: baseline;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+}
+
+.question-prompt-block dt {
+  color: #405161;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.question-prompt-block span {
+  color: #667784;
+  font-size: 0.72rem;
+}
+
+.question-prompt-block dd {
+  color: var(--solo-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.question-prompt-block h4 {
+  color: var(--solo-text);
+  margin: 0;
+}
+
+.question-prompt-block__question {
+  margin-top: 2px;
+}
+
 .queue-card.active {
   border-color: #b2dad7;
   background: #fbfffe;

@@ -7438,7 +7438,7 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 15,
+              issueCount: 16,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -7478,7 +7478,7 @@ describe("PR-02 sidecar health shell", () => {
       const activateBody = await jsonBody(activate);
       const activateData = activateBody.data as Readonly<Record<string, unknown>>;
       const queueProjection = activateData.queueProjection as Readonly<Record<string, unknown>>;
-      const activeItems = queueProjection.active as readonly unknown[];
+      const activeItems = queueProjection.active as readonly Readonly<Record<string, unknown>>[];
 
       expect(activate.status).toBe(200);
       expect(activateData).toMatchObject({
@@ -7491,15 +7491,31 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 15,
-          openQuestionCount: 15,
+          generatedQuestionCount: 16,
+          openQuestionCount: 16,
           answeredQuestionCount: 0,
           visibleQuestionDebtCount: 5,
           completionPercent: 0
         }
       });
       expect(activeItems).toHaveLength(5);
+      expect(activeItems.map((item) => item.topicKey)).toEqual([
+        "problem_pain_intensity",
+        "primary_customer_narrowing",
+        "mvp_validation_scope",
+        "alternative_dissatisfaction_gap",
+        "buyer_user_split"
+      ]);
       expect(activeItems[0]).toMatchObject({
+        cardType: "question",
+        sectionRef: "Problem",
+        topicKey: "problem_pain_intensity",
+        severity: "high",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+      });
+      expect(activeItems[1]).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
         topicKey: "primary_customer_narrowing",
@@ -7672,8 +7688,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 16,
-          openQuestionCount: 15,
+          generatedQuestionCount: 17,
+          openQuestionCount: 16,
           answeredQuestionCount: 1,
           followUpQuestionCount: 1,
           completionPercent: 6

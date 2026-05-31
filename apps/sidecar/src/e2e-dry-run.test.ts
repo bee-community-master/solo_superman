@@ -994,7 +994,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             expect.objectContaining({
               outputType: "ambiguity_analysis",
               payload: expect.objectContaining({
-                issueCount: intensity === "balanced" ? 15 : intensity === "strong" ? 17 : 22
+                issueCount: intensity === "balanced" ? 16 : intensity === "strong" ? 18 : 23
               })
             })
           ]
@@ -3348,7 +3348,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 15,
+              issueCount: 16,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -3409,7 +3409,23 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         kind: "DecisionQueueProjection"
       });
       expect(activeItems).toHaveLength(5);
+      expect(activeItems.map((item) => item.topicKey)).toEqual([
+        "problem_pain_intensity",
+        "primary_customer_narrowing",
+        "mvp_validation_scope",
+        "alternative_dissatisfaction_gap",
+        "buyer_user_split"
+      ]);
       expect(firstQuestion).toMatchObject({
+        cardType: "question",
+        sectionRef: "Problem",
+        topicKey: "problem_pain_intensity",
+        severity: "high",
+        expectedAnswerType: "text",
+        answerOptions: [],
+        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+      });
+      expect(activeItems[1]).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
         topicKey: "primary_customer_narrowing",
