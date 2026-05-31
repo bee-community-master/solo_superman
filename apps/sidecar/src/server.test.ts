@@ -1907,7 +1907,7 @@ describe("PR-02 sidecar health shell", () => {
         immediateProjection: {
           kind: "SessionShellProjection",
           projectPurposeMode: "personal",
-          projectPurposeModeLabel: "개인 workflow 구현 중심"
+          projectPurposeModeLabel: "개인 작업 흐름 구현 중심"
         }
       });
     } finally {
@@ -7438,7 +7438,7 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 15,
+              issueCount: 16,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -7478,7 +7478,7 @@ describe("PR-02 sidecar health shell", () => {
       const activateBody = await jsonBody(activate);
       const activateData = activateBody.data as Readonly<Record<string, unknown>>;
       const queueProjection = activateData.queueProjection as Readonly<Record<string, unknown>>;
-      const activeItems = queueProjection.active as readonly unknown[];
+      const activeItems = queueProjection.active as readonly Readonly<Record<string, unknown>>[];
 
       expect(activate.status).toBe(200);
       expect(activateData).toMatchObject({
@@ -7491,8 +7491,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 15,
-          openQuestionCount: 15,
+          generatedQuestionCount: 16,
+          openQuestionCount: 16,
           answeredQuestionCount: 0,
           visibleQuestionDebtCount: 1,
           completionPercent: 0
@@ -7501,16 +7501,12 @@ describe("PR-02 sidecar health shell", () => {
       expect(activeItems).toHaveLength(1);
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
-        sectionRef: "Target Customer",
-        topicKey: "primary_customer_narrowing",
+        sectionRef: "Problem",
+        topicKey: "problem_pain_intensity",
         severity: "high",
-        whyItMatters: expect.any(String),
-        decisionItUnlocks: expect.any(String),
-        expectedAnswerType: "choice",
-        answerOptions: expect.arrayContaining([
-          expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" })
-        ]),
-        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
+        expectedAnswerType: "text",
+        answerOptions: [],
+        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
       });
 
       const validationSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {
@@ -7672,8 +7668,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 16,
-          openQuestionCount: 15,
+          generatedQuestionCount: 17,
+          openQuestionCount: 16,
           answeredQuestionCount: 1,
           followUpQuestionCount: 1,
           completionPercent: 6

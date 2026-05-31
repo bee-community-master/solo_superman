@@ -11,6 +11,7 @@ import type {
   BusinessCriticIntensity,
   BusinessCriticIntensitySelectionStatus,
   BusinessCriticPressureKind,
+  AmbiguityQuestionContextSnapshot,
   ProjectPurposeMode,
   ProjectPurposeModeSelectionStatus
 } from "../product-engine/state";
@@ -98,6 +99,7 @@ export interface QueueItemProjection {
   readonly answerOptions?: readonly AmbiguityAnswerOption[];
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly sourceRef?: string;
+  readonly questionContext?: AmbiguityQuestionContextSnapshot;
   readonly researchTaskId?: ResearchTaskId;
   readonly evidencePackId?: DecisionEvidencePackId;
   readonly additionalQuestions?: readonly string[];

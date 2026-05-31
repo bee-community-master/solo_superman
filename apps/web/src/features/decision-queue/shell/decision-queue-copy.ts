@@ -415,9 +415,9 @@ const EN_COPY = {
         "An active session is required before loading the next question list.",
       answerCurrentBeforeLoadNextQuestions:
         "Answer or save the current questions before loading the next question list.",
-      activeSessionRequiredKnownRisk: "An active session is required before carrying a queue item as a Known Risk.",
+      activeSessionRequiredKnownRisk: "An active session is required before keeping a queue item for later checking.",
       knownRiskNextValidationActionRequired:
-        "Next Validation Action is required to carry a business critic item as a Known Risk.",
+        "A next check is required to keep a business review item for later.",
       activeSessionRequiredImportResearch: "An active session is required before importing research.",
       researchResultTextRequired: "Research result text is required.",
       activeSessionRequiredResolveResearchCard: "An active session is required before resolving a research card."
@@ -434,7 +434,7 @@ const EN_COPY = {
       submitAnswer: "Submit answer",
       submitDraftedAnswer: "Submit drafted answer",
       loadNextQuestions: "Load next questions",
-      carryAsKnownRisk: "Carry as Known Risk",
+      carryAsKnownRisk: "Keep for later checking",
       importResearchResult: "Import research result",
       recordVisibleChatGptResearchResultImport: "Record visible ChatGPT result import gate",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `Resolve research card: ${outcome}`
@@ -446,7 +446,7 @@ const EN_COPY = {
       projectPurposeChanged: (label: string) => `User changed the project purpose to ${label}.`,
       businessCriticIntensityChanged: (label: string) =>
         `User changed the business review intensity to ${label}.`,
-      businessCriticKnownRiskDeferred: "User carried the business critic item as a Known Risk.",
+      businessCriticKnownRiskDeferred: "User kept the business review item for later checking.",
       manualResearchSourceTitle: "Manual desk research",
       manualResearchLimitationNotes: "Manual import from founder-provided source.",
       chatGptResearchSourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
@@ -583,7 +583,7 @@ const EN_COPY = {
     },
     businessCriticCategoryLabels: {
       customer_pain: "Customer pain",
-      paid_intent: "Willingness to pay",
+      paid_intent: "Reason to pay",
       alternatives: "Alternatives",
       pricing: "Pricing",
       acquisition: "Finding users",
@@ -596,11 +596,15 @@ const EN_COPY = {
     businessCriticPressureKindLabels: {
       balanced_con: "Balanced challenge",
       core_assumption_challenge: "Core assumption check",
-      investor_pressure_pass: "Investor-style stress test"
+      investor_pressure_pass: "Deeper business check"
     } satisfies Record<BusinessCriticPressureKind, string>,
-    whyItMatters: "Why this matters",
-    decisionItUnlocks: "Decision this unlocks",
-    nextValidation: "Next validation",
+    questionContextTitle: "Context",
+    questionContextIdea: "Idea",
+    questionContextGoal: "Goal",
+    questionContextQuestion: "Question",
+    whyItMatters: "Why ask this",
+    decisionItUnlocks: "What this answer decides",
+    nextValidation: "Next check",
     suggestedAnswers: "Suggested answer choices",
     suggestedAnswersSingleHelp: "Select one option, then add a reason below if needed.",
     suggestedAnswersMultipleHelp: "Select one or more options, then add a combined reason below if needed.",
@@ -622,11 +626,11 @@ const EN_COPY = {
     submitAnswer: "Submit answer",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
-    nextValidationActionAriaPrefix: "Next validation action for",
-    additionalRiskDetails: "Keep as Known Risk instead of answering",
+    nextValidationActionAriaPrefix: "Next check for",
+    additionalRiskDetails: "Keep as a later check instead of answering",
     additionalRiskHelp: "Use this separate action only when you want to stop answering this card now and carry it with a next validation step.",
-    knownRiskPlaceholder: "If you keep this as a known risk, write the next validation step.",
-    carryAsKnownRisk: "Keep as a known risk",
+    knownRiskPlaceholder: "If you keep this for later, write what to check next.",
+    carryAsKnownRisk: "Keep for later checking",
     queueRecoveryFresh: "Questions are up to date. New local-service updates will refresh this list.",
     queueRefetchMissing: "The question refresh path is not loaded yet.",
     queueSseMissing: "Live update notifications are not connected yet.",
@@ -652,7 +656,7 @@ const EN_COPY = {
       active: "Current",
       next: "Up next",
       blocked: "Blocked",
-      deferred: "Known risk",
+      deferred: "Later check",
       answered: "Answered",
       resolved: "Resolved"
     },
@@ -897,7 +901,7 @@ const EN_COPY = {
     recoveryActionLabels: {
       import_manual_result: "Import a research result",
       retry_synthesis: "Retry synthesis",
-      defer_as_known_risk: "Keep as Known Risk",
+      defer_as_known_risk: "Keep as a later check",
       approve_evidence: "Approve evidence",
       revise_decision: "Revise decision",
       reject_decision: "Reject decision",
@@ -1877,9 +1881,9 @@ const JA_COPY: typeof EN_COPY = {
       activeSessionRequiredLoadNextQuestions: "次の質問リストを読み込むにはアクティブなセッションが必要です。",
       answerCurrentBeforeLoadNextQuestions:
         "次の質問リストを読み込む前に、現在の質問に回答するか保存してください。",
-      activeSessionRequiredKnownRisk: "キュー項目をKnown Riskに移すにはアクティブなセッションが必要です。",
+      activeSessionRequiredKnownRisk: "キュー項目を後で確認する項目に移すにはアクティブなセッションが必要です。",
       knownRiskNextValidationActionRequired:
-        "business critic項目をKnown Riskに移すには、次の検証アクションが必要です。",
+        "事業レビュー項目を後で確認する項目に移すには、次の確認アクションが必要です。",
       activeSessionRequiredImportResearch: "リサーチを取り込むにはアクティブなセッションが必要です。",
       researchResultTextRequired: "リサーチ結果テキストが必要です。",
       activeSessionRequiredResolveResearchCard: "リサーチカードを解決するにはアクティブなセッションが必要です。"
@@ -1896,7 +1900,7 @@ const JA_COPY: typeof EN_COPY = {
       submitAnswer: "回答を送信",
       submitDraftedAnswer: "下書き回答を送信",
       loadNextQuestions: "次の質問を読み込み",
-      carryAsKnownRisk: "Known Riskとして残す",
+      carryAsKnownRisk: "後で確認する項目として残す",
       importResearchResult: "リサーチ結果を取り込み",
       recordVisibleChatGptResearchResultImport: "見えるChatGPT結果取り込みゲートを記録",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `リサーチカードを解決: ${outcome}`
@@ -1907,7 +1911,7 @@ const JA_COPY: typeof EN_COPY = {
       projectPurposeChanged: (label: string) => `ユーザーがプロジェクト目的を${label}に変更しました。`,
       businessCriticIntensityChanged: (label: string) =>
         `ユーザーが事業レビュー強度を${label}に変更しました。`,
-      businessCriticKnownRiskDeferred: "ユーザーがbusiness critic項目をKnown Riskに移しました。",
+      businessCriticKnownRiskDeferred: "ユーザーが事業レビュー項目を後で確認する項目に移しました。",
       manualResearchSourceTitle: "手動デスクリサーチ",
       manualResearchLimitationNotes: "創業者が提供した情報源からの手動取り込みです。",
       chatGptResearchSourceTitle: "ユーザー提供のChatGPT Pro/Deep Research結果",
@@ -2009,7 +2013,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${generated}件の生成済み質問のうち${percent}%を処理済みで、未解決が${open}件残っています。`,
-    questionFatigueHelp: "今の質問だけに答える、弱い仮説を既知リスクとして残す、または次を読み込む前に一度止めることができます。",
+    questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を後で確認する項目として残す、または次を読み込む前に一度止めることができます。",
     questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     researchFollowUpSourceTrace: "ソーストレース",
@@ -2042,7 +2046,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     businessCriticCategoryLabels: {
       customer_pain: "顧客の痛み",
-      paid_intent: "支払い意向",
+      paid_intent: "支払う理由",
       alternatives: "代替手段",
       pricing: "価格",
       acquisition: "ユーザー獲得",
@@ -2055,8 +2059,12 @@ const JA_COPY: typeof EN_COPY = {
     businessCriticPressureKindLabels: {
       balanced_con: "バランス型の問い直し",
       core_assumption_challenge: "核心仮説の確認",
-      investor_pressure_pass: "投資審査目線の検証"
+      investor_pressure_pass: "より深い事業確認"
     },
+    questionContextTitle: "根拠文",
+    questionContextIdea: "アイデア",
+    questionContextGoal: "目標",
+    questionContextQuestion: "質問",
     whyItMatters: "なぜ重要か",
     decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
@@ -2081,11 +2089,11 @@ const JA_COPY: typeof EN_COPY = {
     submitAnswer: "回答を送信",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
-    nextValidationActionAriaPrefix: "次の検証アクション",
-    additionalRiskDetails: "回答せずKnown Riskとして残す",
-    additionalRiskHelp: "この別アクションは、今このカードに回答せず、次の検証ステップ付きで既知リスクとして残す場合だけ使います。",
-    knownRiskPlaceholder: "既知のリスクとして残す場合、次の検証ステップを書いてください。",
-    carryAsKnownRisk: "既知のリスクとして残す",
+    nextValidationActionAriaPrefix: "次の確認",
+    additionalRiskDetails: "回答せず後で確認する項目として残す",
+    additionalRiskHelp: "この別アクションは、今このカードに回答せず、次に確認する内容を残す場合だけ使います。",
+    knownRiskPlaceholder: "後で確認する場合、次に何を確認するかを書いてください。",
+    carryAsKnownRisk: "後で確認する項目として残す",
     queueRecoveryFresh: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
     queueRefetchMissing: "質問を更新する経路はまだ読み込まれていません。",
     queueSseMissing: "ライブ更新通知はまだ接続されていません。",
@@ -2352,7 +2360,7 @@ const JA_COPY: typeof EN_COPY = {
     recoveryActionLabels: {
       import_manual_result: "リサーチ結果を取り込む",
       retry_synthesis: "統合を再試行",
-      defer_as_known_risk: "Known Riskとして残す",
+      defer_as_known_risk: "後で確認する項目として残す",
       approve_evidence: "根拠を承認",
       revise_decision: "判断を修正",
       reject_decision: "判断を却下",
@@ -3220,7 +3228,7 @@ const KO_COPY: typeof EN_COPY = {
       label: "질문",
       shortLabel: "Q",
       title: "질문",
-      description: "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
+      description: "현재 질문, 다음 질문, 나중에 확인할 항목을 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",
@@ -3251,7 +3259,7 @@ const KO_COPY: typeof EN_COPY = {
     {
       mode: "business",
       label: "비즈니스 검증",
-      description: "고객, 문제 강도, 유료 의향, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
+      description: "고객, 문제 강도, 돈을 낼 이유, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
     },
     {
       mode: "personal",
@@ -3342,9 +3350,9 @@ const KO_COPY: typeof EN_COPY = {
       activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
       answerCurrentBeforeLoadNextQuestions:
         "다음 질문 목록을 불러오기 전에 현재 질문에 답하거나 저장해야 합니다.",
-      activeSessionRequiredKnownRisk: "큐 항목을 Known Risk로 이관하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredKnownRisk: "큐 항목을 나중에 확인할 항목으로 남기려면 활성 세션이 필요합니다.",
       knownRiskNextValidationActionRequired:
-        "business critic 항목을 Known Risk로 이관하려면 다음 검증 액션이 필요합니다.",
+        "사업 점검 항목을 나중에 확인하려면 다음 확인 내용을 적어야 합니다.",
       activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
       researchResultTextRequired: "리서치 결과 내용을 입력해야 합니다.",
       activeSessionRequiredResolveResearchCard: "리서치 카드를 해결하려면 활성 세션이 필요합니다."
@@ -3361,7 +3369,7 @@ const KO_COPY: typeof EN_COPY = {
       submitAnswer: "답변 제출",
       submitDraftedAnswer: "작성한 답변 제출",
       loadNextQuestions: "다음 질문 불러오기",
-      carryAsKnownRisk: "Known Risk로 이관",
+      carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
       importResearchResult: "리서치 결과 가져오기",
       recordVisibleChatGptResearchResultImport: "보이는 ChatGPT 결과 가져오기 게이트 기록",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `리서치 카드 해결: ${outcome}`
@@ -3373,7 +3381,7 @@ const KO_COPY: typeof EN_COPY = {
       projectPurposeChanged: (label: string) => `사용자가 프로젝트 목적을 ${label}으로 변경했습니다.`,
       businessCriticIntensityChanged: (label: string) =>
         `사용자가 사업 리뷰 강도를 ${label}으로 변경했습니다.`,
-      businessCriticKnownRiskDeferred: "사용자가 business critic 항목을 Known Risk로 이관했습니다.",
+      businessCriticKnownRiskDeferred: "사용자가 사업 점검 항목을 나중에 확인할 항목으로 남겼습니다.",
       manualResearchSourceTitle: "수동 데스크 리서치",
       manualResearchLimitationNotes: "창업자가 제공한 출처에서 수동으로 가져왔습니다.",
       chatGptResearchSourceTitle: "사용자가 제공한 ChatGPT Pro/Deep Research 결과",
@@ -3475,7 +3483,7 @@ const KO_COPY: typeof EN_COPY = {
     },
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${percent}%를 처리했고, 아직 ${open}개가 남아 있습니다.`,
-    questionFatigueHelp: "현재 질문만 답하거나, 불확실한 가정은 알려진 리스크로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
+    questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 나중에 확인할 항목으로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
     questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     researchFollowUpSourceTrace: "소스 추적",
@@ -3508,7 +3516,7 @@ const KO_COPY: typeof EN_COPY = {
     },
     businessCriticCategoryLabels: {
       customer_pain: "고객 문제",
-      paid_intent: "유료 의향",
+      paid_intent: "돈을 낼 이유",
       alternatives: "대안/경쟁",
       pricing: "가격",
       acquisition: "고객 유입",
@@ -3521,11 +3529,15 @@ const KO_COPY: typeof EN_COPY = {
     businessCriticPressureKindLabels: {
       balanced_con: "다른 관점 점검 질문",
       core_assumption_challenge: "핵심 가설 점검",
-      investor_pressure_pass: "투자심사식 검증"
+      investor_pressure_pass: "더 꼼꼼한 사업 점검"
     },
-    whyItMatters: "왜 중요한가",
-    decisionItUnlocks: "이 답으로 정해지는 판단",
-    nextValidation: "다음 검증",
+    questionContextTitle: "근거 문장",
+    questionContextIdea: "아이디어",
+    questionContextGoal: "목표",
+    questionContextQuestion: "질문",
+    whyItMatters: "왜 묻나요",
+    decisionItUnlocks: "이 답으로 정해지는 것",
+    nextValidation: "다음 확인",
     suggestedAnswers: "추천 답변 선택지",
     suggestedAnswersSingleHelp: "하나를 선택하고 필요하면 아래에 이유를 덧붙이세요.",
     suggestedAnswersMultipleHelp: "하나 이상을 선택하고 필요하면 아래에 조합 이유를 덧붙이세요.",
@@ -3535,7 +3547,7 @@ const KO_COPY: typeof EN_COPY = {
       binary_choice: { primary: "선택하면 정해지는 내용", secondary: "조건·불확실성" },
       single_choice: { primary: "정해지는 후보", secondary: "추가 확인할 점" },
       multi_select: { primary: "함께 가져갈 내용", secondary: "주의할 조합" },
-      ranked_choice: { primary: "우선순위 영향", secondary: "트레이드오프" },
+      ranked_choice: { primary: "우선순위 영향", secondary: "장단점" },
       evidence_judgment: { primary: "선택하면 정해지는 내용", secondary: "추가 확인할 점" },
       experiment_plan: { primary: "검증할 내용", secondary: "검증 한계" }
     },
@@ -3547,11 +3559,11 @@ const KO_COPY: typeof EN_COPY = {
     submitAnswer: "답변 제출",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
-    nextValidationActionAriaPrefix: "다음 검증 작업",
-    additionalRiskDetails: "답하지 않고 Known Risk로 남기기",
-    additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음 검증 작업과 함께 알려진 리스크로 남길 때만 사용하세요.",
-    knownRiskPlaceholder: "알려진 리스크로 남길 경우 다음 검증 작업을 적어주세요.",
-    carryAsKnownRisk: "알려진 리스크로 남기기",
+    nextValidationActionAriaPrefix: "다음 확인",
+    additionalRiskDetails: "답하지 않고 나중에 확인할 항목으로 남기기",
+    additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음에 확인할 내용을 남길 때만 사용하세요.",
+    knownRiskPlaceholder: "나중에 확인할 경우 다음에 무엇을 확인할지 적어주세요.",
+    carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
     queueRecoveryFresh: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",
     queueRefetchMissing: "질문을 새로고침할 경로가 아직 로드되지 않았습니다.",
     queueSseMissing: "실시간 업데이트 알림이 아직 연결되지 않았습니다.",
@@ -3577,7 +3589,7 @@ const KO_COPY: typeof EN_COPY = {
       active: "현재",
       next: "다음 후보",
       blocked: "막힘",
-      deferred: "알려진 리스크",
+      deferred: "나중에 확인",
       answered: "답변됨",
       resolved: "해결됨"
     },
@@ -3612,7 +3624,7 @@ const KO_COPY: typeof EN_COPY = {
       commercializationAxisLabel(axis, {
         market_size: "시장 규모",
         investor_narrative: "투자자 내러티브",
-        willingness_to_pay: "유료 의향",
+        willingness_to_pay: "돈을 낼 이유",
         acquisition_channel: "고객 유입 채널",
         competition_pressure: "경쟁 압력"
       }),
@@ -3816,7 +3828,7 @@ const KO_COPY: typeof EN_COPY = {
     recoveryActionLabels: {
       import_manual_result: "리서치 결과 가져오기",
       retry_synthesis: "종합 다시 시도",
-      defer_as_known_risk: "Known Risk로 남기기",
+      defer_as_known_risk: "나중에 확인할 항목으로 남기기",
       approve_evidence: "근거 승인",
       revise_decision: "판단 수정",
       reject_decision: "판단 거절",

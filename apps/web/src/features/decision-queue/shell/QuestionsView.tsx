@@ -208,6 +208,48 @@ function ResearchFollowUpSourceTrace({
   ) : null;
 }
 
+function QuestionPromptBlock({
+  copy,
+  item
+}: {
+  readonly copy: DecisionQueueCopy;
+  readonly item: QueueItemProjection;
+}) {
+  const context = item.questionContext;
+
+  if (!context || (!context.idea && !context.goal)) {
+    return <h4>{item.title}</h4>;
+  }
+
+  const { goal, idea } = context;
+
+  return (
+    <section className="question-prompt-block" aria-label={copy.questions.questionContextTitle}>
+      <p className="question-prompt-block__title">{copy.questions.questionContextTitle}</p>
+      <dl className="question-prompt-block__rows">
+        {idea ? (
+          <div>
+            <dt>{copy.questions.questionContextIdea} -</dt>
+            <dd>"{idea}"</dd>
+          </div>
+        ) : null}
+        {goal ? (
+          <div>
+            <dt>{copy.questions.questionContextGoal} -</dt>
+            <dd>"{goal}"</dd>
+          </div>
+        ) : null}
+        <div className="question-prompt-block__question">
+          <dt>{copy.questions.questionContextQuestion} -</dt>
+          <dd>
+            <h4>{item.title}</h4>
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
@@ -413,10 +455,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                     const canCarryAsKnownRisk = queueItemIsQuestionDebt(item) && item.state !== "deferred";
 
                     return (
-                    <article className={`queue-card ${item.state}`} key={item.queueItemId}>
+                      <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div className="queue-card-main">
                         <header className="queue-card-header">
-                          <h4>{item.title}</h4>
+                          <QuestionPromptBlock copy={copy} item={item} />
                           <span className="queue-state-badge">{copy.questions.queueItemStateLabels[item.state]}</span>
                         </header>
                         {isBusinessCriticQueueItem(item) ? (

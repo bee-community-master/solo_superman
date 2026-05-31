@@ -119,7 +119,7 @@ const GENERIC_PERSONA_GUARDS = [
   }
 ] as const;
 const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
-  /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP)\b/iu;
+  /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP|paid\s+intent|proxy|validation\s+experiment)\b/iu;
 const INITIAL_META_ANSWER_OPTION_PATTERN =
   /^(?:진행|진행한다|보류|보류한다|더\s*설명|추가\s*설명|추가\s*리서치|리서치\s*필요|검증\s*후\s*결정|모름|알\s*수\s*없음)$/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =

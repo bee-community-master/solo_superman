@@ -57,7 +57,7 @@ function withConfirmedBusinessPurposeMode(state: ProductEngineStateSnapshot): Pr
       businessCriticIntensity: "balanced",
       businessCriticIntensitySelectionStatus: "confirmed",
       businessCriticIntensityLabel: "균형형 사업 검증",
-      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityEffect: "주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
       businessCriticIntensityAudit: []
     }
   };
@@ -309,7 +309,7 @@ describe("research follow-up answer flow", () => {
     expect(followUpIssue?.answerOptions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
-        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "돈이나 시간을 낼 이유" }),
         expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
       ])
     );
@@ -318,7 +318,7 @@ describe("research follow-up answer flow", () => {
       answerSelectionMode: "multiple",
       answerOptions: expect.arrayContaining([
         expect.objectContaining({ id: "repeat_manual_pain", label: "반복되는 수동 고통" }),
-        expect.objectContaining({ id: "budget_or_paid_intent", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "budget_or_paid_intent", label: "돈이나 시간을 낼 이유" }),
         expect.objectContaining({ id: "alternative_dissatisfaction", label: "기존 대안 불만" })
       ])
     });

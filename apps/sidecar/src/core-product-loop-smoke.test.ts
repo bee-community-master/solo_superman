@@ -216,10 +216,10 @@ function singleSessionEvidence(overrides: Partial<SingleSessionProductLoopSmokeE
       sessionId: "sess_core_loop_single_session"
     },
     loop: {
-      generatedQuestionCount: 15,
+      generatedQuestionCount: 16,
       activeQuestionCount: 5,
       firstQuestionId: "queue_core_loop_pet_first",
-      firstQuestionTopicKey: "primary_customer_narrowing",
+      firstQuestionTopicKey: "problem_pain_intensity",
       petDomainQuestionSignalCount: 8,
       staleFounderOptionCount: 0,
       answeredQuestionCount: 1,
@@ -314,7 +314,7 @@ describe("core product loop smoke", () => {
         researchFollowUpQuestionCount: 1,
         researchFollowUpTaskCount: 1,
         generatedFollowUpResearchSourceRefCount: 2,
-        singleSessionGeneratedQuestionCount: 15,
+        singleSessionGeneratedQuestionCount: 16,
         singleSessionPetDomainQuestionSignalCount: 8,
         singleSessionFollowUpQuestionCount: 1,
         singleSessionFollowUpResearchTaskCount: 1,

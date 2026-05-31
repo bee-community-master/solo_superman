@@ -33,16 +33,16 @@ export type ResearchAutomationPermission = (typeof RESEARCH_AUTOMATION_PERMISSIO
 export const BUSINESS_CRITIC_INTENSITY_LABELS = {
   balanced: "균형형 사업 검증",
   strong: "강한 사업 검증",
-  investor_grade: "투자심사급 사업 검증"
+  investor_grade: "꼼꼼한 사업 검증"
 } as const satisfies Record<BusinessCriticIntensity, string>;
 
 export const BUSINESS_CRITIC_INTENSITY_EFFECTS = {
-  balanced: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
-  strong: "high-impact business gap이 있으면 active batch마다 핵심 가설 반박 질문을 queued_next로 유지합니다.",
-  investor_grade: "가격, 채널, retention proxy, 법무/운영, 시장 타이밍, founder advantage pressure pass를 요구합니다."
+  balanced: "주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
+  strong: "중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 유지합니다.",
+  investor_grade: "가격, 채널, 반복 사용, 운영, 시장 타이밍, 만드는 사람/팀 강점을 더 꼼꼼히 확인합니다."
 } as const satisfies Record<BusinessCriticIntensity, string>;
 
-export const BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL = "상업성 검증 강도 선택 필요";
+export const BUSINESS_CRITIC_INTENSITY_REQUIRED_LABEL = "사업 검증 강도 선택 필요";
 
 export const BUSINESS_CRITICAL_QUESTION_CATEGORIES = [
   "customer_pain",
@@ -62,7 +62,7 @@ export type BusinessCriticPressureKind = "balanced_con" | "core_assumption_chall
 
 export const PROJECT_PURPOSE_MODE_LABELS = {
   business: "사업화 검증 중심",
-  personal: "개인 workflow 구현 중심"
+  personal: "개인 작업 흐름 구현 중심"
 } as const satisfies Record<ProjectPurposeMode, string>;
 
 export const PROJECT_PURPOSE_MODE_REQUIRED_LABEL = "프로젝트 목적 선택 필요";
@@ -193,6 +193,11 @@ export interface AmbiguityAnswerOption {
   readonly con: string;
 }
 
+export interface AmbiguityQuestionContextSnapshot {
+  readonly idea?: string;
+  readonly goal?: string;
+}
+
 export interface AmbiguityIssueSnapshot {
   readonly queueItemId: QueueItemId;
   readonly sectionRef?: string;
@@ -223,6 +228,7 @@ export interface AmbiguityIssueSnapshot {
   readonly repeatLimit?: number;
   readonly possibleRoutes?: readonly AmbiguityPossibleRoute[];
   readonly sourceRef?: string;
+  readonly questionContext?: AmbiguityQuestionContextSnapshot;
 }
 
 export type RequiredDecisionRef =

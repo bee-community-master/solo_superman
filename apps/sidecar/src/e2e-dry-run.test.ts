@@ -994,7 +994,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             expect.objectContaining({
               outputType: "ambiguity_analysis",
               payload: expect.objectContaining({
-                issueCount: intensity === "balanced" ? 15 : intensity === "strong" ? 17 : 22
+                issueCount: intensity === "balanced" ? 16 : intensity === "strong" ? 18 : 23
               })
             })
           ]
@@ -3348,7 +3348,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 15,
+              issueCount: 16,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -3411,13 +3411,12 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(activeItems).toHaveLength(1);
       expect(firstQuestion).toMatchObject({
         cardType: "question",
-        sectionRef: "Target Customer",
+        sectionRef: "Problem",
+        topicKey: "problem_pain_intensity",
         severity: "high",
-        whyItMatters: expect.any(String),
-        decisionItUnlocks: expect.any(String),
-        expectedAnswerType: "choice",
-        answerOptions: expect.arrayContaining([expect.objectContaining({ label: expect.any(String) })]),
-        possibleRoutes: expect.arrayContaining(["question"])
+        expectedAnswerType: "text",
+        answerOptions: [],
+        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
       });
 
       const answer = await postJson(app, `/api/v1/questions/${firstQuestion.queueItemId as string}/answers`, {

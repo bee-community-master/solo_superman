@@ -640,14 +640,59 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain('class="question-coaching-context"');
-    expect(markup).toContain("Why this matters");
+    expect(markup).toContain("Why ask this");
     expect(markup).toContain("If the painful workflow is unclear");
-    expect(markup).toContain("Decision this unlocks");
+    expect(markup).toContain("What this answer decides");
     expect(markup).toContain("Locks the first workflow slice");
     expect(markup).toContain("Current");
     expect(markup).not.toContain(">active<");
     expect(markup).not.toContain("whyItMatters");
     expect(markup).not.toContain("decisionItUnlocks");
+  });
+
+  it("renders structured idea and goal context separately from the question text", () => {
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 1 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_context_1" as QueueItemId,
+          title: "사용자가 돈을 내기 망설일 가장 큰 이유는 무엇인가요?",
+          state: "active",
+          questionContext: {
+            idea: "반려동물의 요람에서 무덤까지 관리하는 앱",
+            goal: "보호자가 모든 정보를 한곳에서 관리하고 운영자는 돈을 벌고 싶다."
+          }
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        queue
+      },
+      sections: [
+        {
+          id: "active",
+          title: "Current questions",
+          emptyLabel: "No current questions.",
+          items: queue.active
+        }
+      ]
+    }, "ko");
+
+    expect(markup).toContain("근거 문장");
+    expect(markup).toContain("아이디어 -");
+    expect(markup).toContain("반려동물의 요람에서 무덤까지 관리하는 앱");
+    expect(markup).toContain("목표 -");
+    expect(markup).toContain("보호자가 모든 정보를 한곳에서 관리하고 운영자는 돈을 벌고 싶다.");
+    expect(markup).toContain("질문 -");
+    expect(markup).toContain("사용자가 돈을 내기 망설일 가장 큰 이유는 무엇인가요?");
+    expect(markup).not.toContain("아이디어 “반려동물의 요람에서 무덤까지 관리하는 앱”와 목표");
   });
 
   it("keeps known-risk entry folded behind an additional comment/risk disclosure", () => {
@@ -684,9 +729,9 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("<details");
-    expect(markup).toContain("Keep as Known Risk instead of answering");
+    expect(markup).toContain("Keep as a later check instead of answering");
     expect(markup).toContain("Use this separate action only when you want to stop answering this card now");
-    expect(markup).toContain("Keep as a known risk");
+    expect(markup).toContain("Keep for later checking");
     expect(markup).toContain("Legal, operations, and security");
     expect(markup).toContain("Core assumption check");
     expect(markup).not.toContain("legal_ops_security");
@@ -726,9 +771,9 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Which customer detail can be checked later?");
-    expect(markup).toContain("Keep as Known Risk instead of answering");
+    expect(markup).toContain("Keep as a later check instead of answering");
     expect(markup).toContain("Use this separate action only when you want to stop answering this card now");
-    expect(markup).toContain("Keep as a known risk");
+    expect(markup).toContain("Keep for later checking");
     expect(markup).not.toContain("Customer pain");
   });
 

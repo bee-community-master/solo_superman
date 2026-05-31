@@ -695,7 +695,7 @@ describe("research follow-up answer shape", () => {
   it("turns numbered signal lists into multi-select answer options", () => {
     const input = {
       question:
-        "확인할 고객 신호 선택지는 다음과 같습니다:\n1. 반복되는 수동 고통\n2. 예산/지불 의향\n3. 기존 대안 불만\n4. 직접 만든 임시 해결책\n\n해당되는 신호를 하나 이상 선택해주세요.",
+        "확인할 고객 신호 선택지는 다음과 같습니다:\n1. 반복되는 수동 고통\n2. 돈이나 시간을 낼 이유\n3. 기존 대안 불만\n4. 직접 만든 임시 해결책\n\n해당되는 신호를 하나 이상 선택해주세요.",
       researchTask: task("고객 신호와 조건을 하나 이상 선택"),
       sourceQuestion: sourceQuestion(),
       evidenceMatrix: evidenceMatrix()
@@ -706,7 +706,7 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(input)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "question_candidate_1", label: "반복되는 수동 고통" }),
-        expect.objectContaining({ id: "question_candidate_2", label: "예산/지불 의향" }),
+        expect.objectContaining({ id: "question_candidate_2", label: "돈이나 시간을 낼 이유" }),
         expect.objectContaining({ id: "question_candidate_3", label: "기존 대안 불만" }),
         expect.objectContaining({ id: "question_candidate_4", label: "직접 만든 임시 해결책" })
       ])
@@ -1145,7 +1145,7 @@ describe("research follow-up answer shape", () => {
     const multiSelectInput = {
       ...base,
       question:
-        "고객 신호는 반복되는 수동 고통, 예산/지불 의향, 기존 대안 불만입니다. 하나 혹은 여러개를 선택해야 합니다."
+        "고객 신호는 반복되는 수동 고통, 돈이나 시간을 낼 이유, 기존 대안 불만입니다. 하나 혹은 여러개를 선택해야 합니다."
     };
 
     expect(classifyResearchFollowUpAnswerShape(openTextInput)).toBe("open_text");
@@ -1178,7 +1178,7 @@ describe("research follow-up answer shape", () => {
     expect(researchFollowUpAnswerOptions(multiSelectInput)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "반복되는 수동 고통" }),
-        expect.objectContaining({ label: expect.stringContaining("예산") })
+        expect.objectContaining({ label: expect.stringContaining("돈이나 시간을 낼 이유") })
       ])
     );
   });

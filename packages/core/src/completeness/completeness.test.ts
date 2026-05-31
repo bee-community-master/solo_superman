@@ -105,7 +105,7 @@ function completeState(): ProductEngineStateSnapshot {
       businessCriticIntensity: "balanced",
       businessCriticIntensitySelectionStatus: "confirmed",
       businessCriticIntensityLabel: "균형형 사업 검증",
-      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityEffect: "주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
       businessCriticIntensityAudit: []
     },
     currentSpec: {
@@ -311,7 +311,7 @@ describe("PR-08 completeness scoring", () => {
         project: {
           ...completeState().project,
           businessCriticIntensity: "investor_grade",
-          businessCriticIntensityLabel: "투자심사급 사업 검증"
+          businessCriticIntensityLabel: "꼼꼼한 사업 검증"
         },
         openIssues: [
           {
@@ -334,7 +334,7 @@ describe("PR-08 completeness scoring", () => {
         project: {
           ...completeState().project,
           businessCriticIntensity: "investor_grade",
-          businessCriticIntensityLabel: "투자심사급 사업 검증"
+          businessCriticIntensityLabel: "꼼꼼한 사업 검증"
         },
         openIssues: [
           {
@@ -359,7 +359,7 @@ describe("PR-08 completeness scoring", () => {
         project: {
           ...completeState().project,
           businessCriticIntensity: "investor_grade",
-          businessCriticIntensityLabel: "투자심사급 사업 검증"
+          businessCriticIntensityLabel: "꼼꼼한 사업 검증"
         },
         openIssues: [
           {
@@ -423,7 +423,7 @@ describe("PR-08 completeness scoring", () => {
         ...completeState().project,
         projectPurposeMode: "personal" as const,
         projectPurposeModeSelectionStatus: "confirmed" as const,
-        projectPurposeModeLabel: "개인 workflow 구현 중심",
+        projectPurposeModeLabel: "개인 작업 흐름 구현 중심",
         projectPurposeModeReason: "User confirmed personal workflow mode.",
         projectPurposeModeAudit: []
       },

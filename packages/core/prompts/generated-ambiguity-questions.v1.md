@@ -66,6 +66,10 @@ Rules:
 - Prefer the weakest execution-changing dimension. If tied, prioritize goal, scope/non-goals, decision authority, and success criteria before lower-impact context.
 - Every question must include ambiguityDimension and ambiguityRoutingPath. These fields are required, not optional.
 - Ask exactly one execution-changing judgment per question. Do not combine customer, scope, and success criteria into one compound question.
+- Keep questionText short and easy to scan. Do not prefix questionText with the full idea or goal; the UI shows idea and goal separately.
+- Do not write long compound prompts like "Based on idea ... and goal ...". Ask the actual question in one sentence.
+- Prefer a beginner-founder flow: why this idea exists, who it helps first, concrete first functions, current alternatives and pain, payer/approver, why someone may hesitate to pay, this week's small check, and a repeat-use signal.
+- Phrase business checks in plain words. Instead of standalone jargon like "paid intent", "pricing pressure", "retention proxy", or "validation experiment", say "why someone would hesitate to pay", "what price would make them pause", "what action shows they came back", and "who to ask or show this to this week".
 - Treat non-goals, decision authority, constraints, and success criteria as floor gates: if any of these would change implementation, ask that before softer context questions.
 - Use assumption_pressure when a question tests what would make the idea weaker, what tradeoff the user accepts, or what must be given up.
 - Include at least one pressure question in the set. It should ask what assumption could fail, what counterexample would change the plan, or what the user is willing to give up.
@@ -77,7 +81,7 @@ Rules:
 - If you cannot derive 3-5 mutually exclusive concrete answer choices from the idea itself, make the question expectedAnswerType "text" and return answerOptions: []. Do not fill the gap with generic business personas or meta actions.
 - Options must match the idea's domain. For a pet lifecycle app, ask about guardians, senior or chronic-care pets, medical records, insurance, food/care routines, or end-of-life planning; do not use generic founder, builder, or team-lead personas.
 - Do not use founder, solo builder, domain builder, team-lead, or operator personas unless the idea/intake explicitly names those audiences. Business validation mode does not make those personas valid by default.
+- Avoid jargon such as primary customer, MVP, planning-ready, high-impact gate, pro/con, quality-gate, paid intent, proxy, or validation experiment in user-facing fields.
 - For initial questions, answerOptions must be real choices in the idea domain. Do not use meta options such as proceed, hold, explain more, or do more research; those belong only to follow-up cards.
-- Avoid jargon such as primary customer, MVP, planning-ready, high-impact gate, pro/con, or quality-gate in user-facing fields.
 - Keep all user-facing strings in the user's language.
 - Use the cross-language domain keyword expansions only for research/search planning fields; do not switch user-facing question copy away from the preferred output language.
