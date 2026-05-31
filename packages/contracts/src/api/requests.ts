@@ -121,6 +121,13 @@ export interface GenerateInitialQuestionSetRequest extends ScaffoldRequestPlaceh
   readonly projectPurposeMode: ProjectPurposeMode;
   readonly businessCriticIntensity?: BusinessCriticIntensity | null;
   readonly reviewAxes?: readonly string[];
+  readonly initialQuestionCount?: {
+    readonly min?: number;
+    readonly max?: number;
+  };
+  readonly ambiguityDimensions?: readonly string[];
+  readonly language?: string;
+  readonly domainKeywordExpansions?: Readonly<Record<string, readonly string[]>>;
 }
 
 export type GenerateInitialQuestionSetStatus = "generated" | "unavailable" | "invalid";

@@ -48,6 +48,12 @@ Set-Location "$HOME\solo_superman"; pnpm.cmd start:local
 
 Reaching the local first screen and running the default local path do not require an OpenAI API key, ChatGPT web credential, or ChatGPT Pro session. When backend question/research preview work starts, the local UI checks only the local Codex CLI with `codex login status`; it does not inspect a ChatGPT web session. On Windows, that Codex CLI check and `codex auth login` run inside WSL. If needed, the UI can open a background Terminal so Codex shows the browser login screen. Separate features that use a ChatGPT browser session require a user-approved flow and are not a default preview prerequisite. Solo Superman does not collect or store any credentials. For troubleshooting, see [`docs/troubleshooting_EN.md`](docs/troubleshooting_EN.md). For contributor onboarding and architecture notes, start at [`docs/README_EN.md`](docs/README_EN.md).
 
+## Research and question configuration
+
+Solo Superman reads optional `projectConfig.json` and `.solo-superman/projectConfig.json` files from the repo/workspace root. The `.solo-superman` file wins when both define the same setting. Supported settings include `questionGeneration.initialQuestionCount`, `questionGeneration.reviewAxes`, `questionGeneration.ambiguityDimensions`, `questionGeneration.language`, `questionGeneration.domainKeywordExpansions`, `research.localCorpusDir`, `research.preferredLanguage`, `research.region`, `research.evidenceConflictRatio`, and `research.gates.minimumUsableFindings`.
+
+Read-only web research can also be tuned with environment variables: `SOLO_RESEARCH_WEB_MAX_RESULTS`, `SOLO_RESEARCH_WEB_MAX_FETCHED_PAGES`, `SOLO_RESEARCH_WEB_TIMEOUT_MS`, `SOLO_RESEARCH_WEB_MIN_DELAY_MS`, `SOLO_RESEARCH_WEB_MAX_DELAY_MS`, `SOLO_RESEARCH_WEB_ENGINE` (`duckduckgo`, `bing`, `google.co.kr`, or `naver`), `SOLO_RESEARCH_LANGUAGE`, `SOLO_RESEARCH_REGION`, `SOLO_RESEARCH_LOCAL_CORPUS_DIR`, `SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE`, `SOLO_RESEARCH_MINIMUM_USABLE_FINDINGS`, and `MAX_EVIDENCE_CONFLICT_RATIO`. When `research.localCorpusDir` or `SOLO_RESEARCH_LOCAL_CORPUS_DIR` is set, offline research ranks Markdown, TXT, and best-effort PDF text from that folder instead of opening the browser search adapter.
+
 ## Release scope
 
 - Current recommended public channel: limited-beta-style technical preview

@@ -10,7 +10,7 @@ import type {
 } from "../ids";
 import type { BusinessCriticalQuestionCategory, BusinessCriticIntensity, ProjectPurposeMode } from "../product-engine/state";
 
-export type ResearchRouteOutcome = "research_needed" | "missing_con_evidence";
+export type ResearchRouteOutcome = "research_needed" | "missing_con_evidence" | "conflict_review";
 export type ResearchImpact = "low" | "medium" | "high";
 export type ResearchTaskStatus =
   | "planned"

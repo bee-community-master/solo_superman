@@ -1,7 +1,9 @@
 /// <reference lib="dom" />
 
+import { readdir, readFile, stat } from "node:fs/promises";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { basename, extname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import {
@@ -60,6 +62,8 @@ export interface WebSearchReadOnlySourceResult {
 
 export interface WebSearchReadOnlySearchInput {
   readonly query: string;
+  readonly language?: string;
+  readonly searchEngine?: WebSearchReadOnlySearchEngine;
   readonly maxResults: number;
   readonly maxFetchedPages: number;
   readonly timeoutMillis: number;
@@ -79,15 +83,25 @@ export interface WebSearchReadOnlyResearchAdapterOptions {
   readonly timeoutMillis?: number;
   readonly minDelayMillis?: number;
   readonly maxDelayMillis?: number;
+  readonly localCorpusDir?: string;
+  readonly language?: string;
+  readonly region?: string;
+  readonly searchEngine?: WebSearchReadOnlySearchEngine;
   readonly search?: WebSearchReadOnlySearch;
 }
+
+export type WebSearchReadOnlySearchEngine = "duckduckgo" | "bing" | "google.co.kr" | "naver";
 
 export const WEB_SEARCH_READONLY_ENV = {
   maxResults: "SOLO_RESEARCH_WEB_MAX_RESULTS",
   maxFetchedPages: "SOLO_RESEARCH_WEB_MAX_FETCHED_PAGES",
   timeoutMillis: "SOLO_RESEARCH_WEB_TIMEOUT_MS",
   minDelayMillis: "SOLO_RESEARCH_WEB_MIN_DELAY_MS",
-  maxDelayMillis: "SOLO_RESEARCH_WEB_MAX_DELAY_MS"
+  maxDelayMillis: "SOLO_RESEARCH_WEB_MAX_DELAY_MS",
+  engine: "SOLO_RESEARCH_WEB_ENGINE",
+  localCorpusDir: "SOLO_RESEARCH_LOCAL_CORPUS_DIR",
+  language: "SOLO_RESEARCH_LANGUAGE",
+  region: "SOLO_RESEARCH_REGION"
 } as const;
 
 export interface WebSearchReadOnlySearchCandidate {
@@ -103,6 +117,7 @@ export interface PlannedPublicWebSearchQueries {
   readonly coreTerms: readonly string[];
   readonly intentTerms: readonly string[];
   readonly researchObjective: string;
+  readonly language: "ko" | "en" | "mixed";
 }
 
 interface ReviewedPublicWebSource {
@@ -146,16 +161,42 @@ function optionalPositiveIntegerFromEnv(env: NodeJS.ProcessEnv, name: string) {
   }
 
   if (!/^\d+$/u.test(value)) {
-    throw new Error(`${name} must be a positive integer when set.`);
+    throw new Error(`${name} must be a positive integer when set. Example: ${name}=5.`);
   }
 
   const parsed = Number.parseInt(value, 10);
 
   if (parsed < 1) {
-    throw new Error(`${name} must be greater than zero when set.`);
+    throw new Error(`${name} must be between 1 and the documented maximum. Example: ${name}=5.`);
   }
 
   return parsed;
+}
+
+function assertEnvIntegerRange(
+  value: number | undefined,
+  name: string,
+  min: number,
+  max: number,
+  example: number
+) {
+  if (value !== undefined && (value < min || value > max)) {
+    throw new Error(`${name} must be between ${min} and ${max}. Example: ${name}=${example}.`);
+  }
+}
+
+function optionalSearchEngineFromEnv(env: NodeJS.ProcessEnv, name: string): WebSearchReadOnlySearchEngine | undefined {
+  const value = env[name]?.trim();
+
+  if (!value) {
+    return undefined;
+  }
+
+  if (value === "duckduckgo" || value === "bing" || value === "google.co.kr" || value === "naver") {
+    return value;
+  }
+
+  throw new Error(`${name} must be one of duckduckgo, bing, google.co.kr, or naver. Example: ${name}=google.co.kr.`);
 }
 
 export function webSearchReadOnlyResearchAdapterOptionsFromEnv(
@@ -166,29 +207,19 @@ export function webSearchReadOnlyResearchAdapterOptionsFromEnv(
   const timeoutMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.timeoutMillis);
   const minDelayMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.minDelayMillis);
   const maxDelayMillis = optionalPositiveIntegerFromEnv(env, WEB_SEARCH_READONLY_ENV.maxDelayMillis);
+  const searchEngine = optionalSearchEngineFromEnv(env, WEB_SEARCH_READONLY_ENV.engine);
+  const localCorpusDir = env[WEB_SEARCH_READONLY_ENV.localCorpusDir]?.trim() || undefined;
+  const language = env[WEB_SEARCH_READONLY_ENV.language]?.trim() || undefined;
+  const region = env[WEB_SEARCH_READONLY_ENV.region]?.trim() || undefined;
 
-  if (maxResults && maxResults > MAX_SEARCH_RESULTS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxResults} must be at most ${MAX_SEARCH_RESULTS} when set.`);
-  }
-
-  if (maxFetchedPages && maxFetchedPages > MAX_FETCH_PAGES) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxFetchedPages} must be at most ${MAX_FETCH_PAGES} when set.`);
-  }
-
-  if (timeoutMillis && timeoutMillis > MAX_TIMEOUT_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.timeoutMillis} must be at most ${MAX_TIMEOUT_MILLIS} when set.`);
-  }
-
-  if (minDelayMillis && minDelayMillis < DEFAULT_MIN_DELAY_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.minDelayMillis} must be at least ${DEFAULT_MIN_DELAY_MILLIS} when set.`);
-  }
-
-  if (maxDelayMillis && maxDelayMillis > MAX_DELAY_MILLIS) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be at most ${MAX_DELAY_MILLIS} when set.`);
-  }
+  assertEnvIntegerRange(maxResults, WEB_SEARCH_READONLY_ENV.maxResults, 1, MAX_SEARCH_RESULTS, 5);
+  assertEnvIntegerRange(maxFetchedPages, WEB_SEARCH_READONLY_ENV.maxFetchedPages, 1, MAX_FETCH_PAGES, 3);
+  assertEnvIntegerRange(timeoutMillis, WEB_SEARCH_READONLY_ENV.timeoutMillis, 1_000, MAX_TIMEOUT_MILLIS, 15_000);
+  assertEnvIntegerRange(minDelayMillis, WEB_SEARCH_READONLY_ENV.minDelayMillis, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS, 1_000);
+  assertEnvIntegerRange(maxDelayMillis, WEB_SEARCH_READONLY_ENV.maxDelayMillis, DEFAULT_MIN_DELAY_MILLIS, MAX_DELAY_MILLIS, 6_000);
 
   if (minDelayMillis && maxDelayMillis && maxDelayMillis < minDelayMillis) {
-    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be greater than or equal to ${WEB_SEARCH_READONLY_ENV.minDelayMillis}.`);
+    throw new Error(`${WEB_SEARCH_READONLY_ENV.maxDelayMillis} must be greater than or equal to ${WEB_SEARCH_READONLY_ENV.minDelayMillis}. Example: ${WEB_SEARCH_READONLY_ENV.minDelayMillis}=1000 ${WEB_SEARCH_READONLY_ENV.maxDelayMillis}=6000.`);
   }
 
   return {
@@ -196,7 +227,11 @@ export function webSearchReadOnlyResearchAdapterOptionsFromEnv(
     ...(maxFetchedPages ? { maxFetchedPages } : {}),
     ...(timeoutMillis ? { timeoutMillis } : {}),
     ...(minDelayMillis ? { minDelayMillis } : {}),
-    ...(maxDelayMillis ? { maxDelayMillis } : {})
+    ...(maxDelayMillis ? { maxDelayMillis } : {}),
+    ...(searchEngine ? { searchEngine } : {}),
+    ...(localCorpusDir ? { localCorpusDir } : {}),
+    ...(language ? { language } : {}),
+    ...(region ? { region } : {})
   };
 }
 
@@ -468,6 +503,28 @@ function queryWithTerms(coreTerms: readonly string[], intentTerms: readonly stri
   return truncateText([...coreTerms.slice(0, coreCount), ...intentTerms.slice(0, intentCount)].join(" "), MAX_QUERY_CHARS);
 }
 
+function searchLanguageFor(value: string): PlannedPublicWebSearchQueries["language"] {
+  const hasKorean = /[가-힣]/u.test(value);
+  const hasLatin = /[a-z]/iu.test(value);
+
+  return hasKorean && hasLatin ? "mixed" : hasKorean ? "ko" : "en";
+}
+
+function englishExpansionQueriesFor(combined: string) {
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+    return [
+      "pet lifecycle app veterinary records pet insurance care routines market research",
+      "pet guardian veterinary cost insurance claim care management reviews"
+    ];
+  }
+
+  if (/(?:이혼|별거|소송|divorce|separation)/iu.test(combined)) {
+    return ["divorce financial planning cash flow willingness to pay alternatives"];
+  }
+
+  return [];
+}
+
 export function planPublicWebSearchQueries(
   payload: PublicSafeResearchDisclosurePayload | undefined,
   run?: ResearchRunProjection
@@ -477,7 +534,8 @@ export function planPublicWebSearchQueries(
     ? publicWebSearchContextFromPayload(payload)
     : { objective: fallbackContext, context: fallbackContext };
   const combined = `${objective} ${context}`;
-  const isKorean = /[가-힣]/u.test(combined);
+  const language = searchLanguageFor(combined);
+  const isKorean = language === "ko" || language === "mixed";
   const coreTerms = coreTermsFor(objective, context);
   const intentTerms = searchIntentTermsFor(objective, context);
   const queries = uniqueSearchTerms(
@@ -485,9 +543,7 @@ export function planPublicWebSearchQueries(
       queryWithTerms(coreTerms, intentTerms, 4, 5),
       queryWithTerms(coreTerms.slice(1), intentTerms.slice(3), 4, 5),
       queryWithTerms(coreTerms, intentTerms.slice(5), 6, 5),
-      ...(isKorean && /(?:이혼|divorce|separation)/iu.test(combined)
-        ? ["divorce financial planning cash flow willingness to pay alternatives"]
-        : [])
+      ...(isKorean ? englishExpansionQueriesFor(combined) : [])
     ].filter(Boolean),
     4
   );
@@ -496,7 +552,8 @@ export function planPublicWebSearchQueries(
     queries: queries.length ? queries : [truncateText(combined, MAX_QUERY_CHARS)],
     coreTerms,
     intentTerms,
-    researchObjective: truncateText(objective || context || fallbackContext, 360)
+    researchObjective: truncateText(objective || context || fallbackContext, 360),
+    language
   };
 }
 
@@ -803,6 +860,10 @@ function isPublicHttpUrl(value: string) {
   }
 }
 
+function isLocalCorpusUrl(value: string) {
+  return value.startsWith("local-corpus://");
+}
+
 async function isPublicFetchTargetUrl(value: string) {
   if (!isPublicHttpUrl(value)) {
     return false;
@@ -848,7 +909,7 @@ function isSearchEngineUtilityUrl(value: string) {
   try {
     const url = new URL(value);
 
-    return /(^|\.)duckduckgo\.com$|(^|\.)bing\.com$|(^|\.)google\.com$/iu.test(url.hostname);
+    return /(^|\.)duckduckgo\.com$|(^|\.)bing\.com$|(^|\.)google\.com$|(^|\.)google\.co\.kr$|(^|\.)naver\.com$/iu.test(url.hostname);
   } catch {
     return true;
   }
@@ -856,7 +917,7 @@ function isSearchEngineUtilityUrl(value: string) {
 
 function publicSourceResults(sources: readonly WebSearchReadOnlySourceResult[]) {
   return sources
-    .filter((source) => isPublicHttpUrl(source.url))
+    .filter((source) => isPublicHttpUrl(source.url) || isLocalCorpusUrl(source.url))
     .map((source) => {
       const title = truncateText(cleanSearchResultTitle(source.title, source.url), 180);
 
@@ -866,6 +927,126 @@ function publicSourceResults(sources: readonly WebSearchReadOnlySourceResult[]) 
         snippet: truncateText(cleanSearchResultSnippet(source.snippet, title), MAX_SNIPPET_CHARS)
       };
     });
+}
+
+async function listCorpusFiles(root: string): Promise<readonly string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const absolutePath = join(root, entry.name);
+
+    if (entry.isDirectory()) {
+      return listCorpusFiles(absolutePath);
+    }
+
+    if (!entry.isFile()) {
+      return [];
+    }
+
+    const extension = extname(entry.name).toLowerCase();
+
+    return extension === ".md" || extension === ".txt" || extension === ".pdf" ? [absolutePath] : [];
+  }));
+
+  return files.flat();
+}
+
+function extractBestEffortPdfText(buffer: Buffer) {
+  return buffer
+    .toString("latin1")
+    .replaceAll(/\\[nrt]/gu, " ")
+    .replaceAll(/[^\p{Letter}\p{Number}\s.,:;!?()[\]_-]+/gu, " ")
+    .replaceAll(/\s+/gu, " ")
+    .trim();
+}
+
+async function readCorpusText(path: string) {
+  const extension = extname(path).toLowerCase();
+  const buffer = await readFile(path);
+  const text = extension === ".pdf" ? extractBestEffortPdfText(buffer) : buffer.toString("utf8");
+
+  return normalizedText(text);
+}
+
+function corpusTermsFor(input: WebSearchReadOnlySearchInput) {
+  return relevanceTermsForQuery(input.query);
+}
+
+function corpusScore(text: string, title: string, terms: readonly string[]) {
+  const lowerText = text.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+
+  return terms.reduce((score, term) => {
+    if (lowerTitle.includes(term)) {
+      return score + 4;
+    }
+
+    const matches = lowerText.match(new RegExp(escapeRegExp(term), "giu"))?.length ?? 0;
+
+    return score + Math.min(matches, 5);
+  }, 0);
+}
+
+function snippetForCorpusText(text: string, terms: readonly string[]) {
+  const lowerText = text.toLowerCase();
+  const firstIndex = terms
+    .map((term) => lowerText.indexOf(term.toLowerCase()))
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right)[0] ?? 0;
+  const start = Math.max(0, firstIndex - 120);
+
+  return truncateText(text.slice(start, start + MAX_SNIPPET_CHARS), MAX_SNIPPET_CHARS);
+}
+
+function localCorpusUrl(root: string, path: string) {
+  const relativePath = path.slice(root.length).replace(/^[/\\]+/u, "").split("\\").join("/");
+
+  return `local-corpus://${encodeURIComponent(relativePath)}`;
+}
+
+export async function runLocalCorpusSearch(
+  localCorpusDir: string,
+  input: WebSearchReadOnlySearchInput
+): Promise<readonly WebSearchReadOnlySourceResult[]> {
+  const root = resolve(localCorpusDir);
+  const rootStat = await stat(root).catch(() => null);
+
+  if (!rootStat?.isDirectory()) {
+    throw new WebSearchReadOnlyAdapterError(
+      "no_public_results",
+      `Local research corpus directory does not exist or is not a directory: ${root}`
+    );
+  }
+
+  const terms = corpusTermsFor(input);
+  const scored = await Promise.all((await listCorpusFiles(root)).map(async (path) => {
+    const text = await readCorpusText(path);
+    const title = basename(path);
+
+    return {
+      path,
+      text,
+      title,
+      score: corpusScore(text, title, terms)
+    };
+  }));
+  const selected = scored
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, input.maxResults);
+
+  if (!selected.length) {
+    throw new WebSearchReadOnlyAdapterError(
+      "no_public_results",
+      `No Markdown, TXT, or best-effort PDF corpus files matched the research terms in ${root}.`
+    );
+  }
+
+  return selected.map((candidate) => ({
+    title: candidate.title,
+    url: localCorpusUrl(root, candidate.path),
+    snippet: snippetForCorpusText(candidate.text, terms),
+    retrievedAt: input.now()
+  }));
 }
 
 function decodeBingRedirectUrl(value: string) {
@@ -1097,20 +1278,38 @@ async function closeBrowser(browser: Browser | null, context: BrowserContext | n
   await browser?.close().catch(() => undefined);
 }
 
-function searchUrlsForQuery(query: string) {
+function searchUrlsForQuery(query: string, engine: WebSearchReadOnlySearchEngine = "duckduckgo") {
   const encodedQuery = encodeURIComponent(query);
 
-  return [
-    `https://html.duckduckgo.com/html/?q=${encodedQuery}`,
-    `https://www.bing.com/search?q=${encodedQuery}`
-  ];
+  switch (engine) {
+    case "bing":
+      return [`https://www.bing.com/search?q=${encodedQuery}`, `https://html.duckduckgo.com/html/?q=${encodedQuery}`];
+    case "google.co.kr":
+      return [`https://www.google.co.kr/search?q=${encodedQuery}&hl=ko`, `https://html.duckduckgo.com/html/?q=${encodedQuery}`];
+    case "naver":
+      return [`https://search.naver.com/search.naver?query=${encodedQuery}`, `https://html.duckduckgo.com/html/?q=${encodedQuery}`];
+    case "duckduckgo":
+      return [`https://html.duckduckgo.com/html/?q=${encodedQuery}`, `https://www.bing.com/search?q=${encodedQuery}`];
+  }
+}
+
+function searchEngineForRegion(region: string | undefined): WebSearchReadOnlySearchEngine | undefined {
+  if (!region) {
+    return undefined;
+  }
+
+  if (/^(?:kr|ko|ko[-_]kr|korea|south\s*korea|republic\s*of\s*korea)$/iu.test(region.trim())) {
+    return "google.co.kr";
+  }
+
+  return undefined;
 }
 
 async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchInput) {
   let lastSearchBlocker: WebSearchReadOnlyAdapterError | null = null;
   const uniqueCandidates = new Map<string, SearchCandidate>();
 
-  for (const searchUrl of searchUrlsForQuery(input.query)) {
+  for (const searchUrl of searchUrlsForQuery(input.query, input.searchEngine)) {
     try {
       await delay(input.delayMillis());
       await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: input.timeoutMillis });
@@ -1200,7 +1399,7 @@ export async function runPlaywrightPublicWebSearch(
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({
       javaScriptEnabled: false,
-      locale: "en-US",
+      locale: input.language === "ko" ? "ko-KR" : "en-US",
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36 SoloSupermanReadOnlyResearch/1.0"
     });
@@ -1244,7 +1443,12 @@ export function createWebSearchReadOnlyResearchAdapter(
   const timeoutMillis = clampIntegerRange(options.timeoutMillis, DEFAULT_TIMEOUT_MILLIS, 1_000, MAX_TIMEOUT_MILLIS);
   const delayRange = boundedDelayRange(options.minDelayMillis, options.maxDelayMillis);
   const delayMillis = () => randomDelayMillis(delayRange.min, delayRange.max);
-  const search = options.search ?? runPlaywrightPublicWebSearch;
+  const search = options.search ??
+    (options.localCorpusDir
+      ? (input: WebSearchReadOnlySearchInput) => runLocalCorpusSearch(options.localCorpusDir as string, input)
+      : runPlaywrightPublicWebSearch);
+  const searchEngine = options.searchEngine ?? searchEngineForRegion(options.region) ?? "duckduckgo";
+  const configuredLanguage = options.language;
 
   return {
     adapterKind: "web_search_readonly",
@@ -1277,6 +1481,8 @@ export function createWebSearchReadOnlyResearchAdapter(
       for (const query of plan.queries) {
         const querySources = publicSourceResults(await search({
           query,
+          language: configuredLanguage ?? plan.language,
+          searchEngine,
           maxResults,
           maxFetchedPages,
           timeoutMillis,

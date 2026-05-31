@@ -853,7 +853,8 @@ const EN_COPY = {
     planningBlockedSuffix: "blocks Planning-ready",
     routeOutcomeLabels: {
       research_needed: "Research needed",
-      missing_con_evidence: "Counter-evidence needed"
+      missing_con_evidence: "Counter-evidence needed",
+      conflict_review: "Conflict review needed"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "Planned",
@@ -2307,7 +2308,8 @@ const JA_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "Planning-readyをブロック",
     routeOutcomeLabels: {
       research_needed: "リサーチが必要",
-      missing_con_evidence: "別視点の確認が必要"
+      missing_con_evidence: "別視点の確認が必要",
+      conflict_review: "相反する根拠の確認が必要"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "計画済み",
@@ -3770,7 +3772,8 @@ const KO_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "Planning-ready 차단",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
-      missing_con_evidence: "반례 확인 필요"
+      missing_con_evidence: "반례 확인 필요",
+      conflict_review: "상충 근거 검토 필요"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "계획됨",

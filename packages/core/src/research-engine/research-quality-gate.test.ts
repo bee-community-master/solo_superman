@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ProjectionVersion,
   QueueItemId,
@@ -10,6 +10,7 @@ import type {
 import {
   addResearchResultToProjection,
   buildDecisionEvidencePack,
+  evidenceGateConfigFromEnv,
   emptyResearchEvidenceProjection,
   importResearchResult,
   planResearchTask,
@@ -17,6 +18,10 @@ import {
 } from "./index";
 
 const sessionId = "sess_quality_gate" as SessionId;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function task(overrides: Partial<Parameters<typeof planResearchTask>[0]> = {}) {
   return planResearchTask({
@@ -50,6 +55,49 @@ function result(overrides: Partial<Parameters<typeof importResearchResult>[0]> =
 }
 
 describe("Decision-linked research quality gate", () => {
+  it("reads configurable evidence gate thresholds from environment", () => {
+    vi.stubEnv("SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE", "false");
+    vi.stubEnv("SOLO_RESEARCH_MINIMUM_USABLE_FINDINGS", "3");
+    vi.stubEnv("MAX_EVIDENCE_CONFLICT_RATIO", "0.8");
+
+    expect(evidenceGateConfigFromEnv()).toMatchObject({
+      highImpactRequiresBalancedEvidence: false,
+      minimumUsableFindings: 3,
+      evidenceConflictRatio: 0.8
+    });
+
+    const researchTask = task();
+    const researchResult = result({
+      result: "Pro: founders report urgency and willingness to pay.",
+      limitationNotes: "No counter-evidence source was found in this import."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const pack = buildDecisionEvidencePack({ researchTask, researchResult, synthesisVersion: 1, matrix });
+
+    expect(matrix).toMatchObject({
+      balanceStatus: "missing_con_evidence",
+      decisionBlocked: false
+    });
+    expect(pack.gateStatus).toBe("research_insufficient");
+    expect(pack.gateChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "pro_con_balance",
+          status: "failed",
+          reason: expect.stringContaining("below configured minimum 3")
+        })
+      ])
+    );
+  });
+
+  it("reports invalid evidence gate environment values with the failing variable name", () => {
+    vi.stubEnv("SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE", "maybe");
+
+    expect(() => evidenceGateConfigFromEnv()).toThrow(
+      "SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE must be one of"
+    );
+  });
+
   it("accepts balanced evidence into a decision-linked Evidence Pack", () => {
     const researchTask = task();
     const researchResult = result();
@@ -169,6 +217,67 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.conEvidence[0]?.summary).toContain("무료 법률구조");
     expect(matrix.proEvidence[0]?.summary).not.toContain("https://example.org");
     expect(matrix.conEvidence[0]?.summary).not.toContain("https://example.org");
+  });
+
+  it("preserves multiple structured usable findings so configured minimum gates can pass", () => {
+    vi.stubEnv("SOLO_RESEARCH_MINIMUM_USABLE_FINDINGS", "3");
+
+    const researchTask = task({
+      objective: "반려동물 전생애주기 통합 관리 앱의 유료 수요 검증",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: [
+        "Research objective:",
+        "반려동물 전생애주기 통합 관리 앱의 유료 수요 검증",
+        "Usable findings:",
+        "- [supports] 보호자는 예방접종, 진료기록, 보험 청구를 한 곳에서 관리하려는 니즈를 보였다. — 펫케어 앱 조사 https://example.org/pet-care-demand",
+        "- [supports] 노령 반려동물 보호자는 반복 진료비와 복약 관리를 기록하는 도구에 비용을 지불했다. — 노령견 케어 리포트 https://example.org/senior-pet-care",
+        "- [weakens] 동물병원 자체 앱과 보험사 앱이 일부 기록 관리 수요를 대체한다. — 대체재 분석 https://example.org/pet-app-alternatives",
+        "Limitations:",
+        "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+      ].join("\n"),
+      limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const pack = buildDecisionEvidencePack({ researchTask, researchResult, synthesisVersion: 1, matrix });
+
+    expect(matrix.proEvidence).toHaveLength(2);
+    expect(matrix.conEvidence).toHaveLength(1);
+    expect(pack.gateStatus).toBe("accepted");
+    expect(pack.gateChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "pro_con_balance",
+          status: "passed"
+        })
+      ])
+    );
+  });
+
+  it("creates a conflict-review follow-up for structured supports and weakens findings", () => {
+    const researchTask = task({
+      objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: [
+        "Research objective:",
+        "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        "Usable findings:",
+        "- [supports] 이혼 준비자는 생계비와 현금흐름을 계산하는 유료 상담 결제 의향을 후기에 남겼다. — 이혼 전 재무 상담 후기 https://example.org/divorce-paid",
+        "- [weakens] 무료 법률구조와 커뮤니티 조언이 대체재로 언급되어 앱 결제 전환은 낮을 수 있다. — 무료 대체재 비교 https://example.org/divorce-free-alternatives",
+        "Limitations:",
+        "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+      ].join("\n"),
+      limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+
+    expect(matrix.balanceStatus).toBe("balanced");
+    expect(matrix.additionalQuestions).toEqual([expect.stringContaining("Conflict review:")]);
+    expect(matrix.additionalQuestions[0]).toContain("공개 근거가 서로 다른 방향을 가리킵니다");
+    expect(matrix.additionalQuestions[0]).toContain("어느 근거를 다음 판단의 기준으로 삼고");
   });
 
   it("fails high-impact pro-only evidence as explicit research_insufficient instead of decision-ready", () => {

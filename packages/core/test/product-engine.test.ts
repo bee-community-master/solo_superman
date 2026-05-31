@@ -3031,7 +3031,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatLimit: 16,
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 근거 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
+            /리서치 메모리 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
           ),
           decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
@@ -3499,6 +3499,91 @@ describe("PR-04 ProductEngine reducer", () => {
             expect.objectContaining({ label: "수동 검증" }),
             expect.objectContaining({ label: "가격 테스트" })
           ])
+        })
+      ])
+    );
+  });
+
+  it("marks conflict-review research follow-up tasks distinctly from generic research", () => {
+    const initialState = withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId));
+    const conflictPlanned = reduceProductEngineCommand(
+      command("PlanResearch", 0, {
+        objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+        sourceQueueItemId: "queue_conflict_review_source",
+        routeOutcome: "research_needed",
+        impact: "high"
+      }, 1),
+      initialState
+    );
+
+    expect(conflictPlanned.accepted).toBe(true);
+
+    const conflictTaskId = conflictPlanned.nextState.researchState.taskIds[0];
+    const conflictPlannedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      }
+    ]);
+    const conflictImported = reduceProductEngineCommand(
+      command("ImportResearchResult", 1, {
+        researchTaskId: conflictTaskId,
+        result: [
+          "Research objective:",
+          "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
+          "Usable findings:",
+          "- [supports] 유료 상담 결제 의향을 후기에 남겼다. — 이혼 전 재무 상담 후기 https://example.org/divorce-paid",
+          "- [weakens] 무료 법률구조와 커뮤니티 조언이 대체재로 언급되었다. — 무료 대체재 비교 https://example.org/divorce-free-alternatives",
+          "Limitations:",
+          "- 공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다."
+        ].join("\n"),
+        limitationNotes: "공개 snippet 기반이라 실제 결제 전환은 인터뷰로 확인해야 합니다.",
+        sourceReliability: "medium"
+      }, 2),
+      conflictPlannedState
+    );
+
+    expect(conflictImported.accepted).toBe(true);
+
+    const conflictImportedState = replayProductEngineEvents(projectId, sessionId, [
+      {
+        ...conflictPlanned.events[0],
+        eventId: "evt_conflict_review_plan",
+        sequence: 1,
+        occurredAt: "2026-05-05T00:00:00.000Z"
+      },
+      {
+        ...conflictImported.events[0],
+        eventId: "evt_conflict_review_import",
+        sequence: 2,
+        occurredAt: "2026-05-05T00:00:01.000Z"
+      }
+    ]);
+    const conflictResultId = conflictImportedState.researchState.results[0]?.researchResultId;
+    const conflictSynthesized = reduceProductEngineCommand(
+      effectExecutorCommand("SynthesizeEvidence", 2, {
+        researchResultId: conflictResultId
+      }, 3),
+      conflictImportedState
+    );
+
+    expect(conflictSynthesized.accepted).toBe(true);
+    expect(conflictSynthesized.nextState.openIssues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          uncertaintyType: "conflict",
+          possibleRoutes: expect.arrayContaining(["conflict_detected"]),
+          questionText: expect.stringContaining("Conflict review:")
+        })
+      ])
+    );
+    expect(conflictSynthesized.nextState.researchState.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceQueueItemId: expect.stringMatching(/^queue_research_followup_/),
+          routeOutcome: "conflict_review"
         })
       ])
     );

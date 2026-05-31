@@ -1,3 +1,6 @@
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildResearchRunIdempotencyKey,
@@ -70,14 +73,22 @@ describe("web_search_readonly background research adapter", () => {
         SOLO_RESEARCH_WEB_MAX_FETCHED_PAGES: "2",
         SOLO_RESEARCH_WEB_TIMEOUT_MS: "9000",
         SOLO_RESEARCH_WEB_MIN_DELAY_MS: "1000",
-        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "6000"
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "6000",
+        SOLO_RESEARCH_WEB_ENGINE: "google.co.kr",
+        SOLO_RESEARCH_LANGUAGE: "ko",
+        SOLO_RESEARCH_REGION: "kr",
+        SOLO_RESEARCH_LOCAL_CORPUS_DIR: "/tmp/research-corpus"
       })
     ).toEqual({
       maxResults: 6,
       maxFetchedPages: 2,
       timeoutMillis: 9000,
       minDelayMillis: 1000,
-      maxDelayMillis: 6000
+      maxDelayMillis: 6000,
+      searchEngine: "google.co.kr",
+      language: "ko",
+      region: "kr",
+      localCorpusDir: "/tmp/research-corpus"
     });
 
     expect(() =>
@@ -90,19 +101,43 @@ describe("web_search_readonly background research adapter", () => {
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MAX_RESULTS: "99"
       })
-    ).toThrow("at most 10");
+    ).toThrow("between 1 and 10");
 
     expect(() =>
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MIN_DELAY_MS: "1"
       })
-    ).toThrow("at least 1000");
+    ).toThrow("between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_TIMEOUT_MS: "999"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_TIMEOUT_MS must be between 1000 and 30000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MIN_DELAY_MS: "9000"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MIN_DELAY_MS must be between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_MAX_DELAY_MS: "1"
+      })
+    ).toThrow("SOLO_RESEARCH_WEB_MAX_DELAY_MS must be between 1000 and 6000");
 
     expect(() =>
       webSearchReadOnlyResearchAdapterOptionsFromEnv({
         SOLO_RESEARCH_WEB_MAX_DELAY_MS: "9000"
       })
-    ).toThrow("at most 6000");
+    ).toThrow("between 1000 and 6000");
+
+    expect(() =>
+      webSearchReadOnlyResearchAdapterOptionsFromEnv({
+        SOLO_RESEARCH_WEB_ENGINE: "unknown"
+      })
+    ).toThrow("duckduckgo, bing, google.co.kr, or naver");
   });
 
   it("starts a queued public-web run without credential or write access", async () => {
@@ -270,6 +305,89 @@ describe("web_search_readonly background research adapter", () => {
     expect(joinedQueries).not.toContain("Original ambiguity");
     expect(joinedQueries).not.toContain("Decision this should inform");
     expect(joinedQueries).not.toContain("Ambiguity dimension");
+    expect(plan.language).toBe("mixed");
+  });
+
+  it("returns ranked offline corpus results when localCorpusDir is configured", async () => {
+    const corpusRoot = await mkdtemp(join(tmpdir(), "solo-research-corpus-"));
+    await mkdir(join(corpusRoot, "nested"));
+    await writeFile(
+      join(corpusRoot, "pet-market.md"),
+      "# 반려동물 시장\n\n반려동물 보호자는 의료 기록, 보험 청구, 돌봄 루틴을 반복 관리하며 유료 앱 결제 의향을 보인다.\n",
+      "utf8"
+    );
+    await writeFile(
+      join(corpusRoot, "unrelated.txt"),
+      "A generic document about unrelated desktop setup.",
+      "utf8"
+    );
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      localCorpusDir: corpusRoot,
+      maxResults: 2
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_local_corpus",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    const result = await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "반려동물 보호자 보험/의료 관리 니즈 검증",
+        publicSafeSummary:
+          "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 보호자가 의료 기록과 보험 청구, 돌봄 루틴을 관리한다."
+      }
+    });
+
+    expect(result.sourceTitle).toBe("pet-market.md");
+    expect(result.sourceUrl).toContain("local-corpus://");
+    expect(result.summary).toContain("반려동물 보호자는 의료 기록");
+    expect(result.sourceRefs.some((ref) => ref.startsWith("local-corpus://"))).toBe(true);
+  });
+
+  it("uses Korean regional search endpoint when region is configured without an explicit engine", async () => {
+    const seenEngines: string[] = [];
+    const adapter = createWebSearchReadOnlyResearchAdapter({
+      now: () => "2026-05-05T00:03:00.000Z",
+      region: "kr",
+      search: async (input) => {
+        seenEngines.push(input.searchEngine ?? "");
+
+        return [
+          {
+            title: "반려동물 의료비 조사",
+            url: "https://example.org/pet-medical-cost",
+            snippet: "반려동물 보호자는 의료비와 보험 청구 관리 니즈가 있다."
+          }
+        ];
+      }
+    });
+    const runningRun = runFixture({
+      status: "running",
+      provider: {
+        ...runFixture().provider,
+        providerRunId: "web_search_readonly_research_run_region",
+        startedAt: "2026-05-05T00:01:00.000Z"
+      },
+      updatedAt: "2026-05-05T00:01:00.000Z"
+    });
+
+    await adapter.pollResult({
+      researchRun: runningRun,
+      disclosurePayload: {
+        researchObjective: "반려동물 보호자 보험/의료 관리 니즈 검증",
+        publicSafeSummary:
+          "Product category: 반려동물 전생애주기 통합 관리 앱. Customer/problem hypothesis: 보호자가 의료 기록과 보험 청구, 돌봄 루틴을 관리한다."
+      }
+    });
+
+    expect(seenEngines).toEqual(expect.arrayContaining(["google.co.kr"]));
   });
 
   it("keeps only relevant source-linked findings when public search returns unrelated encyclopedia and OS help noise", async () => {

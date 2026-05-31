@@ -19,6 +19,7 @@ import {
   isResearchMemoryMarkdownSourceRef,
   listResearchMemoryMarkdownSourceRefs,
   researchMemoryMarkdownSourceRef,
+  summarizeResearchMemoryMarkdown,
   writeResearchMemoryMarkdown
 } from "./research-memory-markdown";
 import { removeTemporaryDirectory } from "../test-cleanup";
@@ -127,6 +128,7 @@ const pack = {
 describe("research memory markdown", () => {
   it("summarizes evidence and explains when wider research should bypass duplicate-memory blocking", () => {
     const markdown = buildResearchMemoryMarkdown({ task, result, matrix, pack });
+    const summary = summarizeResearchMemoryMarkdown(markdown);
 
     expect(markdown).toContain("# Research memory: Broaden research beyond existing notes for founder urgency");
     expect(markdown).toContain("Founders report urgency.");
@@ -134,6 +136,9 @@ describe("research memory markdown", () => {
     expect(markdown).toContain("Which customer segment still needs more research?");
     expect(markdown).toContain("If the user explicitly asks for more, broader, wider, or deeper research");
     expect(markdown).toContain("collect wider sources, counter-evidence, and updated signals");
+    expect(summary).toContain("multiple founders report repeated planning pain");
+    expect(summary).toContain("Founders report urgency.");
+    expect(summary.length).toBeLessThanOrEqual(420);
   });
 
   it("writes memory under project and session folders with a stable markdown filename", async () => {

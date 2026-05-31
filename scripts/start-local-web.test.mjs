@@ -5,6 +5,7 @@ import {
   findAvailablePort,
   localRunCommands,
   localRunEnvironment,
+  nodeVersionRequirementMessage,
   pnpmCommand,
   resolveLocalRunConfig
 } from "./start-local-web.mjs";
@@ -26,6 +27,11 @@ afterEach(async () => {
 });
 
 describe("local web starter", () => {
+  it("explains the Node 24 requirement before starting local processes", () => {
+    expect(nodeVersionRequirementMessage("23.9.0")).toContain("Solo Superman requires Node 24+");
+    expect(nodeVersionRequirementMessage("24.0.0")).toBeNull();
+  });
+
   it("uses pnpm.cmd on Windows and pnpm elsewhere", () => {
     expect(pnpmCommand("win32", {})).toBe("pnpm.cmd");
     expect(pnpmCommand("darwin", {})).toBe("pnpm");

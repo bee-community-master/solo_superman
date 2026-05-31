@@ -2649,18 +2649,20 @@ function researchSynthesisContextText(
 }
 
 function researchFollowUpEvidenceContext(input: {
-  readonly proSummary: string | undefined;
-  readonly conSummary: string | undefined;
-  readonly uncertaintySummary: string | undefined;
+  readonly proSummaries: readonly string[];
+  readonly conSummaries: readonly string[];
+  readonly uncertaintySummaries: readonly string[];
   readonly sourceLabel: string;
 }) {
+  const proSummary = input.proSummaries.map(readableEvidenceContextExcerpt).join(" / ");
+  const conSummary = input.conSummaries.map(readableEvidenceContextExcerpt).join(" / ");
+  const uncertaintySummary = input.uncertaintySummaries.map(readableEvidenceContextExcerpt).join(" / ");
+
   return [
-    "리서치 근거 요약:",
-    input.proSummary ? `- 확인된 단서: ${readableEvidenceContextExcerpt(input.proSummary)}` : null,
-    input.conSummary ? `- 다른 관점/반례: ${readableEvidenceContextExcerpt(input.conSummary)}` : null,
-    input.uncertaintySummary
-      ? `- 한계/불확실성: ${readableEvidenceContextExcerpt(input.uncertaintySummary)}`
-      : null,
+    "리서치 메모리 요약:",
+    proSummary ? `- 확인된 단서: ${proSummary}` : null,
+    conSummary ? `- 다른 관점/반례: ${conSummary}` : null,
+    uncertaintySummary ? `- 한계/불확실성: ${uncertaintySummary}` : null,
     `- 출처 단서: ${readableEvidenceContextExcerpt(input.sourceLabel)}`
   ]
     .filter((line): line is string => line !== null)
@@ -3006,14 +3008,14 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     evidenceMatrix.balanceStatus === "missing_con_evidence" ||
     evidenceMatrix.balanceStatus === "needs_con_evidence" ||
     evidenceMatrix.balanceStatus === "blocked_by_con_evidence";
-  const proSummary = evidenceMatrix.proEvidence[0]?.summary;
-  const conSummary = evidenceMatrix.conEvidence[0]?.summary;
-  const uncertaintySummary = evidenceMatrix.uncertainties[0]?.summary;
+  const isConflictReview =
+    evidenceMatrix.balanceStatus === "blocked_by_con_evidence" ||
+    /^conflict review:/iu.test(question.trim());
   const sourceLabel = researchSourceLabel(researchResult);
   const evidenceContext = researchFollowUpEvidenceContext({
-    proSummary,
-    conSummary,
-    uncertaintySummary,
+    proSummaries: evidenceMatrix.proEvidence.map((item) => item.summary),
+    conSummaries: evidenceMatrix.conEvidence.map((item) => item.summary),
+    uncertaintySummaries: evidenceMatrix.uncertainties.map((item) => item.summary),
     sourceLabel
   });
   const answerInput = {
@@ -3053,7 +3055,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     ...(sourceQuestion?.researchQuestion
       ? { researchQuestion: sourceQuestion.researchQuestion }
       : { researchQuestion: researchTask.objective }),
-    uncertaintyType: isConEvidenceGap ? "missing_con_evidence" : "unsupported",
+    uncertaintyType: isConflictReview ? "conflict" : isConEvidenceGap ? "missing_con_evidence" : "unsupported",
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
     whyItMatters:
@@ -3070,7 +3072,9 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
       : `추가 질문 “${readableEvidenceContextExcerpt(question)}”에 답할 공개 근거와 사용자 신호를 확인합니다.`,
     repeatCount,
     repeatLimit,
-    possibleRoutes: isConEvidenceGap
+    possibleRoutes: isConflictReview
+      ? ["question", "conflict_detected", "research_needed"]
+      : isConEvidenceGap
       ? ["question", "missing_con_evidence", "research_needed"]
       : ["question", "research_needed", "spec_update_candidate"],
     sourceRef: `research:${researchTask.researchTaskId}:${evidenceMatrix.evidenceMatrixId}:additional_question:${index + 1}`
@@ -3131,6 +3135,10 @@ function createResearchFollowUpIssuesForAdditionalQuestions(input: {
 }
 
 function researchRouteOutcomeForFollowUpIssue(issue: AmbiguityIssueSnapshot): ResearchRouteOutcome {
+  if (issue.uncertaintyType === "conflict" || issue.possibleRoutes?.includes("conflict_detected")) {
+    return "conflict_review";
+  }
+
   return issue.uncertaintyType === "missing_con_evidence" ||
     issue.possibleRoutes?.includes("missing_con_evidence")
     ? "missing_con_evidence"
@@ -3531,7 +3539,11 @@ function optionalPositiveInteger(value: unknown): number | null | "invalid" {
 }
 
 function routeOutcomeForAnswer(command: ProductEngineCommand): ResearchRouteOutcome {
-  if (command.payload.researchRouteHint === "research_needed" || command.payload.researchRouteHint === "missing_con_evidence") {
+  if (
+    command.payload.researchRouteHint === "research_needed" ||
+    command.payload.researchRouteHint === "missing_con_evidence" ||
+    command.payload.researchRouteHint === "conflict_review"
+  ) {
     return command.payload.researchRouteHint;
   }
 
@@ -3554,6 +3566,31 @@ function researchReviewQueueItem(researchTaskId: ResearchTaskId, title: string, 
     cardType: "research_review" as const,
     researchTaskId
   };
+}
+
+function researchReviewQueueStateForRouteOutcome(routeOutcome: ResearchRouteOutcome): "next" | "blocked" {
+  return routeOutcome === "missing_con_evidence" || routeOutcome === "conflict_review" ? "blocked" : "next";
+}
+
+function researchReviewQueueTitleForRouteOutcome(input: {
+  readonly routeOutcome: ResearchRouteOutcome;
+  readonly title: string;
+  readonly index?: number;
+  readonly total?: number;
+}) {
+  const countSuffix = input.total && input.total > 1 && input.index !== undefined
+    ? ` ${input.index + 1}/${input.total}`
+    : "";
+
+  if (input.routeOutcome === "missing_con_evidence") {
+    return `다른 관점 확인 필요${countSuffix}: ${input.title}`;
+  }
+
+  if (input.routeOutcome === "conflict_review") {
+    return `상충 근거 검토 필요${countSuffix}: ${input.title}`;
+  }
+
+  return `Research review${countSuffix}: ${input.title}`;
 }
 
 function queueProjectionWithResearchReviewItem(
@@ -4781,10 +4818,13 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     queueProjectionWithResearchReviewItem(
       projection,
       researchTask.researchTaskId,
-      routeOutcome === "missing_con_evidence"
-        ? `다른 관점 확인 필요${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`
-        : `Research review${researchTasks.length > 1 ? ` ${index + 1}/${researchTasks.length}` : ""}: ${activeItem.title}`,
-      routeOutcome === "missing_con_evidence" ? "blocked" : "next",
+      researchReviewQueueTitleForRouteOutcome({
+        routeOutcome,
+        title: activeItem.title,
+        index,
+        total: researchTasks.length
+      }),
+      researchReviewQueueStateForRouteOutcome(routeOutcome),
       projectionAfterAnsweredItem.version,
       command.issuedAt
     ), projectionAfterAnsweredItem);
@@ -4932,7 +4972,9 @@ function reducePlanResearch(command: ProductEngineCommand, state: ProductEngineS
 
   const sourceQueueItemId = requiredString(command.payload.sourceQueueItemId) as QueueItemId | null;
   const routeOutcome =
-    command.payload.routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "research_needed";
+    command.payload.routeOutcome === "missing_con_evidence" || command.payload.routeOutcome === "conflict_review"
+      ? command.payload.routeOutcome
+      : "research_needed";
   const impact = validResearchImpact(command.payload.impact);
   const researchTaskId = `research_task_${stableToken(`${command.sessionId}:${objective}:${sourceQueueItemId ?? "manual"}`)}` as ResearchTaskId;
   const researchTask = planResearchTask({
@@ -5249,10 +5291,12 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
     queueProjectionWithResearchReviewItem(
       projection,
       task.researchTaskId,
-      task.routeOutcome === "missing_con_evidence"
-        ? `후속 반례 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
-        : `후속 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`,
-      task.routeOutcome === "missing_con_evidence" ? "blocked" : "next",
+      task.routeOutcome === "conflict_review"
+        ? `후속 상충 근거 검토 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
+        : task.routeOutcome === "missing_con_evidence"
+          ? `후속 반례 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
+          : `후속 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`,
+      researchReviewQueueStateForRouteOutcome(task.routeOutcome),
       researchProjectionWithFollowUpTasks.version,
       command.issuedAt
     ), queueProjectionWithVisibleFollowUps);
