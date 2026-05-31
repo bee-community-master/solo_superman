@@ -2728,6 +2728,8 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(followUpIssues[0]?.questionText).toContain("노령·만성질환 반려동물 보호자");
     expect(followUpIssues[1]?.questionText).toContain("보험·의료비 지불의향");
     expect(followUpIssues[2]?.questionText).toContain("장례와 생애 후반 정보");
+    expect(followUpIssues.every((issue) => issue.questionContext?.idea === activeItem.questionContext?.idea)).toBe(true);
+    expect(followUpIssues.every((issue) => issue.questionContext?.goal === activeItem.questionContext?.goal)).toBe(true);
     expect((answer.immediateProjection as DecisionQueueProjection).progress).toMatchObject({
       followUpQuestionCount: 3,
       followUpOpenQuestionCount: 3
@@ -3093,7 +3095,11 @@ describe("PR-04 ProductEngine reducer", () => {
       researchQuestion:
         "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?",
       suggestedResearchTask: "반려동물 보호자 유형별 의료·보험·일상 기록 관리 니즈를 비교합니다.",
-      possibleRoutes: ["question", "research_needed"]
+      possibleRoutes: ["question", "research_needed"],
+      questionContext: {
+        idea: "반려동물 전생애 관리 앱",
+        goal: "보호자 기록 관리를 쉽게 만든다."
+      }
     } satisfies ProductEngineStateSnapshot["openIssues"][number];
     const initialState = {
       ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
@@ -3155,12 +3161,14 @@ describe("PR-04 ProductEngine reducer", () => {
       ambiguityDimension: "scope",
       ambiguityRoutingPath: "current_research",
       researchQuestion: sourceIssue.researchQuestion,
+      questionContext: sourceIssue.questionContext,
       sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
     });
     expect(researchFollowUpCard).toMatchObject({
       ambiguityDimension: "scope",
       ambiguityRoutingPath: "current_research",
       researchQuestion: sourceIssue.researchQuestion,
+      questionContext: sourceIssue.questionContext,
       suggestedResearchTask: expect.stringContaining("추가 질문")
     });
   });

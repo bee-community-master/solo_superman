@@ -2894,6 +2894,7 @@ function createFollowUpIssuesForAnswer(input: {
       ...(sourceQuestion.ambiguityDimension ? { ambiguityDimension: sourceQuestion.ambiguityDimension } : {}),
       ...(sourceQuestion.ambiguityRoutingPath ? { ambiguityRoutingPath: sourceQuestion.ambiguityRoutingPath } : {}),
       ...(sourceQuestion.researchQuestion ? { researchQuestion: sourceQuestion.researchQuestion } : {}),
+      ...(sourceQuestion.questionContext ? { questionContext: sourceQuestion.questionContext } : {}),
       uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
       severity,
       summary: branches.length === 1
@@ -3009,6 +3010,7 @@ function createResearchFollowUpIssueForAdditionalQuestion(input: {
     ...(sourceQuestion?.researchQuestion
       ? { researchQuestion: sourceQuestion.researchQuestion }
       : { researchQuestion: researchTask.objective }),
+    ...(sourceQuestion?.questionContext ? { questionContext: sourceQuestion.questionContext } : {}),
     uncertaintyType: isConEvidenceGap ? "missing_con_evidence" : "unsupported",
     severity: researchTask.impact,
     summary: `리서치가 생성한 후속 질문: ${compactAnswerExcerpt(question)}`,
