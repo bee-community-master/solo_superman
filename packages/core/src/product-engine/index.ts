@@ -2061,10 +2061,10 @@ function createAmbiguityIssuesFromSeeds(input: {
   const token = stableToken(
     `${input.sessionId}:${input.specRef}:${input.mode}:${input.intensity ?? "none"}:${input.source}`
   );
+  const contextText = generatedQuestionSetContextText(context);
   const sharedQuestionContext = questionContextSnapshot(context);
 
   return input.seeds.map((seed, index) => {
-    const contextText = generatedQuestionSetContextText(context);
     const businessCriticCategory = categoryForBusinessSeed(seed);
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
