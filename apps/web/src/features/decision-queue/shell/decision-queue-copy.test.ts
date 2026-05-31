@@ -19,7 +19,7 @@ describe("decision queue language copy", () => {
       "Answer active questions, review upcoming questions, and keep known risks visible."
     );
     expect(DECISION_QUEUE_COPY.ko.pageMeta.questions.description).toBe(
-      "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
+      "현재 질문, 다음 질문, 나중에 확인할 항목을 한곳에서 정리합니다."
     );
     expect(DECISION_QUEUE_COPY.en.questions.firstRunTitle).toBe("Goal setup");
     expect(DECISION_QUEUE_COPY.ja.questions.firstRunTitle).toBe("目標設定");

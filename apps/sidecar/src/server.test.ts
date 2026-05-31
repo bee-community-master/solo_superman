@@ -1907,7 +1907,7 @@ describe("PR-02 sidecar health shell", () => {
         immediateProjection: {
           kind: "SessionShellProjection",
           projectPurposeMode: "personal",
-          projectPurposeModeLabel: "개인 workflow 구현 중심"
+          projectPurposeModeLabel: "개인 작업 흐름 구현 중심"
         }
       });
     } finally {

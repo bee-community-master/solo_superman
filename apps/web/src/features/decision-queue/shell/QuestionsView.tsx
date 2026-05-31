@@ -205,21 +205,18 @@ function QuestionPromptBlock({
       <dl className="question-prompt-block__rows">
         {context?.idea ? (
           <div>
-            <dt>{copy.questions.questionContextIdea}</dt>
-            <span aria-hidden="true">-</span>
+            <dt>{copy.questions.questionContextIdea} -</dt>
             <dd>"{context.idea}"</dd>
           </div>
         ) : null}
         {context?.goal ? (
           <div>
-            <dt>{copy.questions.questionContextGoal}</dt>
-            <span aria-hidden="true">-</span>
+            <dt>{copy.questions.questionContextGoal} -</dt>
             <dd>"{context.goal}"</dd>
           </div>
         ) : null}
         <div className="question-prompt-block__question">
-          <dt>{copy.questions.questionContextQuestion}</dt>
-          <span aria-hidden="true">-</span>
+          <dt>{copy.questions.questionContextQuestion} -</dt>
           <dd>
             <h4>{item.title}</h4>
           </dd>

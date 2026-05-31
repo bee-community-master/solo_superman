@@ -626,10 +626,10 @@ const EN_COPY = {
     submitAnswer: "Submit answer",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
-    nextValidationActionAriaPrefix: "Next validation action for",
+    nextValidationActionAriaPrefix: "Next check for",
     additionalRiskDetails: "Keep as a later check instead of answering",
     additionalRiskHelp: "Use this separate action only when you want to stop answering this card now and carry it with a next validation step.",
-    knownRiskPlaceholder: "If you keep this as a known risk, write the next validation step.",
+    knownRiskPlaceholder: "If you keep this for later, write what to check next.",
     carryAsKnownRisk: "Keep for later checking",
     queueRecoveryFresh: "Questions are up to date. New local-service updates will refresh this list.",
     queueRefetchMissing: "The question refresh path is not loaded yet.",
@@ -656,7 +656,7 @@ const EN_COPY = {
       active: "Current",
       next: "Up next",
       blocked: "Blocked",
-      deferred: "Known risk",
+      deferred: "Later check",
       answered: "Answered",
       resolved: "Resolved"
     },
@@ -2010,7 +2010,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${generated}件の生成済み質問のうち${percent}%を処理済みで、未解決が${open}件残っています。`,
-    questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を既知リスクとして残す、または次を読み込む前に一度止めることができます。",
+    questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を後で確認する項目として残す、または次を読み込む前に一度止めることができます。",
     questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     researchFollowUpSourceTrace: "ソーストレース",
@@ -2086,10 +2086,10 @@ const JA_COPY: typeof EN_COPY = {
     submitAnswer: "回答を送信",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
-    nextValidationActionAriaPrefix: "次の検証アクション",
+    nextValidationActionAriaPrefix: "次の確認",
     additionalRiskDetails: "回答せず後で確認する項目として残す",
-    additionalRiskHelp: "この別アクションは、今このカードに回答せず、次の検証ステップ付きで既知リスクとして残す場合だけ使います。",
-    knownRiskPlaceholder: "既知のリスクとして残す場合、次の検証ステップを書いてください。",
+    additionalRiskHelp: "この別アクションは、今このカードに回答せず、次に確認する内容を残す場合だけ使います。",
+    knownRiskPlaceholder: "後で確認する場合、次に何を確認するかを書いてください。",
     carryAsKnownRisk: "後で確認する項目として残す",
     queueRecoveryFresh: "質問は最新です。ローカルサービスの更新が届くと、この一覧を更新します。",
     queueRefetchMissing: "質問を更新する経路はまだ読み込まれていません。",
@@ -3222,7 +3222,7 @@ const KO_COPY: typeof EN_COPY = {
       label: "질문",
       shortLabel: "Q",
       title: "질문",
-      description: "현재 질문, 다음 질문, 알려진 리스크를 한곳에서 정리합니다."
+      description: "현재 질문, 다음 질문, 나중에 확인할 항목을 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",
@@ -3477,7 +3477,7 @@ const KO_COPY: typeof EN_COPY = {
     },
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${percent}%를 처리했고, 아직 ${open}개가 남아 있습니다.`,
-    questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 알려진 리스크로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
+    questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 나중에 확인할 항목으로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
     questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     researchFollowUpSourceTrace: "소스 추적",
@@ -3553,10 +3553,10 @@ const KO_COPY: typeof EN_COPY = {
     submitAnswer: "답변 제출",
     submitDraftedAnswers: (count: number) =>
       count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
-    nextValidationActionAriaPrefix: "다음 검증 작업",
+    nextValidationActionAriaPrefix: "다음 확인",
     additionalRiskDetails: "답하지 않고 나중에 확인할 항목으로 남기기",
-    additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음 검증 작업과 함께 알려진 리스크로 남길 때만 사용하세요.",
-    knownRiskPlaceholder: "알려진 리스크로 남길 경우 다음 검증 작업을 적어주세요.",
+    additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음에 확인할 내용을 남길 때만 사용하세요.",
+    knownRiskPlaceholder: "나중에 확인할 경우 다음에 무엇을 확인할지 적어주세요.",
     carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
     queueRecoveryFresh: "질문 목록은 최신입니다. 로컬 서비스 업데이트가 오면 이 목록을 새로고침합니다.",
     queueRefetchMissing: "질문을 새로고침할 경로가 아직 로드되지 않았습니다.",
@@ -3583,7 +3583,7 @@ const KO_COPY: typeof EN_COPY = {
       active: "현재",
       next: "다음 후보",
       blocked: "막힘",
-      deferred: "알려진 리스크",
+      deferred: "나중에 확인",
       answered: "답변됨",
       resolved: "해결됨"
     },

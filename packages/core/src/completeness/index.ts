@@ -68,7 +68,7 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
   personal: {
     label: PROJECT_PURPOSE_MODE_LABELS.personal,
     effect:
-      "시장 규모, 투자자 narrative, 유료 의향을 기본 completion 요구에서 제외하고 workflow/GUI/구현 가능성/local data/security/유지보수를 우선합니다.",
+      "시장 규모, 투자자 설명, 돈을 낼 이유를 기본 완료 요구에서 제외하고 작업 흐름, 화면 UI, 구현 가능성, 내 컴퓨터의 데이터/보안, 유지보수를 우선합니다.",
     skippedCommercializationAxes: PROJECT_PURPOSE_MODE_SKIPPED_COMMERCIALIZATION_AXES.personal
   }
 } as const satisfies Record<
@@ -81,10 +81,10 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
 >;
 
 const PROJECT_PURPOSE_MODE_REQUIRED_EFFECT =
-  "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 명시 선택하기 전까지 mode-specific completeness gate를 확정하지 않습니다.";
+  "사용자가 사업화 검증 중심 또는 개인 작업 흐름 구현 중심을 명시 선택하기 전까지 목적별 완료 기준을 확정하지 않습니다.";
 
 const BUSINESS_CRITIC_INTENSITY_REQUIRED_EFFECT =
-  "사업화 모드에서는 사용자가 balanced, strong, investor_grade 중 하나를 명시 선택하기 전까지 business completion gate를 확정하지 않습니다.";
+  "사업화 모드에서는 사용자가 검증 강도를 명시 선택하기 전까지 사업 완료 기준을 확정하지 않습니다.";
 
 const ELEVATED_BUSINESS_CRITIC_CATEGORY_REPORT_ORDER = [
   "paid_intent",
@@ -537,9 +537,9 @@ function businessCriticPressureGate(state: ProductEngineStateSnapshot): Completi
   if (intensity === "strong" && unresolvedStrong.length > 0) {
     return {
       gateId: "business_critic_pressure",
-      label: "Strong critic core-assumption challenges are resolved or carried as Known Risks",
+      label: "Strong business-review core assumptions are answered or kept for later checking",
       passed: false,
-      blockingReason: `${unresolvedStrong.length} core-assumption challenge(s) need an answer or Known Risk + Next Validation Action.`
+      blockingReason: `${unresolvedStrong.length} core-assumption challenge(s) need an answer or a later-check note with a next check.`
     };
   }
 
@@ -988,7 +988,7 @@ export function buildConfidenceCompletionProjection(
           title: PROJECT_PURPOSE_MODE_REQUIRED_LABEL,
           severity: "high",
           sourceRefs: [state.session.sessionId],
-          nextValidationAction: "사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 선택합니다."
+          nextValidationAction: "사용자가 사업화 검증 중심 또는 개인 작업 흐름 구현 중심을 선택합니다."
         }
       ],
       nextBestActions: ["Select the project purpose mode before scoring mode-specific completion gates."],
@@ -1000,7 +1000,7 @@ export function buildConfidenceCompletionProjection(
           title: "If stop now",
           summary: "No founder brief can be prepared before project purpose mode selection.",
           knownRisks: [PROJECT_PURPOSE_MODE_REQUIRED_LABEL],
-          nextValidationActions: ["사용자가 사업화 검증 중심 또는 개인 workflow 구현 중심을 선택합니다."]
+          nextValidationActions: ["사용자가 사업화 검증 중심 또는 개인 작업 흐름 구현 중심을 선택합니다."]
         }
       }
     };

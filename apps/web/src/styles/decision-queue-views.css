@@ -686,18 +686,13 @@
   align-items: baseline;
   display: grid;
   gap: 5px;
-  grid-template-columns: max-content max-content minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
 }
 
 .question-prompt-block dt {
   color: #405161;
   font-size: 0.7rem;
   font-weight: 800;
-}
-
-.question-prompt-block span {
-  color: #667784;
-  font-size: 0.72rem;
 }
 
 .question-prompt-block dd {

@@ -93,7 +93,7 @@ function withConfirmedBusinessPurposeMode(state: ProductEngineStateSnapshot): Pr
       businessCriticIntensity: "balanced",
       businessCriticIntensitySelectionStatus: "confirmed",
       businessCriticIntensityLabel: "균형형 사업 검증",
-      businessCriticIntensityEffect: "주요 decision group마다 최소 1개의 반대/비판 질문을 유지합니다.",
+      businessCriticIntensityEffect: "주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
       businessCriticIntensityAudit: []
     }
   };
@@ -955,7 +955,7 @@ describe("PR-04 ProductEngine reducer", () => {
       version: 1,
       phase: "intake",
       projectPurposeMode: "personal",
-      projectPurposeModeLabel: "개인 workflow 구현 중심",
+      projectPurposeModeLabel: "개인 작업 흐름 구현 중심",
       initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
     });
     expect(state.project.initialResearchAutomationPermission).toBe("allow_codex_and_chatgpt_visible");
@@ -1069,7 +1069,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(start.nextState.project).toMatchObject({
       projectPurposeMode: "business",
       businessCriticIntensitySelectionStatus: "intensity_required",
-      businessCriticIntensityLabel: "상업성 검증 강도 선택 필요"
+      businessCriticIntensityLabel: "사업 검증 강도 선택 필요"
     });
     eventDrafts.push(start.events[0]);
     state = replayProductEngineEvents(
@@ -1611,7 +1611,7 @@ describe("PR-04 ProductEngine reducer", () => {
         tasks: [
           expect.objectContaining({
             projectPurposeMode: "personal",
-            projectPurposeModeLabel: "개인 workflow 구현 중심",
+            projectPurposeModeLabel: "개인 작업 흐름 구현 중심",
             skippedCommercializationAxes: expect.arrayContaining(["market_size", "willingness_to_pay"])
           })
         ]
@@ -1644,7 +1644,7 @@ describe("PR-04 ProductEngine reducer", () => {
       kind: "SessionShellProjection",
       phase: "validation",
       projectPurposeMode: "personal",
-      projectPurposeModeLabel: "개인 workflow 구현 중심"
+      projectPurposeModeLabel: "개인 작업 흐름 구현 중심"
     });
     expect(reduction.nextState).toMatchObject({
       queueProjection: {

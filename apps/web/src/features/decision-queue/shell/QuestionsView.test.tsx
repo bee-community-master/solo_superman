@@ -679,11 +679,11 @@ describe("QuestionsView", () => {
     }, "ko");
 
     expect(markup).toContain("근거 문장");
-    expect(markup).toContain("아이디어");
+    expect(markup).toContain("아이디어 -");
     expect(markup).toContain("반려동물의 요람에서 무덤까지 관리하는 앱");
-    expect(markup).toContain("목표");
+    expect(markup).toContain("목표 -");
     expect(markup).toContain("보호자가 모든 정보를 한곳에서 관리하고 운영자는 돈을 벌고 싶다.");
-    expect(markup).toContain("질문");
+    expect(markup).toContain("질문 -");
     expect(markup).toContain("사용자가 돈을 내기 망설일 가장 큰 이유는 무엇인가요?");
     expect(markup).not.toContain("아이디어 “반려동물의 요람에서 무덤까지 관리하는 앱”와 목표");
   });

@@ -86,7 +86,7 @@ describe("sidecar client commands", () => {
               version: 5,
               phase: "validation",
               projectPurposeMode: "personal",
-              projectPurposeModeLabel: "개인 workflow 구현 중심",
+              projectPurposeModeLabel: "개인 작업 흐름 구현 중심",
               projectPurposeModeEffect: "개인 workflow 기준으로 질문과 리서치를 조정합니다."
             }
           },

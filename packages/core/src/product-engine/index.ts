@@ -1857,7 +1857,7 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     uncertaintyType: "unsupported",
     severity: "high",
     summary: "founder advantage pressure item이 근거 없이 남아 있음",
-    whyItMatters: "창업자 우위가 약하면 투자심사급 narrative에서 방어 가능성이 낮아집니다.",
+    whyItMatters: "만드는 사람/팀의 강점이 약하면 왜 우리가 이 문제를 더 잘 풀 수 있는지 설명하기 어렵습니다.",
     question: "왜 이 만드는 사람/팀이 이 문제를 더 잘 풀 수 있고, 그 생각이 틀릴 수 있는 이유는 무엇인가요?",
     expectedAnswerType: "evidence",
     decisionItUnlocks: "만드는 사람/팀의 강점을 근거로 남길지, 아직 모르는 항목으로 남길지 정합니다.",
@@ -1871,7 +1871,7 @@ const PERSONAL_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     sectionRef: "JTBD / Use Case",
     topicKey: "personal_workflow_context",
     purposeModeAxis: "workflow",
-    purposeModeEffect: "개인 workflow 구현 중심에서는 실제 사용 흐름을 먼저 잠급니다.",
+    purposeModeEffect: "개인 작업 흐름 구현 중심에서는 실제 사용 흐름을 먼저 정합니다.",
     uncertaintyType: "vague",
     severity: "high",
     summary: "개인이 반복해서 겪는 workflow가 충분히 구체적이지 않음",
@@ -4416,7 +4416,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     !candidateIssues.some(isCoreAssumptionChallengeIssue)
   ) {
     return reject(
-      "ActivateQuestionBatch requires at least one core-assumption challenge for strong or investor-grade business critic intensity.",
+      "ActivateQuestionBatch requires at least one core-assumption challenge for stronger business review intensity.",
       "COMMAND_PRECONDITION_FAILED",
       {
         businessCriticIntensity: state.project.businessCriticIntensity,
@@ -4527,7 +4527,7 @@ function reduceQueueItemResolution(
     (riskDisposition !== "known_risk_next_validation_action" || !nextValidationAction)
   ) {
     return reject(
-      "DeferQueueItem requires Known Risk + Next Validation Action for high-severity business critic items.",
+      "DeferQueueItem requires a later-check note and next check for high-severity business review items.",
       "COMMAND_PRECONDITION_FAILED",
       {
         queueItemId,
@@ -4539,7 +4539,7 @@ function reduceQueueItemResolution(
 
   if (config.commandType === "DismissQueueItem" && queueItemRequiresKnownRiskDeferral(existingItem)) {
     return reject(
-      "DismissQueueItem cannot hide high-severity business critic items; defer with Known Risk + Next Validation Action instead.",
+      "DismissQueueItem cannot hide high-severity business review items; keep them for later checking with a next check instead.",
       "COMMAND_PRECONDITION_FAILED",
       {
         queueItemId,
