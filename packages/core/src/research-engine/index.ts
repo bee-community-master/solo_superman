@@ -220,8 +220,8 @@ function userFacingResearchText(value: string | undefined, fallback: string) {
   return sanitized || fallback;
 }
 
-function stripResearchObjectiveMetaText(value: string) {
-  return translatePublicResearchSnippetToKorean(value)
+function stripResearchObjectiveScaffolding(value: string) {
+  return value
     .replace(/\bFind decision (?:evidence|근거) for\b[:：]?\s*/giu, "")
     .replace(/\bFind (?:evidence|근거) for\b[:：]?\s*/giu, "")
     .replace(/\bValidate (?:evidence|근거) for\b[:：]?\s*/giu, "")
@@ -231,8 +231,11 @@ function stripResearchObjectiveMetaText(value: string) {
     .replace(/\bUser answer to account for\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
     .replace(/\bDecision this should inform\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
     .replace(/\bAmbiguity dimension\b[:：]?[^.。!?]{0,120}[.。!?]?/giu, "")
+    .replace(/\bCollect current public evidence with source freshness, limitations?, and counterexamples? before treating the answer as implementation-ready\.?/giu, "")
+    .replace(/\bReturn source-linked findings?, limitations?, other perspectives?, and what still needs a human decision\.?/giu, "")
     .replace(/\bCollect 현재 공개 근거 with 출처 최신성, 한계, and 반례 before treating the answer as 구현 준비 완료\.?/giu, "")
     .replace(/\bReturn 출처 연결 근거s?, 한계, 다른 관점, and what still needs a 사용자 판단\.?/giu, "")
+    .replace(/\b판단 this should inform\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
     .replace(/현재\s+가정을\s+약하게\s+만들거나[^.。!?]{0,180}[.。!?]?/gu, "")
     .replace(/확인\s+가능한\s+사실과\s+사용자가\s+정해야\s+할\s+가정[^.。!?]{0,220}[.。!?]?/gu, "")
     .replace(/공개\s+사용자\s+후기,\s*커뮤니티\s+글,\s*경쟁·대체재\s+페이지,\s*가격\/정책\s+자료,\s*관련\s+리포트에서[^.。!?]{0,260}[.。!?]?/gu, "")
@@ -241,15 +244,20 @@ function stripResearchObjectiveMetaText(value: string) {
     .trim();
 }
 
+function stripResearchObjectiveMetaText(value: string) {
+  return stripResearchObjectiveScaffolding(translatePublicResearchSnippetToKorean(stripResearchObjectiveScaffolding(value)));
+}
+
 function compactDecisionTopic(value: string) {
-  const translated = translatePublicResearchSnippetToKorean(value);
-  const decisionMatch = translated.match(
+  const rawWithoutScaffolding = stripResearchObjectiveScaffolding(value);
+  const translated = translatePublicResearchSnippetToKorean(rawWithoutScaffolding);
+  const decisionMatch = value.match(
     /\bDecision this should inform\b[:：]?\s*(.+?)(?=\s+(?:Ambiguity dimension|Collect|Return)\b|$)/isu
   );
-  const originalAmbiguityMatch = translated.match(
+  const originalAmbiguityMatch = value.match(
     /\bOriginal ambiguity\b[:：]?\s*(.+?)(?=\s+User answer to account for\b|$)/isu
   );
-  const topicSeed = decisionMatch?.[1] ?? originalAmbiguityMatch?.[1] ?? value;
+  const topicSeed = decisionMatch?.[1] ?? originalAmbiguityMatch?.[1] ?? rawWithoutScaffolding;
   const normalized = stripResearchObjectiveMetaText(topicSeed)
     .replace(/“[^”]{80,}”/gu, "해당 아이디어")
     .replace(/"[^"]{80,}"/gu, "해당 아이디어")
@@ -950,7 +958,7 @@ function sourceRetainedRef(result: ResearchResultProjection) {
     return result.sourceTitle;
   }
 
-  const summary = userFacingResearchText(result.resultSummary, "");
+  const summary = stripInternalResearchMetaText(result.resultSummary);
   const findingMatch = /-\s*\[(?:supports|weakens|uncertain)\]\s*(.+?)(?=\s+-\s*\[(?:supports|weakens|uncertain)\]|\s+Rejected noise:|\s+Limitations:|\s+Human decision needed:|$)/isu.exec(
     summary.replace(/\r?\n/gu, " ")
   );
@@ -960,7 +968,7 @@ function sourceRetainedRef(result: ResearchResultProjection) {
     .trim();
 
   if (finding) {
-    return compactSummary(finding, "source-linked finding");
+    return compactSummary(userFacingResearchText(finding, "source-linked finding"), "source-linked finding");
   }
 
   const humanDecisionMatch = /Human decision needed:\s*(.+?)(?=\s+[A-Z][A-Za-z ]+:|$)/isu.exec(
@@ -969,7 +977,7 @@ function sourceRetainedRef(result: ResearchResultProjection) {
   const humanDecision = humanDecisionMatch?.[1]?.trim();
 
   if (humanDecision) {
-    return compactSummary(humanDecision, "human decision needed");
+    return compactSummary(userFacingResearchText(humanDecision, "human decision needed"), "human decision needed");
   }
 
   return "출처 내용이 아직 정리되지 않았습니다.";

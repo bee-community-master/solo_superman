@@ -217,6 +217,28 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion.length).toBeLessThan(700);
   });
 
+  it("strips English research objective metadata before localizing source-quality follow-ups", () => {
+    const researchTask = task({
+      objective:
+        "Find decision evidence for: onboarding retention. Decision this should inform: whether to prioritize automated onboarding. Ambiguity dimension: retention. Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready. Return source-linked findings, limitations, other perspectives, and what still needs a human decision.",
+      impact: "high"
+    });
+    const researchResult = result({
+      result: "Usable findings:\n- usable finding 없음",
+      limitationNotes: "source_quality_insufficient: no usable finding remained after relevance filtering."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const serializedQuestion = matrix.additionalQuestions.join("\n");
+
+    expect(matrix.balanceStatus).toBe("source_quality_insufficient");
+    expect(serializedQuestion).toContain("whether to prioritize automated onboarding");
+    expect(serializedQuestion).not.toContain("Find 판단 근거");
+    expect(serializedQuestion).not.toContain("판단 this should inform");
+    expect(serializedQuestion).not.toContain("Return source-linked findings");
+    expect(serializedQuestion).not.toContain("Collect current public evidence");
+    expect(serializedQuestion).not.toContain("Ambiguity dimension");
+  });
+
   it("uses only structured supports and weakens findings for public-web evidence synthesis", () => {
     const researchTask = task({
       objective: "이혼 준비자를 위한 현금 runway와 유료 의향 검증",
@@ -246,6 +268,35 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.conEvidence[0]?.summary).toContain("무료 법률구조");
     expect(matrix.proEvidence[0]?.summary).not.toContain("https://example.org");
     expect(matrix.conEvidence[0]?.summary).not.toContain("https://example.org");
+  });
+
+  it("keeps structured research section boundaries when deriving retained source refs", () => {
+    const researchTask = task({
+      objective: "Validate evidence for: onboarding retention",
+      impact: "medium"
+    });
+    const researchResult = result({
+      result: [
+        "Usable findings:",
+        "- [supports] Users completed onboarding faster after checklist setup — Onboarding report https://example.org/onboarding",
+        "Human decision needed: decide rollout owner"
+      ].join("\n"),
+      limitationNotes: "A single public source was reviewed."
+    });
+    const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
+    const pack = buildDecisionEvidencePack({ researchTask, researchResult, synthesisVersion: 1, matrix });
+    const projection = addResearchResultToProjection(
+      emptyResearchEvidenceProjection(),
+      researchTask,
+      researchResult,
+      matrix,
+      pack,
+      1 as ProjectionVersion
+    );
+
+    expect(projection.reviewCards[0]?.retainedSourceRef).toBe("Users completed onboarding faster after checklist setup");
+    expect(projection.reviewCards[0]?.retainedSourceRef).not.toContain("사용자 판단 needed");
+    expect(projection.reviewCards[0]?.retainedSourceRef).not.toContain("Human decision needed");
   });
 
   it("preserves multiple structured usable findings so configured minimum gates can pass", () => {
