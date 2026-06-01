@@ -909,6 +909,40 @@ describe("QuestionsView", () => {
     expect(markup).not.toContain(">blocked<");
   });
 
+  it("emphasizes only research labels and localizes English source snippets in Korean question cards", () => {
+    const markup = renderQuestionsView(
+      {
+        sections: [
+          {
+            id: "active",
+            title: "Current",
+            emptyLabel: "No questions.",
+            items: [
+              {
+                queueItemId: "research_follow_up_korean" as QueueItemId,
+                title:
+                  "근거 공백: 유료 의향 핵심 가설을 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.\n\n한계/불확실성: 6 days ago · Use this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce.",
+                state: "active",
+                cardType: "follow_up_question",
+                sourceRef: "research:task:matrix:additional_question:1",
+                whyItMatters:
+                  "리서치 근거 요약:\n- 출처 단서: source_quality_insufficient: usable source-linked finding was not found."
+              }
+            ]
+          }
+        ]
+      },
+      "ko"
+    );
+
+    expect(markup).toContain("<strong>근거 공백:</strong> 유료 의향 핵심 가설");
+    expect(markup).toContain("<strong>한계/불확실성:</strong> 최근 공개 검색 요약:");
+    expect(markup).toContain("이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다.");
+    expect(markup).toContain("<strong>리서치 근거 요약:</strong>");
+    expect(markup).toContain("- <strong>출처 단서:</strong> 출처 품질 부족: 출처와 연결된 유의미한 근거 찾지 못했습니다.");
+    expect(markup).not.toContain("<strong>유료 의향 핵심 가설을 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.</strong>");
+  });
+
   it("renders multiple-select answer choices when a question accepts more than one option", () => {
     const queue: DecisionQueueProjection = {
       kind: "DecisionQueueProjection",

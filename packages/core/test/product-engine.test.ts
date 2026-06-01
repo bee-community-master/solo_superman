@@ -3050,11 +3050,16 @@ describe("PR-04 ProductEngine reducer", () => {
           ]),
           repeatCount: 1,
           repeatLimit: 16,
+          topicKey: expect.stringContaining("_follow_up_1"),
+          ambiguityRoutingPath: "current_research",
+          severity: "high",
+          researchQuestion: expect.stringContaining("Validate paid"),
+          suggestedResearchTask: expect.stringContaining("추가 질문"),
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 메모리 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con evidence was found\.[\s\S]*\n- 한계\/불확실성: Counter-evidence still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: Founder urgency evidence notes/u
+            /리서치 (?:메모리|근거) 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con (?:evidence|근거) was found\.[\s\S]*\n- 한계\/불확실성: Counter-(?:evidence|근거) still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: (?:Founder|만드는 사람) urgency (?:evidence|근거) notes/u
           ),
-          decisionItUnlocks: expect.stringContaining("Founder urgency evidence notes"),
+          decisionItUnlocks: expect.stringContaining("만드는 사람 urgency 근거 notes"),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
           sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
         })
@@ -3065,7 +3070,12 @@ describe("PR-04 ProductEngine reducer", () => {
             cardType: "follow_up_question",
             title: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
             state: "active",
-            whyItMatters: expect.stringContaining("반례"),
+            topicKey: expect.stringContaining("_follow_up_1"),
+            ambiguityRoutingPath: "current_research",
+            severity: "high",
+            researchQuestion: expect.stringContaining("Validate paid"),
+            suggestedResearchTask: expect.stringContaining("추가 질문"),
+            whyItMatters: expect.stringMatching(/리서치 (?:메모리|근거) 요약/u),
             sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
           })
         ],

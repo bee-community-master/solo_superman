@@ -10,8 +10,11 @@ import type {
   ResearchAllowlistGovernanceProjection,
   ResearchAllowlistId,
   ResearchConnectorId,
+  ResearchDisclosureLogId,
   ResearchEvidenceProjection,
   ResearchResultId,
+  ResearchRunControlProjection,
+  ResearchRunId,
   ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
@@ -170,6 +173,84 @@ function allowlistProjection(maxConcurrentRunsPerProject = 2): ResearchAllowlist
         reason: "active_public_safe_allowlist"
       }
     ]
+  };
+}
+
+function researchRunProjectionWithRuns(): ResearchRunControlProjection {
+  const projectId = "proj_research_batch" as ProjectId;
+  const firstRunId = "research_run_batch_1" as ResearchRunId;
+  const secondRunId = "research_run_batch_2" as ResearchRunId;
+  const staleSelectedRunStatusUrl = "/api/v1/projects/proj_research_batch/research-runs/research_run_selected/status";
+
+  function run(
+    researchRunId: ResearchRunId,
+    researchTaskId: ResearchTaskId,
+    disclosureLogId: ResearchDisclosureLogId
+  ): ResearchRunControlProjection["runs"][number] {
+    return {
+      kind: "ResearchRunProjection",
+      version: 3 as ProjectionVersion,
+      researchRunId,
+      projectId,
+      researchTaskId,
+      allowlistId: "research_allowlist_public_web" as ResearchAllowlistId,
+      disclosureLogId,
+      connectorId: "public_search" as ResearchConnectorId,
+      sourceCategory: "public_web",
+      status: "running",
+      provider: {
+        researchRunId,
+        researchTaskId,
+        adapterKind: "web_search_readonly",
+        adapterVersion: "test",
+        sourceCategory: "public_web",
+        idempotencyKey: `${researchRunId}:attempt-1`,
+        startedAt: "2026-05-22T00:00:00.000Z",
+        attempt: 1
+      },
+      qualityGateStatus: "not_evaluated",
+      sourceRefs: [],
+      createdAt: "2026-05-22T00:00:00.000Z",
+      updatedAt: "2026-05-22T00:00:00.000Z"
+    };
+  }
+
+  return {
+    kind: "ResearchRunControlProjection",
+    projectionKind: "ResearchRunProjection",
+    projectId,
+    version: 4 as ProjectionVersion,
+    generatedAt: "2026-05-22T00:00:00.000Z",
+    stale: false,
+    refetchUrl: "/api/v1/projects/proj_research_batch/research-runs",
+    statusUrl: staleSelectedRunStatusUrl,
+    pendingEffectSummary: {
+      totalPending: 0,
+      byType: {},
+      visibleLabel: "No async ProductEngine effects are pending."
+    },
+    runs: [
+      run(
+        firstRunId,
+        "research_task_ready_batch_1" as ResearchTaskId,
+        "research_disclosure_batch_1" as ResearchDisclosureLogId
+      ),
+      run(
+        secondRunId,
+        "research_task_ready_batch_2" as ResearchTaskId,
+        "research_disclosure_batch_2" as ResearchDisclosureLogId
+      )
+    ],
+    recovery: {
+      refetchUrl: staleSelectedRunStatusUrl,
+      sseEventNames: ["projection.updated"],
+      projectionHints: [
+        {
+          projectionKind: "ResearchRunProjection",
+          refetchUrl: staleSelectedRunStatusUrl
+        }
+      ]
+    }
   };
 }
 
@@ -406,6 +487,21 @@ describe("ResearchView", () => {
     expect(markup).not.toContain("research_allowlist_public_web");
     expect(markup).toContain("Apply limit");
     expect(markup).toContain("value=\"3\"");
+  });
+
+  it("renders each research run card with its own recovery status URL", () => {
+    const markup = renderResearchView({
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        runs: researchRunProjectionWithRuns()
+      }
+    });
+
+    expect(markup).toContain("research_task_ready_batch_1");
+    expect(markup).toContain("research_task_ready_batch_2");
+    expect(markup).toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_1/status");
+    expect(markup).toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_2/status");
+    expect(markup).not.toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_selected/status");
   });
 
   it("renders the blocked ready-batch reason when the active allowlist is missing", () => {

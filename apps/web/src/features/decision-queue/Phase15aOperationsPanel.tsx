@@ -6,6 +6,7 @@ import type {
   ResearchRunId
 } from "@solo-superman/contracts";
 import { useState } from "react";
+import { researchRunStatusPath } from "../../shared/api/sidecar-routes";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
 import {
   joinPhase15aResearchLabels,
@@ -58,6 +59,10 @@ function researchRunProviderLabel(run: ResearchRunControlProjection["runs"][numb
   const adapterLabel = phase15aAdapterKindLabel(copy.phase15a, adapterKind);
 
   return `${copy.phase15a.run} ${run.researchRunId} · ${adapterLabel} · ${copy.phase15a.attempt} ${attempt}`;
+}
+
+function researchRunRecoveryUrl(run: ResearchRunControlProjection["runs"][number]) {
+  return researchRunStatusPath(run.projectId, run.researchRunId);
 }
 
 function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"], copy: ReturnType<typeof useDecisionQueueCopy>) {
@@ -274,7 +279,7 @@ export function Phase15aOperationsPanel({
                       {copy.phase15a.terminal}: {phase15aTerminalReasonLabel(copy.phase15a, run.terminalReason)}
                     </small>
                   ) : null}
-                  <small>{copy.phase15a.recovery}: {researchOperations.runs?.recovery.refetchUrl ?? copy.phase15a.refetchUnavailable}</small>
+                  <small>{copy.phase15a.recovery}: {researchRunRecoveryUrl(run)}</small>
                   <div className="card-actions">
                     <button
                       type="button"

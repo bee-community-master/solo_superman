@@ -821,6 +821,22 @@
   margin-top: 2px;
 }
 
+.generated-question-text {
+  display: grid;
+  gap: 6px;
+  font-weight: 450;
+  min-width: 0;
+}
+
+.generated-question-text-line {
+  min-width: 0;
+}
+
+.generated-question-text strong {
+  color: var(--solo-text);
+  font-weight: 850;
+}
+
 .queue-state-badge,
 .research-status-badge {
   border: 1px solid #d8ece8;

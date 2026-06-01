@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { AmbiguityAnswerSelectionMode, QueueItemProjection } from "@solo-superman/contracts";
 import {
   draftedActiveQuestionAnswerIds,
@@ -7,6 +7,7 @@ import {
 } from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
 
@@ -42,6 +43,119 @@ function compactSourceTraceLabel(value: string) {
   const compacted = value.replace(/\s+/gu, " ").trim();
 
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
+}
+
+const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
+  en: [
+    "Research evidence summary",
+    "Evidence gap",
+    "Known limitation",
+    "Limitation",
+    "Uncertainty",
+    "Source clue",
+    "Source",
+    "Confirmed clue",
+    "Other perspective",
+    "Counterexample",
+    "Decision this unlocks"
+  ],
+  ja: [
+    "リサーチ根拠の要約",
+    "根拠ギャップ",
+    "限界/不確実性",
+    "出典の手がかり",
+    "確認された手がかり",
+    "別の観点/反例",
+    "この回答で決まる判断"
+  ],
+  ko: [
+    "리서치 근거 요약",
+    "근거 공백",
+    "한계/불확실성",
+    "한계와 불확실성",
+    "출처 단서",
+    "확인된 단서",
+    "다른 관점/반례",
+    "다음 판단",
+    "이 답으로 정해지는 내용",
+    "이 답으로 정해지는 판단"
+  ]
+};
+
+function localizedGeneratedText(value: string, language: AppLanguage) {
+  if (language !== "ko") {
+    return value;
+  }
+
+  return value
+    .replace(/한계와\s+불확실성은\s*([^.\n。]+)(?:입니다)?\.?/gu, "한계/불확실성: $1")
+    .replace(/\b(\d+)\s+days?\s+ago\s*[·-]\s*/giu, "최근 공개 검색 요약: ")
+    .replace(
+      /\bUse this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce\.?/giu,
+      "이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다."
+    )
+    .replace(/\bcash flow\b/giu, "현금 흐름")
+    .replace(/\bdocuments\b/giu, "서류")
+    .replace(/\binsurance\b/giu, "보험")
+    .replace(/\baccount updates\b/giu, "계좌 업데이트")
+    .replace(/\bnext-step planning\b/giu, "다음 계획")
+    .replace(/\bduring and after divorce\b/giu, "이혼 전후")
+    .replace(/\bsource_quality_insufficient\b/giu, "출처 품질 부족")
+    .replace(/\busable source-linked finding\b/giu, "출처와 연결된 유의미한 근거")
+    .replace(/\busable finding\b/giu, "유의미한 근거")
+    .replace(/\bsource-linked finding\b/giu, "출처 연결 근거")
+    .replace(/\bother perspectives?\b/giu, "다른 관점")
+    .replace(/\bcounterexamples?\b/giu, "반례")
+    .replace(/\blimitations?\b/giu, "한계")
+    .replace(/\bsource freshness\b/giu, "출처 최신성")
+    .replace(/\bcurrent public evidence\b/giu, "현재 공개 근거")
+    .replace(/\bcore-assumption risk\b/giu, "핵심 가설 리스크")
+    .replace(/\bassumption_pressure\b/giu, "가설 압박")
+    .replace(/\bpaid intent\b/giu, "유료 의향")
+    .replace(/\bwillingness-to-pay\b/giu, "유료 의향")
+    .replace(/\bprice proxy\b/giu, "가격 대체 지표")
+    .replace(/\bwas not found\b/giu, "찾지 못했습니다");
+}
+
+function lineWithEmphasis(line: string, language: AppLanguage) {
+  const labels = EMPHASIS_LABELS_BY_LANGUAGE[language];
+  const bulletMatch = /^(\s*[-•]\s*)([^:：]{2,40})([:：])\s*(.*)$/u.exec(line);
+  const labelMatch = /^(\s*)([^:：]{2,40})([:：])\s*(.*)$/u.exec(line);
+  const match = bulletMatch ?? labelMatch;
+
+  if (!match) {
+    return line;
+  }
+
+  const [, prefix = "", label = "", separator = ":", rest = ""] = match;
+  const normalizedLabel = label.trim();
+
+  if (!labels.includes(normalizedLabel)) {
+    return line;
+  }
+
+  return (
+    <>
+      {prefix}
+      <strong>{normalizedLabel}{separator}</strong>
+      {rest ? ` ${rest}` : ""}
+    </>
+  );
+}
+
+function GeneratedQuestionText({ language, text }: { readonly language: AppLanguage; readonly text: string }) {
+  const localizedText = localizedGeneratedText(text, language);
+  const lines = localizedText.split(/\r?\n/u);
+
+  return (
+    <span className="generated-question-text">
+      {lines.map((line, index) => (
+        <span className="generated-question-text-line" key={`${index}:${line}`}>
+          {lineWithEmphasis(line, language) as ReactNode}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function researchFollowUpSourceTrace(item: QueueItemProjection) {
@@ -193,32 +307,36 @@ function questionLoopNextAction(copy: DecisionQueueCopy, input: {
 
 function ResearchFollowUpSourceTrace({
   copy,
-  item
+  item,
+  language
 }: {
   readonly copy: DecisionQueueCopy;
   readonly item: QueueItemProjection;
+  readonly language: AppLanguage;
 }) {
   const sourceTrace = researchFollowUpSourceTrace(item);
 
   return sourceTrace ? (
     <aside className="question-source-trace" aria-label={copy.questions.researchFollowUpSourceTrace}>
       <strong>{copy.questions.researchFollowUpSourceTrace}</strong>
-      <p>{sourceTrace}</p>
+      <p><GeneratedQuestionText language={language} text={sourceTrace} /></p>
     </aside>
   ) : null;
 }
 
 function QuestionPromptBlock({
   copy,
-  item
+  item,
+  language
 }: {
   readonly copy: DecisionQueueCopy;
   readonly item: QueueItemProjection;
+  readonly language: AppLanguage;
 }) {
   const context = item.questionContext;
 
   if (!context || (!context.idea && !context.goal)) {
-    return <h4>{item.title}</h4>;
+    return <h4><GeneratedQuestionText language={language} text={item.title} /></h4>;
   }
 
   const { goal, idea } = context;
@@ -242,7 +360,7 @@ function QuestionPromptBlock({
         <div className="question-prompt-block__question">
           <dt>{copy.questions.questionContextQuestion} -</dt>
           <dd>
-            <h4>{item.title}</h4>
+            <h4><GeneratedQuestionText language={language} text={item.title} /></h4>
           </dd>
         </div>
       </dl>
@@ -252,6 +370,7 @@ function QuestionPromptBlock({
 
 export function QuestionsView({ controller }: QuestionsViewProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const [selectedAnswerOptionIds, setSelectedAnswerOptionIds] = useState<Record<string, readonly string[]>>({});
   const [answerOptionNotes, setAnswerOptionNotes] = useState<Record<string, string>>({});
   const {
@@ -458,7 +577,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                       <article className={`queue-card ${item.state}`} key={item.queueItemId}>
                       <div className="queue-card-main">
                         <header className="queue-card-header">
-                          <QuestionPromptBlock copy={copy} item={item} />
+                          <QuestionPromptBlock copy={copy} item={item} language={language} />
                           <span className="queue-state-badge">{copy.questions.queueItemStateLabels[item.state]}</span>
                         </header>
                         {isBusinessCriticQueueItem(item) ? (
@@ -471,30 +590,30 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                             {item.whyItMatters ? (
                               <div>
                                 <dt>{copy.questions.whyItMatters}</dt>
-                                <dd>{item.whyItMatters}</dd>
+                                <dd><GeneratedQuestionText language={language} text={item.whyItMatters} /></dd>
                               </div>
                             ) : null}
                             {item.decisionItUnlocks ? (
                               <div>
                                 <dt>{copy.questions.decisionItUnlocks}</dt>
-                                <dd>{item.decisionItUnlocks}</dd>
+                                <dd><GeneratedQuestionText language={language} text={item.decisionItUnlocks} /></dd>
                               </div>
                             ) : null}
                             {item.nextValidationAction ? (
                               <div>
                                 <dt>{copy.questions.nextValidation}</dt>
-                                <dd>{item.nextValidationAction}</dd>
+                                <dd><GeneratedQuestionText language={language} text={item.nextValidationAction} /></dd>
                               </div>
                             ) : null}
                           </dl>
                         ) : null}
-                        <ResearchFollowUpSourceTrace copy={copy} item={item} />
+                        <ResearchFollowUpSourceTrace copy={copy} item={item} language={language} />
                         {item.additionalQuestions?.length ? (
                           <aside className="research-additional-questions" aria-label={copy.questions.researchAdditionalQuestions}>
                             <p>{copy.questions.researchAdditionalQuestions}</p>
                             <ul>
                               {item.additionalQuestions.map((question) => (
-                                <li key={question}>{question}</li>
+                                <li key={question}><GeneratedQuestionText language={language} text={question} /></li>
                               ))}
                             </ul>
                           </aside>
