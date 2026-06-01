@@ -1725,7 +1725,15 @@ const BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY: Readonly<Record<string, BusinessCri
   implementation_resource_fit: "legal_ops_security",
   founder_advantage: "founder_advantage",
   job_context_specificity: "customer_pain",
-  operational_risk_boundary: "legal_ops_security"
+  operational_risk_boundary: "legal_ops_security",
+  strong_paid_intent_core_assumption: "paid_intent",
+  strong_customer_pain_frequency: "customer_pain",
+  strong_acquisition_channel_failure: "acquisition",
+  investor_pricing_pressure: "pricing",
+  investor_retention_proxy_pressure: "retention_proxy",
+  investor_market_timing_pressure: "market_timing",
+  investor_legal_ops_pressure: "legal_ops_security",
+  investor_founder_advantage_pressure: "founder_advantage"
 } as const satisfies Record<string, BusinessCriticalQuestionCategory>;
 
 const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
@@ -2010,6 +2018,36 @@ function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQues
 
 type AmbiguityIssueSeedSource = "deterministic" | "generated_json";
 
+function businessCriticPressureKindForGeneratedSeed(seed: AmbiguityIssueSeed): BusinessCriticPressureKind | undefined {
+  if (seed.businessCriticPressureKind) {
+    return seed.businessCriticPressureKind;
+  }
+
+  if (seed.topicKey.startsWith("investor_")) {
+    return "investor_pressure_pass";
+  }
+
+  if (seed.topicKey.startsWith("strong_")) {
+    return "core_assumption_challenge";
+  }
+
+  return undefined;
+}
+
+function businessCriticIntensityMinimumForGeneratedSeed(seed: AmbiguityIssueSeed): BusinessCriticIntensity {
+  const pressureKind = businessCriticPressureKindForGeneratedSeed(seed);
+
+  if (pressureKind === "investor_pressure_pass") {
+    return "investor_grade";
+  }
+
+  if (pressureKind === "core_assumption_challenge") {
+    return "strong";
+  }
+
+  return seed.businessCriticIntensityMinimum ?? "balanced";
+}
+
 function questionTextForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
@@ -2066,6 +2104,12 @@ function createAmbiguityIssuesFromSeeds(input: {
 
   return input.seeds.map((seed, index) => {
     const businessCriticCategory = categoryForBusinessSeed(seed);
+    const businessCriticPressureKind = input.source === "generated_json"
+      ? businessCriticPressureKindForGeneratedSeed(seed)
+      : seed.businessCriticPressureKind;
+    const businessCriticIntensityMinimum = input.source === "generated_json"
+      ? businessCriticIntensityMinimumForGeneratedSeed(seed)
+      : seed.businessCriticIntensityMinimum ?? "balanced";
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
     const initialAnswerOptions = seed.answerOptions ?? answerOptionsForSeed({
@@ -2095,10 +2139,10 @@ function createAmbiguityIssuesFromSeeds(input: {
       ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
       ...(input.mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
       ...(input.mode === "business"
-        ? { businessCriticIntensityMinimum: seed.businessCriticIntensityMinimum ?? "balanced" }
+        ? { businessCriticIntensityMinimum }
         : {}),
-      ...(seed.businessCriticPressureKind
-        ? { businessCriticPressureKind: seed.businessCriticPressureKind }
+      ...(businessCriticPressureKind
+        ? { businessCriticPressureKind }
         : input.mode === "business"
           ? { businessCriticPressureKind: "balanced_con" as const }
           : {}),
@@ -4354,45 +4398,54 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
   }
 
   const context = onboardingQuestionContextFromState(state);
-  const hasGeneratedQuestionSetPayload = hasOwnRecordKey(command.payload, "generatedQuestionSet");
-  const generatedQuestionSet = hasGeneratedQuestionSetPayload
-    ? parseGeneratedAmbiguityQuestionSet(command.payload.generatedQuestionSet, {
-        contextText: generatedQuestionSetContextText(context)
-      })
-    : null;
-  const usesGeneratedQuestionSet = generatedQuestionSet?.ok === true;
-  const issues = usesGeneratedQuestionSet
-    ? createAmbiguityIssuesFromSeeds({
-        sessionId: command.sessionId,
-        specRef: state.currentSpec.draftRef,
-        mode: confirmedMode,
-        intensity: state.project.businessCriticIntensity,
-        context,
-        seeds: generatedQuestionSet.questions,
-        source: "generated_json"
-      })
-    : createAmbiguityIssues(
-        command.sessionId,
-        state.currentSpec.draftRef,
-        confirmedMode,
-        state.project.businessCriticIntensity,
-        context
-      );
-  const questionGeneration = usesGeneratedQuestionSet
-    ? {
-        mode: "generated_json" as const,
-        schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
-        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
-        questionCount: issues.length
+  if (!hasOwnRecordKey(command.payload, "generatedQuestionSet")) {
+    return reject(
+      "AnalyzeAmbiguity requires Codex-generated question JSON.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        questionGeneration: {
+          mode: "codex_required",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          reason: "generated_question_set_missing"
+        }
       }
-    : {
-        mode: "deterministic_fallback" as const,
-        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
-        reason: hasGeneratedQuestionSetPayload ? "generated_question_set_invalid" : "generated_question_set_missing",
-        ...(generatedQuestionSet && generatedQuestionSet.issues.length
-          ? { validationIssues: generatedQuestionSet.issues }
-          : {})
-      };
+    );
+  }
+
+  const generatedQuestionSet = parseGeneratedAmbiguityQuestionSet(command.payload.generatedQuestionSet, {
+    contextText: generatedQuestionSetContextText(context)
+  });
+
+  if (!generatedQuestionSet.ok) {
+    return reject(
+      "AnalyzeAmbiguity requires valid Codex-generated question JSON.",
+      "VALIDATION_FAILED",
+      {
+        questionGeneration: {
+          mode: "codex_required",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          reason: "generated_question_set_invalid",
+          validationIssues: generatedQuestionSet.issues
+        }
+      }
+    );
+  }
+
+  const issues = createAmbiguityIssuesFromSeeds({
+    sessionId: command.sessionId,
+    specRef: state.currentSpec.draftRef,
+    mode: confirmedMode,
+    intensity: state.project.businessCriticIntensity,
+    context,
+    seeds: generatedQuestionSet.questions,
+    source: "generated_json"
+  });
+  const questionGeneration = {
+    mode: "generated_json" as const,
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+    questionCount: issues.length
+  };
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,

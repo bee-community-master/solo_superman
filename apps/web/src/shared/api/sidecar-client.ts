@@ -311,12 +311,12 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       sessionId: SessionId,
       expectedStateVersion: StateVersion,
       targetRef: string,
-      generatedQuestionSet?: unknown
+      generatedQuestionSet: unknown
     ) {
       return postCommand(`/api/v1/sessions/${encodeURIComponent(sessionId)}/spec/analyze`, {
         expectedStateVersion,
         targetRef,
-        ...(generatedQuestionSet === undefined ? {} : { generatedQuestionSet })
+        generatedQuestionSet
       });
     },
 

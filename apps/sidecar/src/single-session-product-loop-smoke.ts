@@ -26,6 +26,7 @@ import {
   type SmokeSidecarApp,
   type SmokeStorage
 } from "./auto-implementation-smoke-fixtures";
+import { generatedPetLifecycleQuestionSet } from "./generated-ambiguity-question-fixtures";
 import { createProductEngineCommandService } from "./product-engine/command-service";
 import {
   createWebSearchReadOnlyResearchAdapter,
@@ -496,7 +497,10 @@ async function executeSingleSessionFlow(
     localCapabilityToken,
     sessionId: project.sessionId,
     path: `/api/v1/sessions/${project.sessionId}/spec/analyze`,
-    body: { targetRef: "current_spec" }
+    body: {
+      targetRef: "current_spec",
+      generatedQuestionSet: generatedPetLifecycleQuestionSet()
+    }
   });
   const activate = await postWithCurrentVersion({
     scenario,

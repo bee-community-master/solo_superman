@@ -35,7 +35,6 @@ import {
   displayError,
   emptyProjectionState,
   emptyResearchOperationsState,
-  initialResearchAutomationAllowsCodex,
   initialResearchAutomationEnablesPublicWebSources,
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
   type InitialResearchAutomationPermission,
@@ -130,24 +129,30 @@ async function generateInitialQuestionSetForAnalysis(
   input: GeneratedInitialQuestionSetInput,
   override?: (input: GeneratedInitialQuestionSetInput) => Promise<unknown | undefined>
 ) {
-  try {
-    if (override) {
-      return await override(input);
+  if (override) {
+    const generatedQuestionSet = await override(input);
+
+    if (generatedQuestionSet === undefined) {
+      throw new Error("Codex question generation did not return a generated question set.");
     }
 
-    const response = await client.generateInitialQuestionSet({
-      sessionId: input.sessionId,
-      expectedStateVersion: input.expectedStateVersion,
-      rawIdea: input.idea,
-      intakeGoal: input.intake,
-      projectPurposeMode: input.projectPurposeMode,
-      businessCriticIntensity: input.businessCriticIntensity
-    });
-
-    return response.status === "generated" ? response.generatedQuestionSet : undefined;
-  } catch {
-    return undefined;
+    return generatedQuestionSet;
   }
+
+  const response = await client.generateInitialQuestionSet({
+    sessionId: input.sessionId,
+    expectedStateVersion: input.expectedStateVersion,
+    rawIdea: input.idea,
+    intakeGoal: input.intake,
+    projectPurposeMode: input.projectPurposeMode,
+    businessCriticIntensity: input.businessCriticIntensity
+  });
+
+  if (response.status !== "generated" || response.generatedQuestionSet === undefined) {
+    throw new Error(response.reason ?? "Codex question generation is required before ambiguity analysis.");
+  }
+
+  return response.generatedQuestionSet;
 }
 
 export function nextQuestionBatchIdsForActivation(
@@ -352,16 +357,14 @@ export function useDecisionQueueSessionActions({
           sessionActionLabels.draftInitialSpec,
           await client.draftInitialSpec(session.sessionId, commandResponseVersion(intakeResponse))
         );
-        const generatedQuestionSet = initialResearchAutomationAllowsCodex(initialResearchAutomationPermission)
-          ? await generateInitialQuestionSetForAnalysis(client, {
-              sessionId: session.sessionId,
-              expectedStateVersion: commandResponseVersion(draftResponse),
-              idea,
-              intake,
-              projectPurposeMode,
-              businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
-            }, generateInitialQuestionSet)
-          : undefined;
+        const generatedQuestionSet = await generateInitialQuestionSetForAnalysis(client, {
+          sessionId: session.sessionId,
+          expectedStateVersion: commandResponseVersion(draftResponse),
+          idea,
+          intake,
+          projectPurposeMode,
+          businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
+        }, generateInitialQuestionSet);
         const analyzeResponse = await appendCommand(
           sessionActionLabels.analyzeAmbiguity,
           await client.analyzeAmbiguity(

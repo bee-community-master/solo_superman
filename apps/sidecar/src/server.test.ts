@@ -66,6 +66,7 @@ import {
 } from "./runtime";
 import type { CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import { generatedFounderQuestionSet } from "./generated-ambiguity-question-fixtures";
 import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -2165,7 +2166,7 @@ describe("PR-02 sidecar health shell", () => {
     try {
       const { sessionId } = await createProjectForTest(
         storageApp,
-        "A post-active business critic intensity route test idea"
+        "A post-active founder business critic intensity route test idea"
       );
       await postCommand(`/api/v1/sessions/${sessionId}/intake`, {
         expectedStateVersion: 1,
@@ -2176,7 +2177,8 @@ describe("PR-02 sidecar health shell", () => {
       });
       await postCommand(`/api/v1/sessions/${sessionId}/spec/analyze`, {
         expectedStateVersion: 3,
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedFounderQuestionSet()
       });
       const activate = await postCommand(`/api/v1/sessions/${sessionId}/queue/activate`, {
         expectedStateVersion: 4
@@ -7424,7 +7426,8 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           expectedStateVersion: 3,
-          targetRef: "current_spec"
+          targetRef: "current_spec",
+          generatedQuestionSet: generatedFounderQuestionSet()
         })
       });
       const analyzeBody = await jsonBody(analyze);

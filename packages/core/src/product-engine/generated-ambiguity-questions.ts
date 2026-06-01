@@ -17,7 +17,6 @@ import { plainUserFacingDecisionQueueText } from "./user-facing-text";
 import {
   extractIdeaFitDomainSignals,
   ideaFitDomainAnchorTerms,
-  textHasDisallowedGenericPersona,
   textHasIdeaFitDomainAnchor
 } from "./idea-fit-questioning";
 
@@ -106,7 +105,7 @@ const GENERIC_PERSONA_GUARDS = [
   {
     personaPattern: /(?:1\s*인\s*창업자|혼자\s*만드는\s*창업자|초기\s*창업자|\bsolo\s*founder\b|\bfounder\b)/iu,
     allowedContextPattern:
-      /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|스타트업|\bfounder\b|\bstartup\b|\bsolo\s*founder\b)/iu
+      /(?:창업자|예비\s*창업자|창업\s*준비(?:자|생|중인\s*사람)|만드는\s*사람|스타트업|\bfounder\b|\bstartup\b|\bsolo\s*founder\b)/iu
   },
   {
     personaPattern: /(?:도메인\s*전문\s*1\s*인\s*빌더|\bdomain\s*builder\b)/iu,
@@ -364,7 +363,7 @@ function contextualGeneratedQuestionIssues(
         );
       }
 
-      if (textHasDisallowedGenericPersona(optionText, domainSignals) || optionTextHasDisallowedGenericPersona(optionText, contextText)) {
+      if (optionTextHasDisallowedGenericPersona(optionText, contextText)) {
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
@@ -620,13 +619,13 @@ export function parseGeneratedAmbiguityQuestionSet(
   }
 
   const rawQuestions = Array.isArray(value.questions) ? value.questions : [];
-  if (rawQuestions.length < 3 || rawQuestions.length > 15) {
-    issue(issues, "$.questions", "must include 3-15 generated questions");
+  if (rawQuestions.length < 3 || rawQuestions.length > 25) {
+    issue(issues, "$.questions", "must include 3-25 generated questions");
   }
 
   const seenTopicKeys = new Set<string>();
   const questions = rawQuestions
-    .slice(0, 15)
+    .slice(0, 25)
     .map((question, index) => {
       const parsed = parseGeneratedQuestion(question, `$.questions[${index}]`, index, issues);
 

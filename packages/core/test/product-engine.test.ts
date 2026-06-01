@@ -53,6 +53,10 @@ function command(
   payload: Readonly<Record<string, unknown>>,
   index: number
 ) {
+  const commandPayload = commandType === "AnalyzeAmbiguity" && !Object.prototype.hasOwnProperty.call(payload, "generatedQuestionSet")
+    ? { ...payload, generatedQuestionSet: generatedBusinessQuestionSet() }
+    : payload;
+
   return {
     commandId: `cmd_product_engine_${index}` as CommandId,
     commandType,
@@ -65,8 +69,378 @@ function command(
     causationId: index === 1 ? null : (`cmd_product_engine_${index - 1}` as CommandId),
     correlationId,
     schemaVersion: CONTRACT_SCHEMA_VERSION,
+    payload: commandPayload
+  } as const;
+}
+
+function commandWithoutGeneratedQuestionSet(
+  commandType: Parameters<typeof reduceProductEngineCommand>[0]["commandType"],
+  expectedStateVersion: number,
+  payload: Readonly<Record<string, unknown>>,
+  index: number
+) {
+  return {
+    commandId: `cmd_product_engine_${index}` as CommandId,
+    commandType,
+    projectId,
+    sessionId,
+    actor: "user",
+    issuedAt: `2026-05-05T00:00:0${index}.000Z`,
+    idempotencyKey: `${commandType}:raw:${index}`,
+    expectedStateVersion: expectedStateVersion as StateVersion,
+    causationId: index === 1 ? null : (`cmd_product_engine_${index - 1}` as CommandId),
+    correlationId,
+    schemaVersion: CONTRACT_SCHEMA_VERSION,
     payload
   } as const;
+}
+
+function generatedOption(id: string, label: string) {
+  return {
+    id,
+    label,
+    value: `${label}을 우선 선택한다.`,
+    primaryDetail: `${label} 기준으로 첫 판단을 좁힙니다.`,
+    secondaryDetail: "다른 후보와 반례는 계속 확인합니다."
+  };
+}
+
+function generatedQuestion(input: {
+  readonly sectionRef: string;
+  readonly topicKey: string;
+  readonly uncertaintyType?: string;
+  readonly severity?: string;
+  readonly summary: string;
+  readonly questionText: string;
+  readonly expectedAnswerType?: "choice" | "text" | "rank" | "evidence" | "experiment";
+  readonly ambiguityDimension?: string;
+  readonly ambiguityRoutingPath?: "human_judgment" | "existing_fact_check" | "current_research";
+  readonly possibleRoutes?: readonly string[];
+  readonly answerOptions?: readonly ReturnType<typeof generatedOption>[];
+}) {
+  const expectedAnswerType = input.expectedAnswerType ?? "text";
+  const ambiguityRoutingPath = input.ambiguityRoutingPath ?? "human_judgment";
+  const possibleRoutes = input.possibleRoutes ?? (
+    ambiguityRoutingPath === "current_research" ? ["question", "research_needed"] : ["question", "decision_candidate"]
+  );
+
+  return {
+    sectionRef: input.sectionRef,
+    topicKey: input.topicKey,
+    uncertaintyType: input.uncertaintyType ?? "missing",
+    severity: input.severity ?? "high",
+    summary: input.summary,
+    whyItMatters: `${input.summary}이면 founder product spec과 customer interview 판단이 흔들립니다.`,
+    questionText: input.questionText,
+    expectedAnswerType,
+    ...(expectedAnswerType === "choice" ? { answerSelectionMode: "single" } : {}),
+    ...(expectedAnswerType === "rank" ? { answerSelectionMode: "ranked" } : {}),
+    ...(expectedAnswerType !== "text"
+      ? {
+          answerOptions: input.answerOptions ?? [
+            generatedOption(`${input.topicKey}_a`, "창업자 고객 인터뷰"),
+            generatedOption(`${input.topicKey}_b`, "제품 스펙 범위"),
+            generatedOption(`${input.topicKey}_c`, "Founder Brief 반복 사용 근거")
+          ]
+        }
+      : { answerOptions: [] }),
+    decisionItUnlocks: `${input.summary}에 대한 founder product spec 결정을 엽니다.`,
+    ambiguityDimension: input.ambiguityDimension ?? "scope",
+    ambiguityRoutingPath,
+    ...(ambiguityRoutingPath === "current_research"
+      ? {
+          researchQuestion: `${input.summary}에 대해 founder product spec 공개 사례와 반례는 무엇인가?`,
+          suggestedResearchTask:
+            `창업자 커뮤니티, 제품 스펙 사례, 고객 인터뷰 글에서 ${input.summary} 공개 단서를 찾고, ` +
+            "그 가정을 약하게 만드는 반례와 남은 판단을 분리합니다."
+        }
+      : {}),
+    possibleRoutes
+  };
+}
+
+function generatedBusinessQuestionSet(
+  intensity: "balanced" | "strong" | "investor_grade" = "balanced"
+) {
+  const baseQuestions = [
+    generatedQuestion({
+      sectionRef: "Problem",
+      topicKey: "problem_pain_intensity",
+      summary: "창업자 고객 인터뷰 문제 강도 미확인",
+      questionText: "창업자가 제품 스펙을 만들기 전 가장 자주 막히는 고객 인터뷰 문제는 무엇인가요?",
+      ambiguityDimension: "success_criteria",
+      ambiguityRoutingPath: "current_research"
+    }),
+    generatedQuestion({
+      sectionRef: "Target Customer",
+      topicKey: "primary_customer_narrowing",
+      uncertaintyType: "vague",
+      summary: "첫 창업자 고객군이 넓음",
+      questionText: "Founder Brief 제품 스펙을 가장 먼저 검증할 창업자 고객군은 누구인가요?",
+      expectedAnswerType: "choice",
+      answerOptions: [
+        generatedOption("paid_interview_founder", "유료 인터뷰를 준비하는 1인 창업자"),
+        generatedOption("spec_drafting_founder", "제품 스펙 초안을 만드는 창업자"),
+        generatedOption("evidence_tracking_founder", "근거 추적이 필요한 창업자")
+      ]
+    }),
+    generatedQuestion({
+      sectionRef: "MVP Scope",
+      topicKey: "mvp_validation_scope",
+      summary: "첫 제품 스펙 범위가 넓음",
+      questionText: "Founder Brief 첫 버전에서 반드시 검증할 제품 스펙 기능은 무엇인가요?",
+      expectedAnswerType: "choice",
+      possibleRoutes: ["question", "decision_candidate", "deferred"]
+    }),
+    generatedQuestion({
+      sectionRef: "Current Alternatives",
+      topicKey: "alternative_dissatisfaction_gap",
+      uncertaintyType: "missing_con_evidence",
+      summary: "현재 대체재 불만족 근거 부족",
+      questionText: "창업자는 현재 어떤 방식으로 제품 스펙을 만들고 어디서 충분하지 않다고 느끼나요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["research_needed", "missing_con_evidence"]
+    }),
+    generatedQuestion({
+      sectionRef: "Target Customer",
+      topicKey: "buyer_user_split",
+      summary: "구매자와 사용자 분리 미확인",
+      questionText: "Founder Brief를 실제로 쓰는 창업자와 비용을 승인하는 사람은 같은가요?",
+      expectedAnswerType: "choice"
+    }),
+    generatedQuestion({
+      sectionRef: "Value Proposition",
+      topicKey: "payment_hesitation_reason",
+      uncertaintyType: "missing_con_evidence",
+      summary: "돈을 내기 망설일 이유 미확인",
+      questionText: "창업자가 Founder Brief에 돈을 내기 망설일 가장 큰 이유는 무엇인가요?",
+      expectedAnswerType: "experiment",
+      ambiguityDimension: "assumption_pressure",
+      possibleRoutes: ["question", "missing_con_evidence", "deferred"]
+    }),
+    generatedQuestion({
+      sectionRef: "Validation Plan",
+      topicKey: "first_validation_experiment",
+      summary: "첫 검증 행동 미정",
+      questionText: "이번 주 어떤 창업자에게 Founder Brief 결과를 보여주고 반응을 확인할까요?",
+      expectedAnswerType: "experiment",
+      ambiguityRoutingPath: "current_research"
+    }),
+    generatedQuestion({
+      sectionRef: "Success Criteria",
+      topicKey: "success_metric_measurability",
+      uncertaintyType: "vague",
+      summary: "반복 사용 신호 미정",
+      questionText: "창업자가 Founder Brief를 다시 쓴다고 볼 수 있는 쉬운 행동 신호는 무엇인가요?"
+    }),
+    generatedQuestion({
+      sectionRef: "Value Proposition",
+      topicKey: "value_prop_switching_reason",
+      uncertaintyType: "decision_required",
+      summary: "대체재 전환 이유 미정",
+      questionText: "창업자가 기존 노트와 문서 대신 Founder Brief로 옮겨올 이유는 무엇인가요?",
+      expectedAnswerType: "rank",
+      ambiguityDimension: "assumption_pressure"
+    }),
+    generatedQuestion({
+      sectionRef: "Evidence Status",
+      topicKey: "evidence_balance",
+      uncertaintyType: "unsupported",
+      severity: "medium",
+      summary: "핵심 주장 근거 균형 부족",
+      questionText: "Founder Brief 핵심 주장을 뒷받침하는 단서와 반례 중 무엇이 비어 있나요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["research_needed", "missing_con_evidence"]
+    }),
+    generatedQuestion({
+      sectionRef: "Non-goals",
+      topicKey: "non_goal_boundaries",
+      uncertaintyType: "decision_required",
+      severity: "medium",
+      summary: "이번 버전 제외 범위 미정",
+      questionText: "Founder Brief 첫 버전에서 의도적으로 만들지 않을 범위는 무엇인가요?",
+      expectedAnswerType: "choice",
+      possibleRoutes: ["question", "deferred", "decision_candidate"]
+    }),
+    generatedQuestion({
+      sectionRef: "Validation Plan",
+      topicKey: "acquisition_channel_realism",
+      uncertaintyType: "unsupported",
+      severity: "medium",
+      summary: "첫 창업자 모집 채널 근거 부족",
+      questionText: "Founder Brief를 테스트할 창업자를 어디서 현실적으로 모집할 수 있나요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["research_needed", "spec_update_candidate"]
+    }),
+    generatedQuestion({
+      sectionRef: "MVP Scope",
+      topicKey: "implementation_resource_fit",
+      uncertaintyType: "unsupported",
+      severity: "medium",
+      summary: "첫 구현 범위 적합성 미확인",
+      questionText: "현재 리소스로 Founder Brief 첫 제품 스펙 기능을 구현할 수 있나요?"
+    }),
+    generatedQuestion({
+      sectionRef: "Differentiation",
+      topicKey: "founder_advantage",
+      uncertaintyType: "unsupported",
+      severity: "medium",
+      summary: "창업자 대상 차별화 근거 부족",
+      questionText: "이 제품이 창업자 제품 스펙 문제를 더 잘 풀 수 있는 근거는 무엇인가요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["research_needed", "spec_update_candidate"]
+    }),
+    generatedQuestion({
+      sectionRef: "JTBD / Use Case",
+      topicKey: "job_context_specificity",
+      uncertaintyType: "vague",
+      severity: "medium",
+      summary: "창업자 사용 맥락 부족",
+      questionText: "창업자는 어떤 상황에서 Founder Brief 제품 스펙을 써야 하나요?"
+    }),
+    generatedQuestion({
+      sectionRef: "Known Risks / Open Questions",
+      topicKey: "operational_risk_boundary",
+      severity: "low",
+      summary: "운영 리스크 경계 미정",
+      questionText: "Founder Brief에 남겨야 할 보안, 법률, 운영 리스크는 무엇인가요?",
+      possibleRoutes: ["question", "deferred", "repeat_limit_reached"]
+    })
+  ];
+  const strongQuestions = [
+    generatedQuestion({
+      sectionRef: "Value Proposition",
+      topicKey: "strong_paid_intent_core_assumption",
+      uncertaintyType: "missing_con_evidence",
+      summary: "돈을 낼 핵심 가정 반례 미확인",
+      questionText: "창업자가 Founder Brief에 돈을 내지 않을 가장 위험한 이유는 무엇인가요?",
+      expectedAnswerType: "experiment",
+      ambiguityDimension: "assumption_pressure",
+      possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
+    }),
+    generatedQuestion({
+      sectionRef: "Problem",
+      topicKey: "strong_customer_pain_frequency",
+      summary: "문제 빈도 핵심 가정 미확인",
+      questionText: "창업자가 제품 스펙 문제를 충분히 자주 겪지 않는다면 어떤 신호가 보일까요?",
+      ambiguityDimension: "assumption_pressure"
+    }),
+    generatedQuestion({
+      sectionRef: "Validation Plan",
+      topicKey: "strong_acquisition_channel_failure",
+      uncertaintyType: "unsupported",
+      summary: "획득 채널 실패 가정 미확인",
+      questionText: "Founder Brief 첫 창업자 모집 채널이 실패한다면 가장 가능성 높은 원인은 무엇인가요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research"
+    })
+  ];
+  const investorQuestions = [
+    generatedQuestion({
+      sectionRef: "Value Proposition",
+      topicKey: "investor_pricing_pressure",
+      uncertaintyType: "missing_con_evidence",
+      summary: "가격 압박 근거 부족",
+      questionText: "Founder Brief에서 어떤 가격을 보여주면 창업자가 망설일까요?",
+      expectedAnswerType: "experiment",
+      ambiguityDimension: "assumption_pressure",
+      possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
+    }),
+    generatedQuestion({
+      sectionRef: "Validation Plan",
+      topicKey: "investor_retention_proxy_pressure",
+      summary: "반복 사용 압박 근거 부족",
+      questionText: "Founder Brief를 다시 쓰는 행동을 어떤 신호로 볼 수 있나요?"
+    }),
+    generatedQuestion({
+      sectionRef: "Known Risks / Open Questions",
+      topicKey: "investor_market_timing_pressure",
+      uncertaintyType: "unsupported",
+      summary: "시장 타이밍 압박 근거 부족",
+      questionText: "왜 지금 창업자 제품 스펙 문제가 더 급해졌나요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["question", "research_needed", "deferred", "repeat_limit_reached"]
+    }),
+    generatedQuestion({
+      sectionRef: "Known Risks / Open Questions",
+      topicKey: "investor_legal_ops_pressure",
+      summary: "법무 운영 압박 미확인",
+      questionText: "Founder Brief 판매나 운영을 먼저 막을 수 있는 문제는 무엇인가요?",
+      possibleRoutes: ["question", "deferred", "repeat_limit_reached"]
+    }),
+    generatedQuestion({
+      sectionRef: "Differentiation",
+      topicKey: "investor_founder_advantage_pressure",
+      uncertaintyType: "unsupported",
+      summary: "차별화 압박 근거 부족",
+      questionText: "왜 이 팀이 창업자 제품 스펙 문제를 더 잘 풀 수 있나요?",
+      expectedAnswerType: "evidence",
+      ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["question", "research_needed", "deferred", "repeat_limit_reached"]
+    })
+  ];
+
+  return {
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    sourceSummary: "Founder product spec workflow",
+    questions: [
+      ...baseQuestions,
+      ...(intensity === "strong" || intensity === "investor_grade" ? strongQuestions : []),
+      ...(intensity === "investor_grade" ? investorQuestions : [])
+    ]
+  };
+}
+
+function generatedPersonalQuestionSet() {
+  return {
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    sourceSummary: "Personal local workflow helper",
+    questions: [
+      generatedQuestion({
+        sectionRef: "JTBD / Use Case",
+        topicKey: "personal_workflow_context",
+        summary: "개인 workflow 맥락 부족",
+        questionText: "개인 local workflow는 어떤 순서로 진행되나요?"
+      }),
+      generatedQuestion({
+        sectionRef: "JTBD / Use Case",
+        topicKey: "personal_usage_frequency",
+        uncertaintyType: "missing_con_evidence",
+        summary: "개인 workflow 빈도 미확인",
+        questionText: "이 개인 local workflow는 얼마나 자주 반복되나요?",
+        ambiguityDimension: "assumption_pressure"
+      }),
+      generatedQuestion({
+        sectionRef: "MVP Scope",
+        topicKey: "personal_gui_fit",
+        summary: "개인 도구 UI 범위 미정",
+        questionText: "개인 workflow 첫 버전은 GUI가 필요한가요, 아니면 로컬 화면으로 충분한가요?",
+        expectedAnswerType: "choice",
+        answerOptions: [
+          generatedOption("local_workflow_screen", "local workflow 전용 로컬 화면"),
+          generatedOption("local_workflow_command", "local workflow 명령어 실행"),
+          generatedOption("local_workflow_checklist", "local workflow 문서 체크리스트")
+        ]
+      }),
+      generatedQuestion({
+        sectionRef: "MVP Scope",
+        topicKey: "personal_implementation_feasibility",
+        summary: "개인 도구 구현 가능성 미확인",
+        questionText: "현재 시간과 기술로 가장 작게 만들 수 있는 개인 workflow 기능은 무엇인가요?"
+      }),
+      generatedQuestion({
+        sectionRef: "Known Risks / Open Questions",
+        topicKey: "personal_local_data_security",
+        summary: "개인 local data 경계 미정",
+        questionText: "이 개인 local workflow 도구가 읽거나 보관할 local data와 secret 경계는 무엇인가요?"
+      })
+    ]
+  };
 }
 
 function effectExecutorCommand(
@@ -116,7 +490,8 @@ function stateWithActiveQuestionBatch(
     }, 2),
     command("DraftInitialSpec", 2, {}, 3),
     command("AnalyzeAmbiguity", 3, {
-      targetRef: "current_spec"
+      targetRef: "current_spec",
+      generatedQuestionSet: generatedBusinessQuestionSet(businessCriticIntensity)
     }, 4),
     command("ActivateQuestionBatch", 4, {}, 5)
   ] as const;
@@ -156,7 +531,8 @@ function stateWithPersonalActiveQuestionBatch() {
     }, 2),
     command("DraftInitialSpec", 2, {}, 3),
     command("AnalyzeAmbiguity", 3, {
-      targetRef: "current_spec"
+      targetRef: "current_spec",
+      generatedQuestionSet: generatedPersonalQuestionSet()
     }, 4),
     command("ActivateQuestionBatch", 4, {}, 5)
   ] as const;
@@ -192,7 +568,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(source).not.toMatch(/(?:\bfetch\s*\(|new WebSocket|document\.|window\.|child_process|exec\()/);
   });
 
-  it("runs the deterministic first command path and returns an active-batch-safe projection", () => {
+  it("runs the generated first command path and returns an active-batch-safe projection", () => {
     const commands = [
       command("StartProject", 0, {
         rawIdea: "A focused founder brief generator",
@@ -255,8 +631,8 @@ describe("PR-04 ProductEngine reducer", () => {
           expectedAnswerType: "choice",
           answerOptions: expect.arrayContaining([
             expect.objectContaining({ label: "유료 인터뷰를 준비하는 1인 창업자" }),
-            expect.objectContaining({ label: "막연한 아이디어를 정리하는 창업자" }),
-            expect.objectContaining({ label: "근거 추적을 중시하는 빌더" })
+            expect.objectContaining({ label: "제품 스펙 초안을 만드는 창업자" }),
+            expect.objectContaining({ label: "근거 추적이 필요한 창업자" })
           ]),
           possibleRoutes: expect.arrayContaining(["question", "decision_candidate"]),
           repeatCount: 0,
@@ -266,7 +642,7 @@ describe("PR-04 ProductEngine reducer", () => {
           sectionRef: "Target Customer",
           topicKey: "buyer_user_split",
           severity: "high",
-          ambiguityDimension: "decision_authority",
+          ambiguityDimension: "scope",
           ambiguityRoutingPath: "human_judgment",
           expectedAnswerType: "choice"
         }),
@@ -283,15 +659,10 @@ describe("PR-04 ProductEngine reducer", () => {
           suggestedResearchTask: expect.any(String)
         }),
         expect.objectContaining({
-          sectionRef: "MVP Scope",
-          topicKey: "implementation_resource_fit",
-          possibleRoutes: expect.arrayContaining(["spec_update_candidate"])
-        }),
-        expect.objectContaining({
           sectionRef: "Evidence Status",
           severity: "medium",
           uncertaintyType: "unsupported",
-          ambiguityDimension: "assumption_pressure",
+          ambiguityDimension: "scope",
           ambiguityRoutingPath: "current_research",
           expectedAnswerType: "evidence",
           suggestedResearchTask: expect.any(String),
@@ -308,15 +679,13 @@ describe("PR-04 ProductEngine reducer", () => {
     );
     const firstSevenQuestionTexts = state.openIssues.slice(0, 7).map((issue) => issue.questionText);
 
-    expect(firstSevenQuestionTexts).toEqual([
-      "이 제품 아이디어를 떠올리게 한 창업자의 실제 불편은 언제 생기고 시간·돈·스트레스 중 무엇으로 이어지나요?",
-      "이 아이디어를 가장 먼저 테스트할 창업자 유형은 누구이고, 그 창업자는 아이디어 정리·고객 인터뷰·근거 추적 중 어떤 상황에 있나요?",
-      "이번 목표에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?",
-      "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
-      "이 질문·스펙 산출물은 창업자가 직접 돈을 내고 쓰나요, 아니면 멘토·팀·프로그램이 판단이나 구매에 관여하나요?",
-      "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
-      "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?"
-    ]);
+    expect(firstSevenQuestionTexts).toEqual(
+      expect.arrayContaining([
+        "창업자가 제품 스펙을 만들기 전 가장 자주 막히는 고객 인터뷰 문제는 무엇인가요?",
+        "창업자 요약 제품 스펙을 가장 먼저 검증할 창업자 고객군은 누구인가요?",
+        "창업자는 현재 어떤 방식으로 제품 스펙을 만들고 어디서 충분하지 않다고 느끼나요?"
+      ])
+    );
     expect(state.openIssues[0]?.questionContext).toMatchObject({
       idea: "A focused founder brief generator",
       goal: "Help solo founders turn a rough idea into a traceable product spec."
@@ -621,199 +990,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(String(researchTask?.objective)).toContain("Do not replace the user's choice with research");
   });
 
-  it("uses idea-specific first-customer options for pet lifecycle ideas when generated questions are unavailable", () => {
-    let state = createInitialProductEngineState(projectId, sessionId);
-    const eventDrafts = [];
-
-    for (const nextCommand of [
-      command("StartProject", 0, {
-        rawIdea:
-          "반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모아서 관리하는 앱",
-        localPrivacyMode: "local_only",
-        projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed",
-        businessCriticIntensity: "balanced",
-        businessCriticIntensityConfirmation: "user_confirmed"
-      }, 1),
-      command("CaptureIntake", 1, {
-        answer: "일반 보호자가 실제로 답하기 쉬운 질문으로 아이디어를 구체화한다."
-      }, 2),
-      command("DraftInitialSpec", 2, {}, 3)
-    ]) {
-      const reduction = reduceProductEngineCommand(nextCommand, state);
-
-      expect(reduction.accepted).toBe(true);
-      eventDrafts.push(reduction.events[0]);
-      state = replayProductEngineEvents(
-        projectId,
-        sessionId,
-        eventDrafts.map((eventDraft, index) => ({
-          ...eventDraft,
-          eventId: `evt_pet_question_fallback_${index + 1}` as EventId,
-          sequence: index + 1,
-          occurredAt: `2026-05-05T00:03:${index + 1}0.000Z`
-        }))
-      );
-    }
-
-    const analyze = reduceProductEngineCommand(
-      command("AnalyzeAmbiguity", 3, {
-        targetRef: "current_spec"
-      }, 4),
-      state
-    );
-
-    expect(analyze.accepted).toBe(true);
-    eventDrafts.push(analyze.events[0]);
-    state = replayProductEngineEvents(
-      projectId,
-      sessionId,
-      eventDrafts.map((eventDraft, index) => ({
-        ...eventDraft,
-        eventId: `evt_pet_question_fallback_${index + 1}` as EventId,
-        sequence: index + 1,
-        occurredAt: `2026-05-05T00:03:${index + 1}0.000Z`
-      }))
-    );
-
-    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
-    const firstCustomerOptionLabels = firstCustomerIssue?.answerOptions?.map((option) => option.label) ?? [];
-
-    expect(firstCustomerIssue?.questionText).toContain("보호자");
-    expect(firstCustomerIssue?.questionText).not.toContain("반려동물 전생애주기의 의료");
-    expect(firstCustomerIssue?.questionContext).toMatchObject({
-      idea: "반려동물 전생애주기의 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모아서 관리하는 앱",
-      goal: "일반 보호자가 실제로 답하기 쉬운 질문으로 아이디어를 구체화한다."
-    });
-    expect(firstCustomerOptionLabels).toEqual([
-      "첫 반려동물을 키우는 보호자",
-      "노령·만성질환 반려동물 보호자",
-      "여러 마리를 함께 키우는 가구",
-      "보험·의료비 관리가 필요한 보호자"
-    ]);
-    expect(firstCustomerOptionLabels.join("\n")).not.toMatch(
-      /(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u
-    );
-  });
-
-  it.each([
-    {
-      caseKey: "education",
-      rawIdea: "AI가 학생의 시험 일정과 부족한 단원을 보고 매일 공부 계획을 짜주는 학습 코치 앱",
-      intakeAnswer: "시험을 준비하는 학생과 직무 전환 학습자 중 첫 대상을 좁히고 싶다.",
-      questionSubject: "학습자/교육 사용자 유형",
-      expectedLabels: [
-        "시험을 준비하는 학습자",
-        "직무 전환·업스킬 학습자",
-        "학부모가 함께 관리하는 학생",
-        "소규모 교육 운영자"
-      ]
-    },
-    {
-      caseKey: "local_commerce",
-      rawIdea: "동네 식당과 카페의 예약, 픽업 주문, 단골 혜택을 한 번에 관리하는 앱",
-      intakeAnswer: "소규모 매장 운영자와 반복 방문 고객 중 누구를 먼저 검증할지 정한다.",
-      questionSubject: "매장/손님 유형",
-      expectedLabels: [
-        "소규모 매장 운영자",
-        "반복 방문하는 단골 고객",
-        "픽업·배달을 자주 쓰는 고객",
-        "여러 지점을 관리하는 운영자"
-      ]
-    },
-    {
-      caseKey: "healthcare_records",
-      rawIdea: "환자 진료 기록과 복약 알림을 한 곳에서 관리하는 헬스케어 앱",
-      intakeAnswer: "만성질환 환자와 가족 보호자 중 첫 대상을 좁히고 싶다.",
-      questionSubject: "사용자 유형",
-      expectedLabels: [
-        "만성질환을 꾸준히 관리하는 환자",
-        "가족 건강을 함께 챙기는 보호자",
-        "진료 전후 기록이 많은 사용자",
-        "검진·복약·생활습관을 챙기는 사용자"
-      ]
-    },
-    {
-      caseKey: "personal_finance_insurance",
-      rawIdea: "보험, 대출, 카드값을 한 곳에서 정리하는 개인 금융 관리 앱",
-      intakeAnswer: "월급 직장인과 수입이 불규칙한 프리랜서 중 첫 대상을 좁힌다.",
-      questionSubject: "금융 관리 사용자 유형",
-      expectedLabels: [
-        "월급과 고정지출을 관리하는 직장인",
-        "수입이 불규칙한 프리랜서",
-        "공동 생활비를 나누는 가구",
-        "보험·투자·대출을 함께 보는 사용자"
-      ]
-    }
-  ])(
-    "uses idea-specific first-customer options for $caseKey ideas when generated questions are unavailable",
-    ({ caseKey, rawIdea, intakeAnswer, questionSubject, expectedLabels }) => {
-      let state = createInitialProductEngineState(projectId, sessionId);
-      const eventDrafts = [];
-
-      for (const nextCommand of [
-        command("StartProject", 0, {
-          rawIdea,
-          localPrivacyMode: "local_only",
-          projectPurposeMode: "business",
-          projectPurposeModeConfirmation: "user_confirmed",
-          businessCriticIntensity: "balanced",
-          businessCriticIntensityConfirmation: "user_confirmed"
-        }, 1),
-        command("CaptureIntake", 1, {
-          answer: intakeAnswer
-        }, 2),
-        command("DraftInitialSpec", 2, {}, 3)
-      ]) {
-        const reduction = reduceProductEngineCommand(nextCommand, state);
-
-        expect(reduction.accepted).toBe(true);
-        eventDrafts.push(reduction.events[0]);
-        state = replayProductEngineEvents(
-          projectId,
-          sessionId,
-          eventDrafts.map((eventDraft, index) => ({
-            ...eventDraft,
-            eventId: `evt_contextual_question_fallback_${caseKey}_${index + 1}` as EventId,
-            sequence: index + 1,
-            occurredAt: `2026-05-05T00:04:${index + 1}0.000Z`
-          }))
-        );
-      }
-
-      const analyze = reduceProductEngineCommand(
-        command("AnalyzeAmbiguity", 3, {
-          targetRef: "current_spec"
-        }, 4),
-        state
-      );
-
-      expect(analyze.accepted).toBe(true);
-      eventDrafts.push(analyze.events[0]);
-      state = replayProductEngineEvents(
-        projectId,
-        sessionId,
-        eventDrafts.map((eventDraft, index) => ({
-          ...eventDraft,
-          eventId: `evt_contextual_question_fallback_${caseKey}_${index + 1}` as EventId,
-          sequence: index + 1,
-          occurredAt: `2026-05-05T00:04:${index + 1}0.000Z`
-        }))
-      );
-
-      const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
-      const firstCustomerOptionLabels = firstCustomerIssue?.answerOptions?.map((option) => option.label) ?? [];
-
-      expect(firstCustomerIssue?.questionText).toContain(questionSubject);
-      expect(firstCustomerOptionLabels).toEqual(expectedLabels);
-      expect(firstCustomerOptionLabels.join("\n")).not.toMatch(
-        /(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u
-      );
-    }
-  );
-
-
-  it("derives unknown-domain fallback options from apartment ingredient exchange signals", () => {
+  it("rejects ambiguity analysis when generated questions are missing", () => {
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
 
@@ -847,31 +1024,26 @@ describe("PR-04 ProductEngine reducer", () => {
       );
     }
 
-    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4), state);
-
-    expect(analyze.accepted).toBe(true);
-    eventDrafts.push(analyze.events[0]);
-    state = replayProductEngineEvents(
-      projectId,
-      sessionId,
-      eventDrafts.map((eventDraft, index) => ({
-        ...eventDraft,
-        eventId: `evt_apartment_ingredient_${index + 1}` as EventId,
-        sequence: index + 1,
-        occurredAt: `2026-05-05T00:05:${index + 1}0.000Z`
-      }))
+    const analyze = reduceProductEngineCommand(
+      commandWithoutGeneratedQuestionSet("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      state
     );
 
-    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
-    const optionCopy = firstCustomerIssue?.answerOptions?.map((option) => option.label).join("\n") ?? "";
-
-    expect(firstCustomerIssue?.expectedAnswerType).toBe("choice");
-    expect(optionCopy).toMatch(/주민/u);
-    expect(optionCopy).toMatch(/식재료|교환/u);
-    expect(optionCopy).not.toMatch(/(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u);
+    expect(analyze).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "COMMAND_PRECONDITION_FAILED",
+        details: {
+          questionGeneration: {
+            mode: "codex_required",
+            reason: "generated_question_set_missing"
+          }
+        }
+      }
+    });
   });
 
-  it("keeps invalid generated-question fallback anchored to the unknown-domain idea", () => {
+  it("rejects invalid generated-question JSON instead of falling back to fixed questions", () => {
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
 
@@ -916,96 +1088,25 @@ describe("PR-04 ProductEngine reducer", () => {
       state
     );
 
-    expect(analyze.accepted).toBe(true);
-    expect(analyze.events[0]?.payload).toMatchObject({
-      questionGeneration: {
-        mode: "deterministic_fallback",
-        reason: "generated_question_set_invalid"
+    expect(analyze).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        details: {
+          questionGeneration: {
+            mode: "codex_required",
+            reason: "generated_question_set_invalid",
+            validationIssues: expect.arrayContaining([
+              expect.stringContaining("$.schemaVersion"),
+              expect.stringContaining("$.questions")
+            ])
+          }
+        }
       }
     });
-    eventDrafts.push(analyze.events[0]);
-    state = replayProductEngineEvents(
-      projectId,
-      sessionId,
-      eventDrafts.map((eventDraft, index) => ({
-        ...eventDraft,
-        eventId: `evt_apartment_invalid_generated_${index + 1}` as EventId,
-        sequence: index + 1,
-        occurredAt: `2026-05-05T00:07:${index + 1}0.000Z`
-      }))
-    );
-
-    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
-    const issueCopy = [
-      firstCustomerIssue?.questionText,
-      ...(firstCustomerIssue?.answerOptions?.flatMap((option) => [
-        option.label,
-        option.primaryDetail,
-        option.secondaryDetail
-      ]) ?? [])
-    ].filter(Boolean).join("\n");
-
-    expect(firstCustomerIssue?.expectedAnswerType).toBe("choice");
-    expect(issueCopy).toMatch(/아파트|주민|식재료|교환/u);
-    expect(issueCopy).not.toMatch(/(?:1인\s*창업자|도메인\s*전문|팀리더|운영담당자|초기\s*창업자)/u);
   });
 
-  it("falls back to text when an unregistered idea lacks enough domain signals for real options", () => {
-    let state = createInitialProductEngineState(projectId, sessionId);
-    const eventDrafts = [];
-
-    for (const nextCommand of [
-      command("StartProject", 0, {
-        rawIdea: "더 좋은 앱",
-        localPrivacyMode: "local_only",
-        projectPurposeMode: "business",
-        projectPurposeModeConfirmation: "user_confirmed",
-        businessCriticIntensity: "balanced",
-        businessCriticIntensityConfirmation: "user_confirmed"
-      }, 1),
-      command("CaptureIntake", 1, {
-        answer: "아직 구체 고객이나 사용 상황은 정하지 않았다."
-      }, 2),
-      command("DraftInitialSpec", 2, {}, 3)
-    ]) {
-      const reduction = reduceProductEngineCommand(nextCommand, state);
-
-      expect(reduction.accepted).toBe(true);
-      eventDrafts.push(reduction.events[0]);
-      state = replayProductEngineEvents(
-        projectId,
-        sessionId,
-        eventDrafts.map((eventDraft, index) => ({
-          ...eventDraft,
-          eventId: `evt_vague_domain_${index + 1}` as EventId,
-          sequence: index + 1,
-          occurredAt: `2026-05-05T00:06:${index + 1}0.000Z`
-        }))
-      );
-    }
-
-    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4), state);
-
-    expect(analyze.accepted).toBe(true);
-    eventDrafts.push(analyze.events[0]);
-    state = replayProductEngineEvents(
-      projectId,
-      sessionId,
-      eventDrafts.map((eventDraft, index) => ({
-        ...eventDraft,
-        eventId: `evt_vague_domain_${index + 1}` as EventId,
-        sequence: index + 1,
-        occurredAt: `2026-05-05T00:06:${index + 1}0.000Z`
-      }))
-    );
-
-    const firstCustomerIssue = state.openIssues.find((issue) => issue.topicKey === "primary_customer_narrowing");
-
-    expect(firstCustomerIssue?.expectedAnswerType).toBe("text");
-    expect(firstCustomerIssue?.answerOptions).toEqual([]);
-  });
-
-  it("falls back to deterministic ambiguity questions when generated JSON is invalid", () => {
+  it("rejects invalid generated JSON without deterministic ambiguity fallback", () => {
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
 
@@ -1050,32 +1151,22 @@ describe("PR-04 ProductEngine reducer", () => {
       state
     );
 
-    expect(analyze.accepted).toBe(true);
-    expect(analyze.events[0]?.payload).toMatchObject({
-      questionGeneration: {
-        mode: "deterministic_fallback",
-        reason: "generated_question_set_invalid"
+    expect(analyze).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        details: {
+          questionGeneration: {
+            mode: "codex_required",
+            reason: "generated_question_set_invalid",
+            validationIssues: expect.arrayContaining([
+              expect.stringContaining("$.schemaVersion"),
+              expect.stringContaining("$.questions")
+            ])
+          }
+        }
       }
     });
-    expect(analyze.events[0]?.payload.questionGeneration).toMatchObject({
-      validationIssues: expect.arrayContaining([
-        expect.stringContaining("$.schemaVersion"),
-        expect.stringContaining("$.questions")
-      ])
-    });
-    eventDrafts.push(analyze.events[0]);
-    state = replayProductEngineEvents(
-      projectId,
-      sessionId,
-      eventDrafts.map((eventDraft, index) => ({
-        ...eventDraft,
-        eventId: `evt_generated_question_fallback_${index + 1}` as EventId,
-        sequence: index + 1,
-        occurredAt: `2026-05-05T00:02:${index + 1}0.000Z`
-      }))
-    );
-    expect(state.openIssues).toHaveLength(16);
-    expect(state.openIssues[0]?.topicKey).toBe("problem_pain_intensity");
   });
 
   it("preserves onboarding wording while simplifying generated prompt language", () => {
@@ -1090,7 +1181,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(activeQuestionContextText).toContain("Help one user automate a repeated local workflow.");
     expect(activeTitles).not.toContain("A focused personal workflow helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local workflow.");
-    expect(activeTitles).toContain("이 아이디어를 쓰기 바로 전과 후에 사용자는 실제로 어떤 일을 하나요?");
+    expect(activeTitles).toContain("개인 local 작업 흐름은 어떤 순서로 진행되나요?");
     expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
     expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
@@ -1319,7 +1410,7 @@ describe("PR-04 ProductEngine reducer", () => {
     appendAcceptedEvent(
       reduceProductEngineCommand(
         command("StartProject", 0, {
-          rawIdea: "A business idea that selects critic intensity after the draft",
+          rawIdea: "A founder brief business idea that selects critic intensity after the draft",
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
           projectPurposeModeConfirmation: "user_confirmed"
@@ -1329,7 +1420,7 @@ describe("PR-04 ProductEngine reducer", () => {
       "evt_late_business_critic"
     );
     appendAcceptedEvent(
-      reduceProductEngineCommand(command("CaptureIntake", 1, { answer: "Business validation." }, 2), state),
+      reduceProductEngineCommand(command("CaptureIntake", 1, { answer: "Founder business validation." }, 2), state),
       "evt_late_business_critic"
     );
     appendAcceptedEvent(
@@ -1355,7 +1446,13 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(intensityChange.nextState.queueProjection.next).toHaveLength(0);
     appendAcceptedEvent(intensityChange, "evt_late_business_critic");
 
-    const analyze = reduceProductEngineCommand(command("AnalyzeAmbiguity", 4, { targetRef: "current_spec" }, 5), state);
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 4, {
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet("strong")
+      }, 5),
+      state
+    );
 
     expect(analyze.accepted).toBe(true);
     expect(analyze.nextState.openIssues).toEqual(
@@ -1402,7 +1499,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(investorGradeState.queueProjection.next.every((item) => item.businessCriticPressureKind !== "balanced_con")).toBe(true);
   });
 
-  it("rejects explicit stronger business batches that omit a core-assumption challenge", () => {
+  it("rejects explicit stronger business analysis that omits a core-assumption challenge", () => {
     const commands = [
       command("StartProject", 0, {
         rawIdea: "A strong critic explicit batch test idea",
@@ -1415,10 +1512,7 @@ describe("PR-04 ProductEngine reducer", () => {
       command("CaptureIntake", 1, {
         answer: "Validate the strongest business risks without bypassing core assumptions."
       }, 2),
-      command("DraftInitialSpec", 2, {}, 3),
-      command("AnalyzeAmbiguity", 3, {
-        targetRef: "current_spec"
-      }, 4)
+      command("DraftInitialSpec", 2, {}, 3)
     ] as const;
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
@@ -1440,24 +1534,23 @@ describe("PR-04 ProductEngine reducer", () => {
       );
     }
 
-    const baseOnlyQueueItemIds = state.openIssues
-      .filter((issue) => issue.businessCriticPressureKind !== "core_assumption_challenge")
-      .slice(0, 5)
-      .map((issue) => issue.queueItemId);
-    const activate = reduceProductEngineCommand(
-      command("ActivateQuestionBatch", Number(state.stateVersion), {
-        queueItemIds: baseOnlyQueueItemIds
-      }, 5),
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet("balanced")
+      }, 4),
       state
     );
 
-    expect(activate).toMatchObject({
+    expect(analyze).toMatchObject({
       accepted: false,
       rejectionReason: {
-        code: "COMMAND_PRECONDITION_FAILED",
+        code: "VALIDATION_FAILED",
         details: {
-          businessCriticIntensity: "strong",
-          requiredBusinessCriticPressureKind: "core_assumption_challenge"
+          questionGeneration: {
+            mode: "codex_required",
+            reason: "generated_question_set_invalid"
+          }
         }
       }
     });
@@ -1702,7 +1795,10 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 1),
       command("CaptureIntake", 1, { answer: "Business validation workflow." }, 2),
       command("DraftInitialSpec", 2, {}, 3),
-      command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet()
+      }, 4),
       command("ActivateQuestionBatch", 4, {}, 5)
     ] as const;
     const personalCommands = [
@@ -1714,7 +1810,10 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 1),
       command("CaptureIntake", 1, { answer: "Personal tool for a repeated local workflow." }, 2),
       command("DraftInitialSpec", 2, {}, 3),
-      command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedPersonalQuestionSet()
+      }, 4),
       command("ActivateQuestionBatch", 4, {}, 5)
     ] as const;
 

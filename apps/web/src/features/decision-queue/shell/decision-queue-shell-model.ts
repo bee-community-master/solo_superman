@@ -124,7 +124,7 @@ export function initialQueueStartBlockerList({
     blockers.push("sidecar_connection");
   }
 
-  if (initialResearchAutomationAllowsCodex(initialResearchAutomationPermission) && !codexLoginAuthenticated) {
+  if (!codexLoginAuthenticated) {
     blockers.push("codex_login");
   }
 
