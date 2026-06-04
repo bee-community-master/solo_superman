@@ -40,6 +40,23 @@ function codexRuntimeAccount(
   };
 }
 
+function quotedWindowsCommandPath(command: string) {
+  const match = /^"([^"]+)"/u.exec(command);
+
+  if (!match?.[1]) {
+    throw new Error(`Expected a Windows command path quoted at the start of: ${command}`);
+  }
+
+  return match[1];
+}
+
+function readWslLauncherFiles(launcherPath: string) {
+  return {
+    cmd: readFileSync(launcherPath, "utf8"),
+    shellScript: readFileSync(launcherPath.replace(/\.cmd$/u, ".sh"), "utf8")
+  };
+}
+
 function phase15bHintsFixture() {
   return {
     executionIntent: {
@@ -455,14 +472,13 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     const sdkOptions = adapter.buildSdkClientOptions();
     expect(sdkOptions.codexPathOverride).toMatch(/codex-wsl-[a-f0-9]+\.cmd$/u);
-    const launcher = readFileSync(String(sdkOptions.codexPathOverride), "utf8");
-    expect(launcher).toContain("@echo off");
-    expect(launcher).toContain("wslpath -a");
-    expect(launcher).toContain("wsl.exe -d \"Ubuntu\" -- bash \"%SOLO_CODEX_WSL_LAUNCHER%\" %*");
-    const launcherScript = readFileSync(String(sdkOptions.codexPathOverride).replace(/\.cmd$/u, ".sh"), "utf8");
-    expect(launcherScript).toContain("exec codex \"$@\"");
-    expect(launcherScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
-    expect(launcherScript).not.toContain("\\$HOME");
+    const launcher = readWslLauncherFiles(String(sdkOptions.codexPathOverride));
+    expect(launcher.cmd).toContain("@echo off");
+    expect(launcher.cmd).toContain("wslpath -a");
+    expect(launcher.cmd).toContain("wsl.exe -d \"Ubuntu\" -- bash \"%SOLO_CODEX_WSL_LAUNCHER%\" %*");
+    expect(launcher.shellScript).toContain("exec codex \"$@\"");
+    expect(launcher.shellScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
+    expect(launcher.shellScript).not.toContain("\\$HOME");
   });
 
   it("pins Windows WSL Codex commands to the configured distro and Node major", () => {
@@ -485,7 +501,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     );
     const loginShellCommand = windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", env);
     expect(loginShellCommand).toMatch(/^".*codex-wsl-[a-f0-9]+\.cmd" auth login$/u);
-    expect(readFileSync(loginShellCommand.split("\"")[1]!, "utf8")).toContain("Ubuntu-24.04");
+    expect(readWslLauncherFiles(quotedWindowsCommandPath(loginShellCommand)).cmd).toContain("Ubuntu-24.04");
   });
 
   it("starts Codex auth login through the injected background-terminal launcher", async () => {
@@ -548,14 +564,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const command = windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", {});
 
     expect(command).toMatch(/^".*codex-wsl-[a-f0-9]+\.cmd" auth login$/u);
-    const launcherPath = command.split("\"")[1]!;
-    const launcher = readFileSync(launcherPath, "utf8");
-    const launcherScript = readFileSync(launcherPath.replace(/\.cmd$/u, ".sh"), "utf8");
-    expect(launcher).toContain("wsl.exe -d \"Ubuntu\"");
-    expect(launcher).toContain("wslpath -a");
-    expect(launcherScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
-    expect(launcherScript).toContain("could not find the Linux Codex CLI inside WSL");
-    expect(launcherScript).toContain("nvm use --silent 22");
+    const launcher = readWslLauncherFiles(quotedWindowsCommandPath(command));
+    expect(launcher.cmd).toContain("wsl.exe -d \"Ubuntu\"");
+    expect(launcher.cmd).toContain("wslpath -a");
+    expect(launcher.shellScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
+    expect(launcher.shellScript).toContain("could not find the Linux Codex CLI inside WSL");
+    expect(launcher.shellScript).toContain("nvm use --silent 22");
     expect(command).not.toContain("cd /d");
     expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");
   });

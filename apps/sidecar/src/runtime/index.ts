@@ -277,7 +277,7 @@ function positiveIntegerEnvValue(
   return parsed;
 }
 
-function codexPreviewTurnTimeoutMs(env: Readonly<Record<string, string | undefined>>) {
+function codexLiveTurnTimeoutMs(env: Readonly<Record<string, string | undefined>>) {
   return positiveIntegerEnvValue(env, CODEX_LIVE_TURN_TIMEOUT_ENV, CODEX_PREVIEW_TURN_TIMEOUT_MS);
 }
 
@@ -436,7 +436,16 @@ export function codexWslShellCommand(
   return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
 }
 
-function codexWslCliLauncherPath(env: Readonly<Record<string, string | undefined>>) {
+interface CodexWslCliLauncherFiles {
+  readonly launcherPath: string;
+  readonly shellScriptPath: string;
+  readonly cmdContent: string;
+  readonly shellScriptContent: string;
+}
+
+function codexWslCliLauncherFiles(
+  env: Readonly<Record<string, string | undefined>>
+): CodexWslCliLauncherFiles {
   const shellScriptContent = [
     "#!/usr/bin/env bash",
     "set -e",
@@ -463,27 +472,33 @@ function codexWslCliLauncherPath(env: Readonly<Record<string, string | undefined
   ].join("\r\n");
   const launcherPath = join(launcherDir, `codex-wsl-${hash}.cmd`);
 
-  if (!existsSync(shellScriptPath) || readFileSync(shellScriptPath, "utf8") !== shellScriptContent) {
-    mkdirSync(dirname(shellScriptPath), { recursive: true });
-    writeFileSync(shellScriptPath, shellScriptContent, "utf8");
+  return {
+    launcherPath,
+    shellScriptPath,
+    cmdContent,
+    shellScriptContent
+  };
+}
+
+function writeLauncherFileIfChanged(filePath: string, content: string) {
+  if (!existsSync(filePath) || readFileSync(filePath, "utf8") !== content) {
+    mkdirSync(dirname(filePath), { recursive: true });
+    writeFileSync(filePath, content, "utf8");
     try {
-      chmodSync(shellScriptPath, 0o755);
+      chmodSync(filePath, 0o755);
     } catch {
-      // Windows can run the script through bash even when POSIX bits are ignored.
+      // POSIX mode bits are best-effort for Windows-managed temp directories.
     }
   }
+}
 
-  if (!existsSync(launcherPath) || readFileSync(launcherPath, "utf8") !== cmdContent) {
-    mkdirSync(dirname(launcherPath), { recursive: true });
-    writeFileSync(launcherPath, cmdContent, "utf8");
-    try {
-      chmodSync(launcherPath, 0o755);
-    } catch {
-      // Windows can launch .cmd files without POSIX executable bits.
-    }
-  }
+function codexWslCliLauncherPath(env: Readonly<Record<string, string | undefined>>) {
+  const files = codexWslCliLauncherFiles(env);
 
-  return launcherPath;
+  writeLauncherFileIfChanged(files.shellScriptPath, files.shellScriptContent);
+  writeLauncherFileIfChanged(files.launcherPath, files.cmdContent);
+
+  return files.launcherPath;
 }
 
 function codexWslSpawnArgs(
@@ -2072,38 +2087,31 @@ export function fixtureCodexPreviewOutput(
   };
 }
 
-export async function createLiveCodexPreview(
-  input: CodexRuntimePreviewInput,
-  options: {
-    readonly env?: Readonly<Record<string, string | undefined>>;
-    readonly now?: () => string;
-    readonly codexFactory?: (options: CodexOptions) => Codex;
-  } = {}
-): Promise<CodexPreviewOutputEnvelope> {
-  const env = options.env ?? process.env;
-  const timeoutMs = codexPreviewTurnTimeoutMs(env);
+async function runCodexSdkTurn(input: {
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly turnOptions: CodexSdkTurnOptions;
+  readonly timeoutMessage: (timeoutMs: number) => string;
+  readonly codexFactory?: (options: CodexOptions) => Codex;
+}): Promise<string> {
+  const timeoutMs = codexLiveTurnTimeoutMs(input.env);
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
 
   try {
-    const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
-    const codex = codexFactory(codexSdkOptions(env));
-    const turnOptions = buildCodexSdkPreviewTurnOptions(input, { cwd: process.cwd(), env });
-    const thread = codex.startThread(turnOptions.threadOptions);
-    const turn = await thread.run(turnOptions.prompt, {
-      outputSchema: turnOptions.outputSchema,
+    const codexFactory = input.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
+    const codex = codexFactory(codexSdkOptions(input.env));
+    const thread = codex.startThread(input.turnOptions.threadOptions);
+    const turn = await thread.run(input.turnOptions.prompt, {
+      outputSchema: input.turnOptions.outputSchema,
       signal: controller.signal
     });
-    const output = parseCodexPreviewOutput(turn.finalResponse);
 
-    assertCodexPreviewOutputMatchesInput(input, output);
-
-    return output;
+    return turn.finalResponse;
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(`Codex live preview did not finish within ${timeoutMs}ms.`, { cause: error });
+      throw new Error(input.timeoutMessage(timeoutMs), { cause: error });
     }
     throw error;
   } finally {
@@ -2111,6 +2119,26 @@ export async function createLiveCodexPreview(
   }
 }
 
+export async function createLiveCodexPreview(
+  input: CodexRuntimePreviewInput,
+  options: {
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly codexFactory?: (options: CodexOptions) => Codex;
+  } = {}
+): Promise<CodexPreviewOutputEnvelope> {
+  const env = options.env ?? process.env;
+  const finalResponse = await runCodexSdkTurn({
+    env,
+    turnOptions: buildCodexSdkPreviewTurnOptions(input, { cwd: process.cwd(), env }),
+    timeoutMessage: (timeoutMs) => `Codex live preview did not finish within ${timeoutMs}ms.`,
+    ...(options.codexFactory ? { codexFactory: options.codexFactory } : {})
+  });
+  const output = parseCodexPreviewOutput(finalResponse);
+
+  assertCodexPreviewOutputMatchesInput(input, output);
+
+  return output;
+}
 
 function isWorkerOutputStatus(value: unknown): value is CodexWorkerExecutionOutputEnvelope["status"] {
   return value === "completed" || value === "blocked";
@@ -2438,36 +2466,19 @@ export async function createLiveCodexWorkerExecution(
   } = {}
 ): Promise<CodexWorkerExecutionOutputEnvelope> {
   const env = options.env ?? process.env;
-  const timeoutMs = codexPreviewTurnTimeoutMs(env);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
+  const finalResponse = await runCodexSdkTurn({
+    env,
+    turnOptions: buildCodexSdkWorkerTurnOptions(input, { env }),
+    timeoutMessage: (timeoutMs) => `Codex worker execution did not finish within ${timeoutMs}ms.`,
+    ...(options.codexFactory ? { codexFactory: options.codexFactory } : {})
+  });
+  const output = isCodexWorkerProtocolSmoke(input)
+    ? parseCodexWorkerProtocolSmokeOutput(input, finalResponse)
+    : parseCodexWorkerExecutionOutput(finalResponse);
 
-  try {
-    const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
-    const codex = codexFactory(codexSdkOptions(env));
-    const turnOptions = buildCodexSdkWorkerTurnOptions(input, { env });
-    const thread = codex.startThread(turnOptions.threadOptions);
-    const turn = await thread.run(turnOptions.prompt, {
-      outputSchema: turnOptions.outputSchema,
-      signal: controller.signal
-    });
-    const output = isCodexWorkerProtocolSmoke(input)
-      ? parseCodexWorkerProtocolSmokeOutput(input, turn.finalResponse)
-      : parseCodexWorkerExecutionOutput(turn.finalResponse);
+  assertCodexWorkerExecutionOutputMatchesInput(input, output);
 
-    assertCodexWorkerExecutionOutputMatchesInput(input, output);
-
-    return output;
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(`Codex worker execution did not finish within ${timeoutMs}ms.`, { cause: error });
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  return output;
 }
 
 function statusDto(input: {
@@ -2506,7 +2517,6 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
     ((input: CodexRuntimePreviewInput) =>
       createLiveCodexPreview(input, {
         env,
-        now,
         ...(options.codexFactory ? { codexFactory: options.codexFactory } : {})
       }));
   const liveWorkerExecutor =
