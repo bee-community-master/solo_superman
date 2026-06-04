@@ -691,6 +691,7 @@ describe("sidecar client planning-runtime", () => {
               status: "unavailable",
               adapterVersion: "codex-sdk-runtime-v1",
               sdkPackageVersion: "0.137.0",
+              codexCliVersion: "0.137.0",
               transport: "codex-sdk-jsonl",
               checkedAt: "2026-05-05T00:00:00.000Z",
               manualHandoffAvailable: true,

@@ -8115,6 +8115,7 @@ describe("PR-02 sidecar health shell", () => {
         status: "available",
         adapterVersion: "codex-sdk-runtime-v1",
         sdkPackageVersion: "0.137.0",
+        codexCliVersion: "0.137.0",
         transport: "codex-sdk-jsonl",
         manualHandoffAvailable: true,
         liveTurnExecutionEnabled: false,

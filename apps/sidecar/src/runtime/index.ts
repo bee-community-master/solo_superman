@@ -283,7 +283,7 @@ function codexPreviewTurnTimeoutMs(env: Readonly<Record<string, string | undefin
 
 function codexSdkOptions(env: Readonly<Record<string, string | undefined>>): CodexOptions {
   const codexPathOverride =
-    codexCommandMode(env) === "wsl" ? codexSdkWslLauncherPath(env) : undefined;
+    codexCommandMode(env) === "wsl" ? codexWslCliLauncherPath(env) : undefined;
 
   return {
     ...(codexPathOverride ? { codexPathOverride } : {}),
@@ -401,24 +401,24 @@ function codexWslNvmSourceCommand(env: Readonly<Record<string, string | undefine
   const nodeMajor = codexWslNodeMajor(env);
   const linuxPathOnlyBlock = [
     "clean_path=",
-    "old_ifs=\\$IFS",
+    "old_ifs=$IFS",
     "IFS=:",
-    "for path_entry in \\$PATH; do case \"\\$path_entry\" in /mnt/?/*|/mnt/??/*) ;; *) clean_path=\"\\${clean_path:+\\$clean_path:}\\$path_entry\" ;; esac; done",
-    "IFS=\\$old_ifs",
-    "export PATH=\\$clean_path"
+    "for path_entry in $PATH; do case \"$path_entry\" in /mnt/?/*|/mnt/??/*) ;; *) clean_path=\"${clean_path:+$clean_path:}$path_entry\" ;; esac; done",
+    "IFS=$old_ifs",
+    "export PATH=$clean_path"
   ].join("; ");
   const nvmSourceBlock = [
-    "if [ -s \"\\$NVM_DIR/nvm.sh\" ]; then . \"\\$NVM_DIR/nvm.sh\"",
+    "if [ -s \"$NVM_DIR/nvm.sh\" ]; then . \"$NVM_DIR/nvm.sh\"",
     `nvm use --silent ${nodeMajor} >/dev/null 2>&1 || true`,
     "hash -r",
     "fi"
   ].join("; ");
 
   return [
-    "wsl_home=\\$HOME",
-    "if [ -z \"\\$wsl_home\" ]; then wsl_home=\\$(getent passwd \\$(id -u) | cut -d: -f6 || true); fi",
-    "export HOME=\"\\$wsl_home\"",
-    "if [ -z \"\\$NVM_DIR\" ]; then NVM_DIR=\"\\$HOME/.nvm\"; fi",
+    "wsl_home=$HOME",
+    "if [ -z \"$wsl_home\" ]; then wsl_home=$(getent passwd $(id -u) | cut -d: -f6 || true); fi",
+    "export HOME=\"$wsl_home\"",
+    "if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi",
     "export NVM_DIR",
     linuxPathOnlyBlock,
     nvmSourceBlock
@@ -436,23 +436,46 @@ export function codexWslShellCommand(
   return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
 }
 
-function codexWslPassthroughShellCommand(env: Readonly<Record<string, string | undefined>>) {
-  return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec codex "$@"`;
-}
-
-function codexSdkWslLauncherPath(env: Readonly<Record<string, string | undefined>>) {
-  const shellCommand = codexWslPassthroughShellCommand(env);
-  const content = [
+function codexWslCliLauncherPath(env: Readonly<Record<string, string | undefined>>) {
+  const shellScriptContent = [
+    "#!/usr/bin/env bash",
+    "set -e",
+    codexWslNvmSourceCommand(env),
+    codexWslPreflightCommand(),
+    'exec codex "$@"',
+    ""
+  ].join("\n");
+  const hash = createHash("sha256")
+    .update(codexWslDistro(env))
+    .update("\n")
+    .update(shellScriptContent)
+    .digest("hex")
+    .slice(0, 16);
+  const launcherDir = join(tmpdir(), "solo-superman-codex-sdk");
+  const shellScriptName = `codex-wsl-${hash}.sh`;
+  const shellScriptPath = join(launcherDir, shellScriptName);
+  const cmdContent = [
     "@echo off",
-    `wsl.exe -d ${windowsCmdQuote(codexWslDistro(env))} -- bash -lc ${windowsCmdQuote(shellCommand)} codex-sdk %*`,
+    "setlocal",
+    `for /f "usebackq delims=" %%I in (\`wsl.exe -d ${windowsCmdQuote(codexWslDistro(env))} -- wslpath -a "%~dp0${shellScriptName}"\`) do set "SOLO_CODEX_WSL_LAUNCHER=%%I"`,
+    `wsl.exe -d ${windowsCmdQuote(codexWslDistro(env))} -- bash "%SOLO_CODEX_WSL_LAUNCHER%" %*`,
     ""
   ].join("\r\n");
-  const hash = createHash("sha256").update(content).digest("hex").slice(0, 16);
-  const launcherPath = join(tmpdir(), "solo-superman-codex-sdk", `codex-sdk-wsl-${hash}.cmd`);
+  const launcherPath = join(launcherDir, `codex-wsl-${hash}.cmd`);
 
-  if (!existsSync(launcherPath) || readFileSync(launcherPath, "utf8") !== content) {
+  if (!existsSync(shellScriptPath) || readFileSync(shellScriptPath, "utf8") !== shellScriptContent) {
+    mkdirSync(dirname(shellScriptPath), { recursive: true });
+    writeFileSync(shellScriptPath, shellScriptContent, "utf8");
+    try {
+      chmodSync(shellScriptPath, 0o755);
+    } catch {
+      // Windows can run the script through bash even when POSIX bits are ignored.
+    }
+  }
+
+  if (!existsSync(launcherPath) || readFileSync(launcherPath, "utf8") !== cmdContent) {
     mkdirSync(dirname(launcherPath), { recursive: true });
-    writeFileSync(launcherPath, content, "utf8");
+    writeFileSync(launcherPath, cmdContent, "utf8");
     try {
       chmodSync(launcherPath, 0o755);
     } catch {
@@ -496,15 +519,7 @@ export function windowsCodexLoginShellCommand(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
   if (codexCommandMode(env, "win32") === "wsl") {
-    return [
-      "wsl.exe",
-      "-d",
-      codexWslDistro(env),
-      "--",
-      "bash",
-      "-lc",
-      windowsCmdQuote(codexWslShellCommand(["auth", "login"], env))
-    ].join(" ");
+    return `${windowsCmdQuote(codexWslCliLauncherPath(env))} auth login`;
   }
 
   return `cd /d ${windowsCmdQuote(cwd)} && ${CODEX_LOGIN_COMMAND}`;
@@ -604,7 +619,7 @@ export async function startCodexLoginInBackgroundTerminal(
           "Solo Superman Codex Login",
           "cmd.exe",
           "/k",
-          windowsCodexLoginShellCommand(cwd)
+          windowsCodexLoginShellCommand(cwd, env)
         ],
         env
       );

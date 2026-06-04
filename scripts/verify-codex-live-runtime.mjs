@@ -212,6 +212,7 @@ function publicRuntimeStatus(status) {
     checkedAt: status.checkedAt,
     adapterVersion: status.adapterVersion,
     sdkPackageVersion: status.sdkPackageVersion,
+    codexCliVersion: status.codexCliVersion,
     transport: status.transport,
     accountStatus: status.account?.status ?? null,
     accountType: status.account?.accountType ?? null,

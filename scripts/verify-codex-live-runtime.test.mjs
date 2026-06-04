@@ -146,6 +146,7 @@ describe("verify-codex-live-runtime smoke plan", () => {
         executionMode: "live",
         liveTurnExecutionEnabled: true,
         accountStatus: "authenticated",
+        codexCliVersion: "0.137.0",
         hasAccountEmail: true
       },
       blockers: []
