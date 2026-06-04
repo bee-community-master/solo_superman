@@ -205,44 +205,6 @@ function fixtureCodexLoginStart(now: () => string): CodexRuntimeLoginStartDto {
   });
 }
 
-export function codexAccountStatusFromLoginStatusResponse(value: unknown): CodexRuntimeAccountDto {
-  if (!isRecord(value)) {
-    return baseCodexAccountStatus("unknown", "Codex CLI login status returned a malformed response.");
-  }
-
-  const account = value.account;
-  const requiresOpenaiAuth =
-    typeof value.requiresOpenaiAuth === "boolean" ? value.requiresOpenaiAuth : undefined;
-
-  if (account === null || account === undefined) {
-    return {
-      ...baseCodexAccountStatus("missing", "Codex CLI is not logged in for this local environment."),
-      ...(requiresOpenaiAuth === undefined ? {} : { requiresOpenaiAuth })
-    };
-  }
-
-  if (!isRecord(account) || typeof account.type !== "string") {
-    return baseCodexAccountStatus("unknown", "Codex SDK returned an unrecognized account shape.");
-  }
-
-  const accountType =
-    account.type === "apiKey" || account.type === "chatgpt" || account.type === "amazonBedrock"
-      ? account.type
-      : undefined;
-
-  if (!accountType) {
-    return baseCodexAccountStatus("unknown", `Codex account type is not supported: ${account.type}`);
-  }
-
-  return {
-    ...baseCodexAccountStatus("authenticated"),
-    accountType,
-    ...(typeof account.email === "string" ? { email: account.email } : {}),
-    ...(typeof account.planType === "string" ? { planType: account.planType } : {}),
-    ...(requiresOpenaiAuth === undefined ? {} : { requiresOpenaiAuth })
-  };
-}
-
 function codexSpawnEnv(env: Readonly<Record<string, string | undefined>>): NodeJS.ProcessEnv {
   return Object.fromEntries(
     Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string")
@@ -695,7 +657,6 @@ async function readAccountBeforeLogin(accountReader: () => Promise<CodexRuntimeA
     return null;
   }
 }
-
 
 export async function readCodexAccountStatus(
   env: Readonly<Record<string, string | undefined>> = process.env

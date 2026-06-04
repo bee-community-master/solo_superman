@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
   type ConfidenceCompletionProjection,
   type CodexRuntimeStatusDto,
   type ProjectionVersion,
@@ -20,13 +23,15 @@ import { emptyProjectionState } from "./decision-queue-shell-model";
 import type { AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
+const FIXTURE_CODEX_CLI_VERSION = "0.137.0" as const;
+
 function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-sdk-runtime-v1",
-    sdkPackageVersion: "0.137.0",
-    codexCliVersion: "0.137.0",
-    transport: "codex-sdk-jsonl",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: FIXTURE_CODEX_CLI_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
@@ -225,12 +230,12 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Runtime checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Runtime adapter");
-    expect(markup).toContain("codex-sdk-runtime-v1");
+    expect(markup).toContain(CODEX_RUNTIME_ADAPTER_VERSION);
     expect(markup).toContain("SDK package version");
-    expect(markup).toContain("0.137.0");
+    expect(markup).toContain(CODEX_SDK_PACKAGE_VERSION);
     expect(markup).toContain("Codex CLI version");
     expect(markup).toContain("Transport");
-    expect(markup).toContain("codex-sdk-jsonl");
+    expect(markup).toContain(CODEX_RUNTIME_TRANSPORT);
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("manual handoff");
     expect(markup).not.toContain("manual_handoff");
@@ -273,12 +278,12 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Codex runtime adapter");
-    expect(markup).toContain("codex-sdk-runtime-v1");
+    expect(markup).toContain(CODEX_RUNTIME_ADAPTER_VERSION);
     expect(markup).toContain("SDK package version");
-    expect(markup).toContain("0.137.0");
+    expect(markup).toContain(CODEX_SDK_PACKAGE_VERSION);
     expect(markup).toContain("Codex CLI version");
     expect(markup).toContain("Connection transport");
-    expect(markup).toContain("codex-sdk-jsonl");
+    expect(markup).toContain(CODEX_RUNTIME_TRANSPORT);
     expect(markup).toContain("Execution mode");
     expect(markup).toContain("live Codex execution");
     expect(markup).toContain("Codex account");

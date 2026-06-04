@@ -14,7 +14,7 @@ import {
   assertCodexPreviewOutputMatchesInput,
   assertCodexWorkerExecutionOutputMatchesInput,
   codexCliStatusPlan,
-  codexAccountStatusFromLoginStatusResponse,
+  codexAccountStatusFromLoginStatusOutput,
   codexWslShellCommand,
   createCodexRuntimeAdapter,
   codexWorkerProtocolSmokeOutputTemplate,
@@ -683,27 +683,24 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     ).rejects.toThrow("Codex CLI login is required");
   });
 
-  it("maps Codex CLI login status into a credential-free auth status", () => {
-    expect(
-      codexAccountStatusFromLoginStatusResponse({
-        account: {
-          type: "chatgpt",
-          email: "founder@example.com",
-          planType: "pro"
-        },
-        requiresOpenaiAuth: true
-      })
-    ).toMatchObject({
+  it("maps Codex CLI login status output into a credential-free auth status", () => {
+    expect(codexAccountStatusFromLoginStatusOutput("Logged in with ChatGPT")).toMatchObject({
       status: "authenticated",
       accountType: "chatgpt",
-      email: "founder@example.com",
-      planType: "pro",
       loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     });
-    expect(codexAccountStatusFromLoginStatusResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
-      status: "missing",
-      requiresOpenaiAuth: true
+
+    expect(codexAccountStatusFromLoginStatusOutput("Authenticated with API key")).toMatchObject({
+      status: "authenticated",
+      accountType: "apiKey",
+      requiresOpenaiAuth: false
+    });
+
+    expect(codexAccountStatusFromLoginStatusOutput("Using Amazon Bedrock profile")).toMatchObject({
+      status: "authenticated",
+      accountType: "amazonBedrock",
+      requiresOpenaiAuth: false
     });
   });
 

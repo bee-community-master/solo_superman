@@ -4,6 +4,9 @@ import {
   AUTO_IMPLEMENTATION_POST_MERGE_VERIFY_EVIDENCE_PREFIX,
   AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
   AUTO_IMPLEMENTATION_WORKER_LEDGER_TRACKER_GOAL,
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   autoImplementationWorkerExpectedChangeScope,
   autoImplementationWorkerLedgerStepDescription,
@@ -20,6 +23,8 @@ import {
 import { renderMarkup } from "./test-rendering";
 import type { AppLanguage } from "../../shared/i18n/app-language";
 
+const FIXTURE_CODEX_CLI_VERSION = "0.137.0" as const;
+
 function codexRuntimeStatus(
   overrides: Partial<Omit<CodexRuntimeStatusDto, "account">> & {
     readonly account?: Partial<CodexRuntimeStatusDto["account"]>;
@@ -27,10 +32,10 @@ function codexRuntimeStatus(
 ): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-sdk-runtime-v1",
-    sdkPackageVersion: "0.137.0",
-    codexCliVersion: "0.137.0",
-    transport: "codex-sdk-jsonl",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: FIXTURE_CODEX_CLI_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
@@ -573,10 +578,10 @@ describe("AutoImplementationRunPanel view model", () => {
       executionModeLabel: "manual_handoff",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-sdk-runtime-v1",
-      sdkPackageVersionLabel: "0.137.0",
-      codexCliVersionLabel: "0.137.0",
-      transportLabel: "codex-sdk-jsonl",
+      adapterVersionLabel: CODEX_RUNTIME_ADAPTER_VERSION,
+      sdkPackageVersionLabel: CODEX_SDK_PACKAGE_VERSION,
+      codexCliVersionLabel: FIXTURE_CODEX_CLI_VERSION,
+      transportLabel: CODEX_RUNTIME_TRANSPORT,
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -592,12 +597,12 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Codex runtime adapter");
-    expect(markup).toContain("codex-sdk-runtime-v1");
+    expect(markup).toContain(CODEX_RUNTIME_ADAPTER_VERSION);
     expect(markup).toContain("SDK package version");
-    expect(markup).toContain("0.137.0");
+    expect(markup).toContain(CODEX_SDK_PACKAGE_VERSION);
     expect(markup).toContain("Codex CLI version");
     expect(markup).toContain("Connection transport");
-    expect(markup).toContain("codex-sdk-jsonl");
+    expect(markup).toContain(CODEX_RUNTIME_TRANSPORT);
     expect(markup).toContain("Automatic runs");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual fallback path");
@@ -628,10 +633,10 @@ describe("AutoImplementationRunPanel view model", () => {
       statusLabel: "available",
       executionModeLabel: "live",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-sdk-runtime-v1",
-      sdkPackageVersionLabel: "0.137.0",
-      codexCliVersionLabel: "0.137.0",
-      transportLabel: "codex-sdk-jsonl",
+      adapterVersionLabel: CODEX_RUNTIME_ADAPTER_VERSION,
+      sdkPackageVersionLabel: CODEX_SDK_PACKAGE_VERSION,
+      codexCliVersionLabel: FIXTURE_CODEX_CLI_VERSION,
+      transportLabel: CODEX_RUNTIME_TRANSPORT,
       liveTurnsState: "enabled",
       manualHandoffState: "available"
     });

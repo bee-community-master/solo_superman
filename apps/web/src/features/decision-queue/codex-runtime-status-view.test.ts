@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
+import {
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
+  type CodexRuntimeStatusDto
+} from "@solo-superman/contracts";
 import { codexRuntimeEvidenceView } from "./codex-runtime-status-view";
+
+const FIXTURE_CODEX_CLI_VERSION = "0.137.0" as const;
 
 function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-sdk-runtime-v1",
-    sdkPackageVersion: "0.137.0",
-    codexCliVersion: "0.137.0",
-    transport: "codex-sdk-jsonl",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: FIXTURE_CODEX_CLI_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
@@ -57,10 +64,10 @@ describe("codexRuntimeEvidenceView", () => {
       accountPlanType: "plus",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-sdk-runtime-v1",
-      sdkPackageVersionLabel: "0.137.0",
-      codexCliVersionLabel: "0.137.0",
-      transportLabel: "codex-sdk-jsonl",
+      adapterVersionLabel: CODEX_RUNTIME_ADAPTER_VERSION,
+      sdkPackageVersionLabel: CODEX_SDK_PACKAGE_VERSION,
+      codexCliVersionLabel: FIXTURE_CODEX_CLI_VERSION,
+      transportLabel: CODEX_RUNTIME_TRANSPORT,
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
