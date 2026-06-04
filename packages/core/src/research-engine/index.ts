@@ -1,12 +1,15 @@
 import {
   derivePendingResearchReviewCardOutcomeMetadata,
-  deriveResearchReviewCardOutcomeMetadata
+  deriveResearchReviewCardOutcomeMetadata,
+  localizedUserFacingDecisionQueueText,
+  stripInternalResearchMetaText
 } from "@solo-superman/contracts";
 import {
   evidenceGateConfigFromEnv
 } from "./evidenceGateConfig";
 
 export * from "./evidenceGateConfig";
+export { stripInternalResearchMetaText } from "@solo-superman/contracts";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -142,80 +145,8 @@ function compactSummary(value: string, fallback: string) {
   return summary || trimmed.slice(0, 280).trimEnd();
 }
 
-function translatePublicResearchSnippetToKorean(value: string) {
-  return value
-    .replace(/\b(\d+)\s+days?\s+ago\s*[·-]\s*/giu, "최근 공개 검색 요약: ")
-    .replace(
-      /\bUse this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce\.?/giu,
-      "이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다."
-    )
-    .replace(/\bcash flow\b/giu, "현금 흐름")
-    .replace(/\bdocuments\b/giu, "서류")
-    .replace(/\binsurance\b/giu, "보험")
-    .replace(/\baccount updates\b/giu, "계좌 업데이트")
-    .replace(/\bnext-step planning\b/giu, "다음 계획")
-    .replace(/\bduring and after divorce\b/giu, "이혼 전후")
-    .replace(/\bsource_quality_insufficient\b/giu, "출처 품질 부족")
-    .replace(/\busable source-linked finding\b/giu, "출처와 연결된 유의미한 근거")
-    .replace(/\busable finding\b/giu, "유의미한 근거")
-    .replace(/\bsource-linked finding\b/giu, "출처 연결 근거")
-    .replace(/\bpublic web research\b/giu, "공개 웹 리서치")
-    .replace(/\bhuman decision\b/giu, "사용자 판단")
-    .replace(/\bcurrent public evidence\b/giu, "현재 공개 근거")
-    .replace(/\bsource freshness\b/giu, "출처 최신성")
-    .replace(/\blimitations\b/giu, "한계")
-    .replace(/\bcounterexamples\b/giu, "반례")
-    .replace(/\bother perspectives\b/giu, "다른 관점")
-    .replace(/\bimplementation-ready\b/giu, "구현 준비 완료")
-    .replace(/\bcore-assumption risk\b/giu, "핵심 가설 리스크")
-    .replace(/\bassumption_pressure\b/giu, "가설 압박")
-    .replace(/\bprice proxy\b/giu, "가격 대체 지표")
-    .replace(/\bpaid intent\b/giu, "유료 의향")
-    .replace(/\bwillingness-to-pay\b/giu, "유료 의향")
-    .replace(/\bproxy\b/giu, "대체 지표")
-    .replace(/\bevidence\b/giu, "근거")
-    .replace(/\bdecision\b/giu, "판단");
-}
-
-export function stripInternalResearchMetaText(value: string) {
-  return value
-    .split(/\r?\n/u)
-    .map((line) =>
-      line
-        .replace(/\bPage body could not be fetched before timeout;?\s*/giu, "")
-        .replace(/\bFull page text was unavailable before timeout, so only the search-result summary is shown\.?/giu, "")
-        .replace(/\b(?:search-result|rch-result|result)\s+snippet retained for review\.?/giu, "")
-        .replace(/\bsnippet retained for review\.?/giu, "")
-        .replace(/\bSource snippets and fetched page text require quality-gate review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bSource snippets and fetched page text require review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bBrowser search snippets can be incomplete; quality-gate review must verify claims before acceptance\.?/giu, "")
-        .replace(/\bBrowser search snippets can be incomplete;?\s*/giu, "")
-        .replace(/\bSearch snippets and available page text may be incomplete, so important claims still need follow-up confirmation\.?/giu, "")
-        .replace(/\bOnly publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used\.?/giu, "")
-        .replace(/\bquality-gate review must verify claims before acceptance\.?/giu, "")
-        .replace(/\bquality-gate review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bPublic page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial\.?/giu, "")
-        .replace(/\bBrowser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used\.?/giu, "")
-        .replace(/\bRandom delay range was \d+-\d+ms with at most \d+ fetched public page\(s\)\.?/giu, "")
-        .replace(/\bPublic web research completed for [^.。!?]+[.。!?]?/giu, "")
-        .replace(/\bQuery:\s*[^.。!?]+[.。!?]?/giu, "")
-        .replace(/\bSources reviewed:\s*\d+[.。!?]?/giu, "")
-        .replace(/\bPro:\s*At least one public source was reachable through a read-only browser search\.?/giu, "")
-        .replace(/\bLimitation:\s*Browser search snippets can be incomplete;?\s*/giu, "")
-        .replace(/\b(?:Pro|Con|Limitation):\s*$/giu, "")
-        .replace(/\bread-only browser search\.?/giu, "")
-        .replace(/\bread-only public web search\.?/giu, "")
-        .replace(/\s+([.。!?])/gu, "$1")
-        .trim()
-    )
-    .filter(Boolean)
-    .join("\n")
-    .replace(/\n{3,}/gu, "\n\n")
-    .trim();
-}
-
 function userFacingResearchText(value: string | undefined, fallback: string) {
-  const sanitized = translatePublicResearchSnippetToKorean(stripInternalResearchMetaText(value ?? ""));
+  const sanitized = localizedUserFacingDecisionQueueText(value ?? "", "ko");
 
   return sanitized || fallback;
 }
@@ -245,12 +176,12 @@ function stripResearchObjectiveScaffolding(value: string) {
 }
 
 function stripResearchObjectiveMetaText(value: string) {
-  return stripResearchObjectiveScaffolding(translatePublicResearchSnippetToKorean(stripResearchObjectiveScaffolding(value)));
+  return stripResearchObjectiveScaffolding(localizedUserFacingDecisionQueueText(stripResearchObjectiveScaffolding(value), "ko"));
 }
 
 function compactDecisionTopic(value: string) {
   const rawWithoutScaffolding = stripResearchObjectiveScaffolding(value);
-  const translated = translatePublicResearchSnippetToKorean(rawWithoutScaffolding);
+  const translated = localizedUserFacingDecisionQueueText(rawWithoutScaffolding, "ko");
   const decisionMatch = value.match(
     /\bDecision this should inform\b[:：]?\s*(.+?)(?=\s+(?:Ambiguity dimension|Collect|Return)\b|$)/isu
   );

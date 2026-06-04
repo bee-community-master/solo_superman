@@ -7,5 +7,6 @@ export * from "./api";
 export * from "./sse";
 export * from "./projections";
 export * from "./codex";
+export * from "./display";
 
 export const CONTRACT_SCHEMA_VERSION = "solo-superman.contracts.v1" as SchemaVersion;

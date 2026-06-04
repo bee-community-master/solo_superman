@@ -146,11 +146,11 @@ describe("OnboardingView", () => {
     expect(markup).toContain("codex auth login");
     expect(markup).toContain("Open Codex login");
     expect(markup).toContain("Refresh Codex login status");
+    expect(markup.indexOf("First-question readiness checklist")).toBeLessThan(
+      markup.indexOf("Research setup")
+    );
     expect(markup.indexOf("Research setup")).toBeLessThan(
       markup.indexOf("Sign in to Codex CLI for backend questions and research")
-    );
-    expect(markup.indexOf("Sign in to Codex CLI for backend questions and research")).toBeLessThan(
-      markup.indexOf("First-question readiness checklist")
     );
   });
 

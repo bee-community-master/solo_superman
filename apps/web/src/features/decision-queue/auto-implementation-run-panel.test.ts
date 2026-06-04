@@ -607,7 +607,8 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
-    expect(markup).toContain("SOLO_CODEX_SDK_LIVE_TURNS=1");
+    expect(markup).toContain('<details class="runtime-diagnostics">');
+    expect(markup).toContain("Enable automatic local Codex execution in local settings");
     expect(markup).toContain("import its result evidence");
 
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });

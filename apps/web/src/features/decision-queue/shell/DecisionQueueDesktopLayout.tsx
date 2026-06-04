@@ -51,6 +51,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
 
             return (
               <button
+                aria-label={`${meta.label}${isActive ? `, ${copy.layout.currentWorkflowStep}` : ""}`}
                 aria-current={isActive ? "page" : undefined}
                 className={`phase-pill ${isActive ? "active" : ""}`}
                 key={pageId}
@@ -58,7 +59,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
                 type="button"
               >
                 <span className="phase-dot" />
-                {meta.shortLabel}
+                <span className="phase-label">{meta.shortLabel}</span>
                 {index < DECISION_QUEUE_PAGE_ORDER.length - 1 ? <span className="phase-chevron">›</span> : null}
               </button>
             );

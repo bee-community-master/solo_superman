@@ -88,6 +88,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
       ]
     : [];
   const hasActiveSession = Boolean(projections.session);
+  const hasImplementationContext = hasActiveSession || autoImplementationRunView.hasRun;
   const hasCompletionSource =
     confidence?.completionCandidate.status === "candidate" || projections.founderBrief?.exportReady === true;
   const implementationStartSteps = [
@@ -211,6 +212,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             )}
           </section>
         ) : null}
+        {hasImplementationContext ? (
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
             {copy.planning.scoreCompleteness}
@@ -231,10 +233,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
           </button>
         </div>
+        ) : null}
       </section>
 
-      <ReleaseReadinessPanel />
+      {hasImplementationContext ? <ReleaseReadinessPanel /> : null}
 
+      {hasImplementationContext ? (
       <AutoImplementationRunPanel
         run={autoImplementationRunView}
         isBusy={isBusy}
@@ -301,7 +305,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           }
         }}
       />
+      ) : null}
 
+      {hasImplementationContext ? (
       <ImplementationStepLedgerPanel
         ledger={implementationStepLedgerView}
         isBusy={isBusy}
@@ -311,6 +317,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           }
         }}
       />
+      ) : null}
 
       <section className="panel runtime-panel">
         <div className="panel-heading">
@@ -333,7 +340,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             ))}
           </dl>
         ) : null}
-        {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
+        {runtimeStatus?.reason ? (
+          <details className="runtime-diagnostics">
+            <summary>{copy.layout.diagnosticDetails}</summary>
+            <p>{runtimeStatus.reason}</p>
+          </details>
+        ) : null}
         {statuses.length ? (
           <ul className="effect-list">
             {statuses.map((status) => (

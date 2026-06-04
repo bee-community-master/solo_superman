@@ -1082,13 +1082,13 @@ export function AutoImplementationRunPanel({
               <dt>{copy.autoImplementation.workerRuntimeManualHandoff}</dt>
               <dd>{workerRuntimeManualHandoff}</dd>
             </div>
-            {run.workerRuntimeReadiness.reasonLabel ? (
-              <div>
-                <dt>{copy.autoImplementation.workerRuntimeReason}</dt>
-                <dd>{run.workerRuntimeReadiness.reasonLabel}</dd>
-              </div>
-            ) : null}
           </dl>
+          {run.workerRuntimeReadiness.reasonLabel ? (
+            <details className="runtime-diagnostics">
+              <summary>{copy.autoImplementation.workerRuntimeReason}</summary>
+              <p>{run.workerRuntimeReadiness.reasonLabel}</p>
+            </details>
+          ) : null}
           <p className="mode-summary">
             {copy.autoImplementation.workerRuntimeNextAction}: {workerRuntimeNextAction}
           </p>
