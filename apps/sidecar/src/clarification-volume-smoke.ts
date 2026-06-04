@@ -19,6 +19,7 @@ import {
   reduceProductEngineCommand,
   replayProductEngineEvents
 } from "@solo-superman/core";
+import { generatedFounderQuestionSet } from "./generated-ambiguity-question-fixtures";
 
 export const CLARIFICATION_VOLUME_SMOKE = "clarification_volume" as const;
 
@@ -205,7 +206,10 @@ function runVolumeFlow(): VolumeFlowResult {
       answer: "Help founders answer hundreds of precise validation questions before committing to software implementation."
     }],
     ["DraftInitialSpec", {}],
-    ["AnalyzeAmbiguity", { targetRef: "current_spec" }],
+    ["AnalyzeAmbiguity", {
+      targetRef: "current_spec",
+      generatedQuestionSet: generatedFounderQuestionSet()
+    }],
     ["ActivateQuestionBatch", {}]
   ] as const satisfies readonly (readonly [ProductEngineCommandType, Readonly<Record<string, unknown>>])[]) {
     context = applyCommand(context, commandType, payload);

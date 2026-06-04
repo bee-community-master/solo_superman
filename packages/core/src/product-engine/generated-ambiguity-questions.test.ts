@@ -296,6 +296,68 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     ]);
   });
 
+  it("preserves explicit generated business critic pressure metadata", () => {
+    const questionSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet({
+      ...questionSet,
+      questions: questionSet.questions.map((question, index) =>
+        index === 2
+          ? {
+              ...question,
+              businessCriticPressureKind: "core_assumption_challenge",
+              businessCriticIntensityMinimum: "strong"
+            }
+          : question
+      )
+    });
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.questions[2]).toMatchObject({
+      businessCriticPressureKind: "core_assumption_challenge",
+      businessCriticIntensityMinimum: "strong"
+    });
+  });
+
+  it("rejects invalid generated business critic pressure metadata", () => {
+    const questionSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet({
+      ...questionSet,
+      questions: questionSet.questions.map((question, index) =>
+        index === 2
+          ? {
+              ...question,
+              businessCriticPressureKind: "investor_pressure_pass",
+              businessCriticIntensityMinimum: "strong"
+            }
+          : question
+      )
+    });
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.questions).toEqual([]);
+    expect(parsed.issues.join("\n")).toContain("must be investor_grade for investor pressure questions");
+  });
+
+  it("rejects mismatched balanced generated business critic pressure metadata", () => {
+    const questionSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet({
+      ...questionSet,
+      questions: questionSet.questions.map((question, index) =>
+        index === 2
+          ? {
+              ...question,
+              businessCriticPressureKind: "balanced_con",
+              businessCriticIntensityMinimum: "strong"
+            }
+          : question
+      )
+    });
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.questions).toEqual([]);
+    expect(parsed.issues.join("\n")).toContain("must be balanced for balanced pressure questions");
+  });
+
   it("does not route generic healthcare record language through the pet lifecycle idea-fit gate", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
       generatedHealthcareRecordQuestionSet(),

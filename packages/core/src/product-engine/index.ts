@@ -1725,7 +1725,15 @@ const BUSINESS_CRITIC_CATEGORY_BY_TOPIC_KEY: Readonly<Record<string, BusinessCri
   implementation_resource_fit: "legal_ops_security",
   founder_advantage: "founder_advantage",
   job_context_specificity: "customer_pain",
-  operational_risk_boundary: "legal_ops_security"
+  operational_risk_boundary: "legal_ops_security",
+  strong_paid_intent_core_assumption: "paid_intent",
+  strong_customer_pain_frequency: "customer_pain",
+  strong_acquisition_channel_failure: "acquisition",
+  investor_pricing_pressure: "pricing",
+  investor_retention_proxy_pressure: "retention_proxy",
+  investor_market_timing_pressure: "market_timing",
+  investor_legal_ops_pressure: "legal_ops_security",
+  investor_founder_advantage_pressure: "founder_advantage"
 } as const satisfies Record<string, BusinessCriticalQuestionCategory>;
 
 const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
@@ -2010,6 +2018,65 @@ function categoryForBusinessSeed(seed: AmbiguityIssueSeed): BusinessCriticalQues
 
 type AmbiguityIssueSeedSource = "deterministic" | "generated_json";
 
+function businessCriticPressureKindForGeneratedSeed(seed: AmbiguityIssueSeed): BusinessCriticPressureKind | undefined {
+  if (seed.businessCriticPressureKind) {
+    return seed.businessCriticPressureKind;
+  }
+
+  if (seed.topicKey.startsWith("investor_")) {
+    return "investor_pressure_pass";
+  }
+
+  if (seed.topicKey.startsWith("strong_")) {
+    return "core_assumption_challenge";
+  }
+
+  return undefined;
+}
+
+function businessCriticIntensityMinimumForGeneratedSeed(seed: AmbiguityIssueSeed): BusinessCriticIntensity {
+  const pressureKind = businessCriticPressureKindForGeneratedSeed(seed);
+
+  if (pressureKind === "investor_pressure_pass") {
+    return "investor_grade";
+  }
+
+  if (pressureKind === "core_assumption_challenge") {
+    return "strong";
+  }
+
+  return seed.businessCriticIntensityMinimum ?? "balanced";
+}
+
+interface BusinessCriticSeedMetadata {
+  readonly category?: BusinessCriticalQuestionCategory;
+  readonly pressureKind?: BusinessCriticPressureKind;
+  readonly intensityMinimum?: BusinessCriticIntensity;
+}
+
+function businessCriticMetadataForSeed(input: {
+  readonly mode: ProjectPurposeMode;
+  readonly source: AmbiguityIssueSeedSource;
+  readonly seed: AmbiguityIssueSeed;
+}): BusinessCriticSeedMetadata {
+  if (input.mode !== "business") {
+    return {};
+  }
+  const category = categoryForBusinessSeed(input.seed);
+  const pressureKind = input.source === "generated_json"
+    ? businessCriticPressureKindForGeneratedSeed(input.seed)
+    : input.seed.businessCriticPressureKind;
+  const intensityMinimum = input.source === "generated_json"
+    ? businessCriticIntensityMinimumForGeneratedSeed(input.seed)
+    : input.seed.businessCriticIntensityMinimum ?? "balanced";
+
+  return {
+    ...(category ? { category } : {}),
+    ...(pressureKind ? { pressureKind } : {}),
+    intensityMinimum
+  };
+}
+
 function questionTextForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
@@ -2065,7 +2132,11 @@ function createAmbiguityIssuesFromSeeds(input: {
   const sharedQuestionContext = questionContextSnapshot(context);
 
   return input.seeds.map((seed, index) => {
-    const businessCriticCategory = categoryForBusinessSeed(seed);
+    const businessCriticMetadata = businessCriticMetadataForSeed({
+      mode: input.mode,
+      source: input.source,
+      seed
+    });
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
     const initialAnswerOptions = seed.answerOptions ?? answerOptionsForSeed({
@@ -2093,12 +2164,12 @@ function createAmbiguityIssuesFromSeeds(input: {
       topicKey: seed.topicKey,
       ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
       ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
-      ...(input.mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
-      ...(input.mode === "business"
-        ? { businessCriticIntensityMinimum: seed.businessCriticIntensityMinimum ?? "balanced" }
+      ...(businessCriticMetadata.category ? { businessCriticCategory: businessCriticMetadata.category } : {}),
+      ...(businessCriticMetadata.intensityMinimum
+        ? { businessCriticIntensityMinimum: businessCriticMetadata.intensityMinimum }
         : {}),
-      ...(seed.businessCriticPressureKind
-        ? { businessCriticPressureKind: seed.businessCriticPressureKind }
+      ...(businessCriticMetadata.pressureKind
+        ? { businessCriticPressureKind: businessCriticMetadata.pressureKind }
         : input.mode === "business"
           ? { businessCriticPressureKind: "balanced_con" as const }
           : {}),
@@ -2119,7 +2190,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       ...(researchQuestion ? { researchQuestion } : {}),
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
-      repeatLimit: seed.businessCriticPressureKind
+      repeatLimit: businessCriticMetadata.pressureKind
         ? BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT
         : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,
@@ -2170,6 +2241,37 @@ function businessCriticQueuedNextIssues(
 
 function businessCriticIntensityRank(intensity: BusinessCriticIntensity) {
   return BUSINESS_CRITIC_INTENSITIES.indexOf(intensity);
+}
+
+function generatedBusinessCriticPressureValidationIssues(
+  issues: readonly AmbiguityIssueSnapshot[],
+  intensity: BusinessCriticIntensity | null | undefined
+) {
+  if (!intensity || intensity === "balanced") {
+    return [] as string[];
+  }
+
+  const validationIssues: string[] = [];
+  const hasCoreAssumptionChallenge = issues.some(
+    (issue) => issue.businessCriticPressureKind === "core_assumption_challenge"
+  );
+  const hasInvestorPressurePass = issues.some(
+    (issue) => issue.businessCriticPressureKind === "investor_pressure_pass"
+  );
+
+  if (!hasCoreAssumptionChallenge) {
+    validationIssues.push(
+      "businessCriticIntensity strong or investor_grade requires at least one generated question with businessCriticPressureKind core_assumption_challenge"
+    );
+  }
+
+  if (intensity === "investor_grade" && !hasInvestorPressurePass) {
+    validationIssues.push(
+      "businessCriticIntensity investor_grade requires at least one generated question with businessCriticPressureKind investor_pressure_pass"
+    );
+  }
+
+  return validationIssues;
 }
 
 function isBusinessCriticPressureAllowedAtIntensity(
@@ -4354,45 +4456,72 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
   }
 
   const context = onboardingQuestionContextFromState(state);
-  const hasGeneratedQuestionSetPayload = hasOwnRecordKey(command.payload, "generatedQuestionSet");
-  const generatedQuestionSet = hasGeneratedQuestionSetPayload
-    ? parseGeneratedAmbiguityQuestionSet(command.payload.generatedQuestionSet, {
-        contextText: generatedQuestionSetContextText(context)
-      })
-    : null;
-  const usesGeneratedQuestionSet = generatedQuestionSet?.ok === true;
-  const issues = usesGeneratedQuestionSet
-    ? createAmbiguityIssuesFromSeeds({
-        sessionId: command.sessionId,
-        specRef: state.currentSpec.draftRef,
-        mode: confirmedMode,
-        intensity: state.project.businessCriticIntensity,
-        context,
-        seeds: generatedQuestionSet.questions,
-        source: "generated_json"
-      })
-    : createAmbiguityIssues(
-        command.sessionId,
-        state.currentSpec.draftRef,
-        confirmedMode,
-        state.project.businessCriticIntensity,
-        context
-      );
-  const questionGeneration = usesGeneratedQuestionSet
-    ? {
-        mode: "generated_json" as const,
-        schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
-        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
-        questionCount: issues.length
+  if (!hasOwnRecordKey(command.payload, "generatedQuestionSet")) {
+    return reject(
+      "AnalyzeAmbiguity requires Codex-generated question JSON.",
+      "COMMAND_PRECONDITION_FAILED",
+      {
+        questionGeneration: {
+          mode: "codex_required",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          reason: "generated_question_set_missing"
+        }
       }
-    : {
-        mode: "deterministic_fallback" as const,
-        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
-        reason: hasGeneratedQuestionSetPayload ? "generated_question_set_invalid" : "generated_question_set_missing",
-        ...(generatedQuestionSet && generatedQuestionSet.issues.length
-          ? { validationIssues: generatedQuestionSet.issues }
-          : {})
-      };
+    );
+  }
+
+  const generatedQuestionSet = parseGeneratedAmbiguityQuestionSet(command.payload.generatedQuestionSet, {
+    contextText: generatedQuestionSetContextText(context)
+  });
+
+  if (!generatedQuestionSet.ok) {
+    return reject(
+      "AnalyzeAmbiguity requires valid Codex-generated question JSON.",
+      "VALIDATION_FAILED",
+      {
+        questionGeneration: {
+          mode: "codex_required",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          reason: "generated_question_set_invalid",
+          validationIssues: generatedQuestionSet.issues
+        }
+      }
+    );
+  }
+
+  const issues = createAmbiguityIssuesFromSeeds({
+    sessionId: command.sessionId,
+    specRef: state.currentSpec.draftRef,
+    mode: confirmedMode,
+    intensity: state.project.businessCriticIntensity,
+    context,
+    seeds: generatedQuestionSet.questions,
+    source: "generated_json"
+  });
+  const businessCriticPressureValidationIssues = confirmedMode === "business"
+    ? generatedBusinessCriticPressureValidationIssues(issues, state.project.businessCriticIntensity)
+    : [];
+
+  if (businessCriticPressureValidationIssues.length) {
+    return reject(
+      "AnalyzeAmbiguity requires generated business critic pressure questions for the selected intensity.",
+      "VALIDATION_FAILED",
+      {
+        questionGeneration: {
+          mode: "codex_required",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          reason: "generated_question_set_invalid",
+          validationIssues: businessCriticPressureValidationIssues
+        }
+      }
+    );
+  }
+  const questionGeneration = {
+    mode: "generated_json" as const,
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+    questionCount: issues.length
+  };
   const event = eventDraft(command, "AmbiguityAnalyzed", {
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,

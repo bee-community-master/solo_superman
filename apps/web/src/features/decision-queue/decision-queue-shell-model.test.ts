@@ -148,13 +148,13 @@ describe("decision queue shell model", () => {
     );
   });
 
-  it("requires backend-visible Codex CLI login only when Codex research automation is enabled", () => {
+  it("requires backend-visible Codex CLI login before initial question generation", () => {
     expect(canStartInitialQueueFlow(readyStartInput({ codexLoginAuthenticated: false }))).toBe(false);
     expectStartBlocker({ codexLoginAuthenticated: false }, "codex_login");
-    expect(canStartInitialQueueFlow(readyStartInput({
+    expectStartBlocker({
       codexLoginAuthenticated: false,
       initialResearchAutomationPermission: "manual_only"
-    }))).toBe(true);
+    }, "codex_login");
   });
 
   it("keeps the business critic intensity gate after ChatGPT login is acknowledged", () => {

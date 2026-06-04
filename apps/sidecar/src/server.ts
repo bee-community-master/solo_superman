@@ -3545,6 +3545,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         rawIdea: request.rawIdea,
         intakeGoal: request.intakeGoal,
         projectPurposeMode: request.projectPurposeMode,
+        businessCriticIntensity: request.businessCriticIntensity ?? null,
         reviewAxes: request.reviewAxes.length ? request.reviewAxes : questionConfig?.reviewAxes ?? [],
         ...(request.ambiguityDimensions.length
           ? { ambiguityDimensions: request.ambiguityDimensions }

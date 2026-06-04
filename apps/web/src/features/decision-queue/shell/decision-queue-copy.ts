@@ -487,13 +487,13 @@ const EN_COPY = {
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "Local questions only for now",
-        description: "Create the first question with the local ambiguity algorithm. Public web research stays off until you enable it in the Research tab."
+        label: "Codex questions, no web research",
+        description: "Use Codex to generate idea-specific questions. Public web research stays off until you enable it in the Research tab."
       },
       {
         permission: "allow_codex" as const,
         label: "Codex + read-only public web research",
-        description: "Enable the public-safe allowlist during onboarding and let Codex generate idea-specific questions and research prompts, with local fallback if Codex is unavailable."
+        description: "Enable the public-safe allowlist during onboarding and let Codex generate idea-specific questions and research prompts."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
@@ -1954,13 +1954,13 @@ const JA_COPY: typeof EN_COPY = {
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "今はローカル質問のみ",
-        description: "最初の質問はローカルの曖昧さ削減アルゴリズムで作ります。公開 Web リサーチは Research タブで有効化するまでオフのままです。"
+        label: "Codex質問、Webリサーチなし",
+        description: "Codexでアイデアに合わせた質問を生成します。公開 Web リサーチは Research タブで有効化するまでオフのままです。"
       },
       {
         permission: "allow_codex" as const,
         label: "Codex + 読み取り専用の公開 Web リサーチ",
-        description: "オンボーディング中に安全な allowlist を有効化し、Codexでアイデアに合わせた質問とリサーチpromptを生成します。利用できない場合はローカルフローに戻します。"
+        description: "オンボーディング中に安全な allowlist を有効化し、Codexでアイデアに合わせた質問とリサーチpromptを生成します。"
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
@@ -3426,13 +3426,13 @@ const KO_COPY: typeof EN_COPY = {
     initialResearchAutomationPermissionOptions: [
       {
         permission: "manual_only" as const,
-        label: "지금은 로컬 질문만 사용",
-        description: "첫 질문은 로컬 모호함 축소 알고리즘으로 만들고, 공개 웹 리서치는 Research 탭에서 켜기 전까지 비활성화합니다."
+        label: "Codex 질문만 사용",
+        description: "Codex가 아이디어에 맞춘 질문을 만들고, 공개 웹 리서치는 Research 탭에서 켜기 전까지 비활성화합니다."
       },
       {
         permission: "allow_codex" as const,
         label: "Codex + 읽기 전용 공개 웹 리서치",
-        description: "온보딩 중 안전한 allowlist를 켜고 Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 합니다. 사용할 수 없으면 로컬 흐름으로 돌아갑니다."
+        description: "온보딩 중 안전한 allowlist를 켜고 Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 합니다."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,

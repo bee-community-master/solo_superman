@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { ProjectPurposeMode } from "@solo-superman/contracts";
+import type { BusinessCriticIntensity, ProjectPurposeMode } from "@solo-superman/contracts";
 import { GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION } from "@solo-superman/core";
 
 export const GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_ARTIFACT_PATH =
@@ -26,6 +26,7 @@ export interface GeneratedAmbiguityQuestionPromptInput {
   readonly rawIdea: string | undefined;
   readonly intakeGoal: string | undefined;
   readonly projectPurposeMode: ProjectPurposeMode;
+  readonly businessCriticIntensity?: BusinessCriticIntensity | null;
   readonly reviewAxes: readonly string[];
   readonly initialQuestionCount?: {
     readonly min?: number;
@@ -52,6 +53,7 @@ function replacementMap(input: GeneratedAmbiguityQuestionPromptInput) {
   const replacements: Readonly<Record<string, string>> = {
     schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
     projectPurposeMode: input.projectPurposeMode,
+    businessCriticIntensity: input.businessCriticIntensity ?? "not_applicable",
     rawIdea: input.rawIdea ?? "",
     intakeGoal: input.intakeGoal ?? "",
     reviewAxes: axes.join(", "),
