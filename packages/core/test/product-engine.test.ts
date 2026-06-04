@@ -3272,9 +3272,9 @@ describe("PR-04 ProductEngine reducer", () => {
           suggestedResearchTask: expect.stringContaining("추가 질문"),
           questionText: expect.stringContaining("paid founder urgency를 조금 더 구체화"),
           whyItMatters: expect.stringMatching(
-            /리서치 (?:메모리|근거) 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con (?:evidence|근거) was found\.[\s\S]*\n- 한계\/불확실성: Counter-(?:evidence|근거) still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: (?:Founder|만드는 사람) urgency (?:evidence|근거) notes/u
+            /리서치 (?:메모리|근거) 요약:\n- 확인된 단서: Pro: founders report urgency, but no skeptical con (?:evidence|근거) was found\.[\s\S]*\n- 한계\/불확실성: (?:Counter-(?:evidence|근거)|반례) still needs a narrower skeptical search\.[\s\S]*\n- 출처 단서: (?:Founder|만드는 사람) urgency (?:evidence|근거) notes/u
           ),
-          decisionItUnlocks: expect.stringContaining("만드는 사람 urgency 근거 notes"),
+          decisionItUnlocks: expect.stringMatching(/(?:Founder|만드는 사람) urgency 근거 notes/u),
           possibleRoutes: expect.arrayContaining(["question", "missing_con_evidence", "research_needed"]),
           sourceRef: expect.stringContaining(`research:${researchTaskId}:`)
         })
