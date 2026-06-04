@@ -23,6 +23,8 @@ function question(input: {
   readonly expectedAnswerType?: "choice" | "text" | "rank" | "evidence" | "experiment";
   readonly ambiguityDimension?: string;
   readonly ambiguityRoutingPath?: "human_judgment" | "existing_fact_check" | "current_research";
+  readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: "balanced_con" | "core_assumption_challenge" | "investor_pressure_pass";
   readonly possibleRoutes?: readonly string[];
   readonly answerOptions?: readonly ReturnType<typeof option>[];
   readonly researchQuestion?: string;
@@ -57,6 +59,8 @@ function question(input: {
     decisionItUnlocks: `${input.summary} 결정을 엽니다.`,
     ambiguityDimension: input.ambiguityDimension ?? "scope",
     ambiguityRoutingPath,
+    ...(input.businessCriticIntensityMinimum ? { businessCriticIntensityMinimum: input.businessCriticIntensityMinimum } : {}),
+    ...(input.businessCriticPressureKind ? { businessCriticPressureKind: input.businessCriticPressureKind } : {}),
     ...(ambiguityRoutingPath === "current_research"
       ? {
           researchQuestion: input.researchQuestion ?? `${input.summary}에 대한 공개 사례와 반례는 무엇인가?`,
@@ -233,6 +237,8 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       questionText: "founder가 제품에 돈을 내지 않을 가장 위험한 이유는 무엇인가요?",
       expectedAnswerType: "experiment",
       ambiguityDimension: "assumption_pressure",
+      businessCriticIntensityMinimum: "strong",
+      businessCriticPressureKind: "core_assumption_challenge",
       possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
     })
   ];
@@ -245,6 +251,8 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       questionText: "어떤 가격을 보여주면 founder가 망설일까요?",
       expectedAnswerType: "experiment",
       ambiguityDimension: "assumption_pressure",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
     }),
     question({
@@ -255,6 +263,8 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       questionText: "왜 지금 founder 제품 스펙 문제가 더 급해졌나요?",
       expectedAnswerType: "evidence",
       ambiguityRoutingPath: "current_research",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "research_needed", "deferred", "repeat_limit_reached"]
     })
   ];

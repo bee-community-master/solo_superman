@@ -6,11 +6,14 @@ import type {
   AmbiguityIssueUncertaintyType,
   AmbiguityPossibleRoute,
   AmbiguityReductionDimension,
-  AmbiguityRoutingPath
+  AmbiguityRoutingPath,
+  BusinessCriticIntensity,
+  BusinessCriticPressureKind
 } from "@solo-superman/contracts";
 import {
   AMBIGUITY_REDUCTION_DIMENSIONS,
   AMBIGUITY_ROUTING_PATHS,
+  BUSINESS_CRITIC_INTENSITIES,
   CANONICAL_INITIAL_SPEC_SECTIONS
 } from "@solo-superman/contracts";
 import { plainUserFacingDecisionQueueText } from "./user-facing-text";
@@ -39,6 +42,8 @@ export interface GeneratedAmbiguityQuestionSeed {
   readonly decisionItUnlocks: string;
   readonly ambiguityDimension: AmbiguityReductionDimension;
   readonly ambiguityRoutingPath: AmbiguityRoutingPath;
+  readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
   readonly researchQuestion?: string;
   readonly routes: readonly AmbiguityPossibleRoute[];
   readonly suggestedResearchTask?: string;
@@ -89,6 +94,12 @@ const ALLOWED_ROUTES = new Set<AmbiguityPossibleRoute>([
 ]);
 const ALLOWED_AMBIGUITY_DIMENSIONS = new Set<AmbiguityReductionDimension>(AMBIGUITY_REDUCTION_DIMENSIONS);
 const ALLOWED_AMBIGUITY_ROUTING_PATHS = new Set<AmbiguityRoutingPath>(AMBIGUITY_ROUTING_PATHS);
+const ALLOWED_BUSINESS_CRITIC_INTENSITIES = new Set<BusinessCriticIntensity>(BUSINESS_CRITIC_INTENSITIES);
+const ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS = new Set<BusinessCriticPressureKind>([
+  "balanced_con",
+  "core_assumption_challenge",
+  "investor_pressure_pass"
+]);
 const PET_LIFECYCLE_CONTEXT_PATTERN =
   /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b|companion\s+animal|동물병원|수의|veterinary|동물\s*진료|동물\s*의료|동물\s*보험|펫\s*보험|반려\s*(?:동물|견|묘).{0,20}(?:기록|의료|보험|장례|급여|일상|전생애|생애주기)|사료|동물\s*장례|반려\s*(?:동물|견|묘).{0,20}말기\s*케어|동물\s*말기\s*케어|펫\s*말기\s*케어)/iu;
 const PET_LIFECYCLE_ANCHOR_PATTERN =
@@ -433,6 +444,10 @@ function parseGeneratedQuestion(
   const rawAmbiguityRoutingPath = rawStringValue(value.ambiguityRoutingPath ?? value.routingPath);
   const ambiguityDimension = rawAmbiguityDimension as AmbiguityReductionDimension;
   const ambiguityRoutingPath = rawAmbiguityRoutingPath as AmbiguityRoutingPath;
+  const rawBusinessCriticIntensityMinimum = rawStringValue(value.businessCriticIntensityMinimum);
+  const businessCriticIntensityMinimum = rawBusinessCriticIntensityMinimum as BusinessCriticIntensity;
+  const rawBusinessCriticPressureKind = rawStringValue(value.businessCriticPressureKind);
+  const businessCriticPressureKind = rawBusinessCriticPressureKind as BusinessCriticPressureKind;
   const researchQuestion = stringValue(value.researchQuestion) || undefined;
   const routes = rawStringList(value.possibleRoutes ?? value.routes) as AmbiguityPossibleRoute[];
   const suggestedResearchTask = stringValue(value.suggestedResearchTask) || undefined;
@@ -474,6 +489,24 @@ function parseGeneratedQuestion(
     issue(issues, `${path}.ambiguityRoutingPath`, "must be provided so the question separates human judgment, existing facts, and current research");
   } else if (!ALLOWED_AMBIGUITY_ROUTING_PATHS.has(ambiguityRoutingPath)) {
     issue(issues, `${path}.ambiguityRoutingPath`, "must be human_judgment, existing_fact_check, or current_research");
+  }
+  if (rawBusinessCriticIntensityMinimum && !ALLOWED_BUSINESS_CRITIC_INTENSITIES.has(businessCriticIntensityMinimum)) {
+    issue(issues, `${path}.businessCriticIntensityMinimum`, "must be balanced, strong, or investor_grade when provided");
+  }
+  if (rawBusinessCriticPressureKind && !ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS.has(businessCriticPressureKind)) {
+    issue(issues, `${path}.businessCriticPressureKind`, "must be balanced_con, core_assumption_challenge, or investor_pressure_pass when provided");
+  }
+  if (rawBusinessCriticIntensityMinimum && !rawBusinessCriticPressureKind) {
+    issue(issues, `${path}.businessCriticPressureKind`, "is required when businessCriticIntensityMinimum is provided");
+  }
+  if (businessCriticPressureKind === "investor_pressure_pass" && businessCriticIntensityMinimum !== "investor_grade") {
+    issue(issues, `${path}.businessCriticIntensityMinimum`, "must be investor_grade for investor pressure questions");
+  }
+  if (businessCriticPressureKind === "core_assumption_challenge" && !["strong", "investor_grade"].includes(businessCriticIntensityMinimum)) {
+    issue(issues, `${path}.businessCriticIntensityMinimum`, "must be strong or investor_grade for core-assumption challenge questions");
+  }
+  if (businessCriticPressureKind === "balanced_con" && rawBusinessCriticIntensityMinimum && businessCriticIntensityMinimum !== "balanced") {
+    issue(issues, `${path}.businessCriticIntensityMinimum`, "must be balanced for balanced pressure questions");
   }
   if (question && questionHasMultipleDecisionAxes(question)) {
     issue(issues, `${path}.questionText`, "must ask one execution-changing judgment, not a compound customer/scope/success question");
@@ -541,6 +574,15 @@ function parseGeneratedQuestion(
     !ALLOWED_AMBIGUITY_DIMENSIONS.has(ambiguityDimension) ||
     !rawAmbiguityRoutingPath ||
     !ALLOWED_AMBIGUITY_ROUTING_PATHS.has(ambiguityRoutingPath) ||
+    (rawBusinessCriticIntensityMinimum && !ALLOWED_BUSINESS_CRITIC_INTENSITIES.has(businessCriticIntensityMinimum)) ||
+    (rawBusinessCriticPressureKind && !ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS.has(businessCriticPressureKind)) ||
+    (rawBusinessCriticIntensityMinimum && !rawBusinessCriticPressureKind) ||
+    (businessCriticPressureKind === "investor_pressure_pass" && businessCriticIntensityMinimum !== "investor_grade") ||
+    (businessCriticPressureKind === "core_assumption_challenge" &&
+      !["strong", "investor_grade"].includes(businessCriticIntensityMinimum)) ||
+    (businessCriticPressureKind === "balanced_con" &&
+      rawBusinessCriticIntensityMinimum &&
+      businessCriticIntensityMinimum !== "balanced") ||
     questionHasMultipleDecisionAxes(question) ||
     !routes.length ||
     routes.some((route) => !ALLOWED_ROUTES.has(route)) ||
@@ -573,6 +615,8 @@ function parseGeneratedQuestion(
     decisionItUnlocks,
     ambiguityDimension,
     ambiguityRoutingPath,
+    ...(rawBusinessCriticIntensityMinimum ? { businessCriticIntensityMinimum } : {}),
+    ...(rawBusinessCriticPressureKind ? { businessCriticPressureKind } : {}),
     ...(researchQuestion ? { researchQuestion } : {}),
     routes,
     ...(suggestedResearchTask ? { suggestedResearchTask } : {}),

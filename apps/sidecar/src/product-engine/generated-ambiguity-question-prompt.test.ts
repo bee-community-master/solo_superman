@@ -11,6 +11,7 @@ describe("generated ambiguity question prompt", () => {
         "Question count: {{minimumQuestionCount}}-{{maximumQuestionCount}}",
         "Language: {{preferredOutputLanguage}}",
         "Axes: {{reviewAxes}}",
+        "Critic: {{businessCriticIntensity}}",
         "Priority: {{ambiguityDimensionPriority}}",
         "Keywords:",
         "{{domainKeywordExpansions}}"
@@ -19,6 +20,7 @@ describe("generated ambiguity question prompt", () => {
         rawIdea: "반려동물 전생애주기 통합 관리 앱",
         intakeGoal: "한국 보호자 시장 검증",
         projectPurposeMode: "business",
+        businessCriticIntensity: "strong",
         reviewAxes: ["buyer/user split", "insurance workflow"],
         initialQuestionCount: { min: 5, max: 8 },
         ambiguityDimensions: ["assumption_pressure", "scope", "goal"],
@@ -31,6 +33,7 @@ describe("generated ambiguity question prompt", () => {
 
     expect(prompt).toContain("Question count: 5-8");
     expect(prompt).toContain("Language: ko");
+    expect(prompt).toContain("Critic: strong");
     expect(prompt).toContain("buyer/user split, insurance workflow");
     expect(prompt).toContain("assumption_pressure -> scope -> goal");
     expect(prompt).toContain("- 반려동물: pet, companion animal");
@@ -41,6 +44,7 @@ describe("generated ambiguity question prompt", () => {
       rawIdea: "반려동물의 요람에서 무덤까지 관리하는 앱",
       intakeGoal: "보호자가 한곳에서 정보를 관리하고 운영자는 돈을 벌고 싶다.",
       projectPurposeMode: "business",
+      businessCriticIntensity: "investor_grade",
       reviewAxes: []
     });
 
@@ -48,6 +52,8 @@ describe("generated ambiguity question prompt", () => {
     expect(prompt).toContain("the UI shows idea and goal separately");
     expect(prompt).toContain("who to ask or show this to this week");
     expect(prompt).toContain("why someone would hesitate to pay");
+    expect(prompt).toContain("Business critic intensity: investor_grade");
+    expect(prompt).toContain('businessCriticPressureKind "investor_pressure_pass"');
     expect(prompt).toContain("paid intent, proxy, or validation experiment");
   });
 });

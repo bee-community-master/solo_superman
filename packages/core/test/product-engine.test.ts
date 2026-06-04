@@ -115,6 +115,8 @@ function generatedQuestion(input: {
   readonly expectedAnswerType?: "choice" | "text" | "rank" | "evidence" | "experiment";
   readonly ambiguityDimension?: string;
   readonly ambiguityRoutingPath?: "human_judgment" | "existing_fact_check" | "current_research";
+  readonly businessCriticIntensityMinimum?: "balanced" | "strong" | "investor_grade";
+  readonly businessCriticPressureKind?: "balanced_con" | "core_assumption_challenge" | "investor_pressure_pass";
   readonly possibleRoutes?: readonly string[];
   readonly answerOptions?: readonly ReturnType<typeof generatedOption>[];
 }) {
@@ -147,6 +149,8 @@ function generatedQuestion(input: {
     decisionItUnlocks: `${input.summary}에 대한 founder product spec 결정을 엽니다.`,
     ambiguityDimension: input.ambiguityDimension ?? "scope",
     ambiguityRoutingPath,
+    ...(input.businessCriticIntensityMinimum ? { businessCriticIntensityMinimum: input.businessCriticIntensityMinimum } : {}),
+    ...(input.businessCriticPressureKind ? { businessCriticPressureKind: input.businessCriticPressureKind } : {}),
     ...(ambiguityRoutingPath === "current_research"
       ? {
           researchQuestion: `${input.summary}에 대해 founder product spec 공개 사례와 반례는 무엇인가?`,
@@ -320,6 +324,8 @@ function generatedBusinessQuestionSet(
       questionText: "창업자가 Founder Brief에 돈을 내지 않을 가장 위험한 이유는 무엇인가요?",
       expectedAnswerType: "experiment",
       ambiguityDimension: "assumption_pressure",
+      businessCriticIntensityMinimum: "strong",
+      businessCriticPressureKind: "core_assumption_challenge",
       possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
     }),
     generatedQuestion({
@@ -327,7 +333,9 @@ function generatedBusinessQuestionSet(
       topicKey: "strong_customer_pain_frequency",
       summary: "문제 빈도 핵심 가정 미확인",
       questionText: "창업자가 제품 스펙 문제를 충분히 자주 겪지 않는다면 어떤 신호가 보일까요?",
-      ambiguityDimension: "assumption_pressure"
+      ambiguityDimension: "assumption_pressure",
+      businessCriticIntensityMinimum: "strong",
+      businessCriticPressureKind: "core_assumption_challenge"
     }),
     generatedQuestion({
       sectionRef: "Validation Plan",
@@ -336,7 +344,9 @@ function generatedBusinessQuestionSet(
       summary: "획득 채널 실패 가정 미확인",
       questionText: "Founder Brief 첫 창업자 모집 채널이 실패한다면 가장 가능성 높은 원인은 무엇인가요?",
       expectedAnswerType: "evidence",
-      ambiguityRoutingPath: "current_research"
+      ambiguityRoutingPath: "current_research",
+      businessCriticIntensityMinimum: "strong",
+      businessCriticPressureKind: "core_assumption_challenge"
     })
   ];
   const investorQuestions = [
@@ -348,13 +358,17 @@ function generatedBusinessQuestionSet(
       questionText: "Founder Brief에서 어떤 가격을 보여주면 창업자가 망설일까요?",
       expectedAnswerType: "experiment",
       ambiguityDimension: "assumption_pressure",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "missing_con_evidence", "deferred", "repeat_limit_reached"]
     }),
     generatedQuestion({
       sectionRef: "Validation Plan",
       topicKey: "investor_retention_proxy_pressure",
       summary: "반복 사용 압박 근거 부족",
-      questionText: "Founder Brief를 다시 쓰는 행동을 어떤 신호로 볼 수 있나요?"
+      questionText: "Founder Brief를 다시 쓰는 행동을 어떤 신호로 볼 수 있나요?",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass"
     }),
     generatedQuestion({
       sectionRef: "Known Risks / Open Questions",
@@ -364,6 +378,8 @@ function generatedBusinessQuestionSet(
       questionText: "왜 지금 창업자 제품 스펙 문제가 더 급해졌나요?",
       expectedAnswerType: "evidence",
       ambiguityRoutingPath: "current_research",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "research_needed", "deferred", "repeat_limit_reached"]
     }),
     generatedQuestion({
@@ -371,6 +387,8 @@ function generatedBusinessQuestionSet(
       topicKey: "investor_legal_ops_pressure",
       summary: "법무 운영 압박 미확인",
       questionText: "Founder Brief 판매나 운영을 먼저 막을 수 있는 문제는 무엇인가요?",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "deferred", "repeat_limit_reached"]
     }),
     generatedQuestion({
@@ -381,6 +399,8 @@ function generatedBusinessQuestionSet(
       questionText: "왜 이 팀이 창업자 제품 스펙 문제를 더 잘 풀 수 있나요?",
       expectedAnswerType: "evidence",
       ambiguityRoutingPath: "current_research",
+      businessCriticIntensityMinimum: "investor_grade",
+      businessCriticPressureKind: "investor_pressure_pass",
       possibleRoutes: ["question", "research_needed", "deferred", "repeat_limit_reached"]
     })
   ];
@@ -1043,6 +1063,63 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("ignores business critic metadata if generated JSON includes it for a personal project", () => {
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of [
+      command("StartProject", 0, {
+        rawIdea: "A personal local workflow helper",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "personal",
+        projectPurposeModeConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "Personal tool for a repeated local workflow."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ]) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_personal_business_metadata_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:06:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const generatedQuestionSet = generatedPersonalQuestionSet();
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: {
+          ...generatedQuestionSet,
+          questions: generatedQuestionSet.questions.map((question, index) =>
+            index === 1
+              ? {
+                  ...question,
+                  businessCriticPressureKind: "investor_pressure_pass",
+                  businessCriticIntensityMinimum: "investor_grade"
+                }
+              : question
+          )
+        }
+      }, 4),
+      state
+    );
+
+    expect(analyze.accepted).toBe(true);
+    expect(analyze.nextState.openIssues.every((issue) => !issue.businessCriticPressureKind)).toBe(true);
+    expect(analyze.nextState.openIssues.every((issue) => !issue.businessCriticIntensityMinimum)).toBe(true);
+  });
+
   it("rejects invalid generated-question JSON instead of falling back to fixed questions", () => {
     let state = createInitialProductEngineState(projectId, sessionId);
     const eventDrafts = [];
@@ -1550,6 +1627,66 @@ describe("PR-04 ProductEngine reducer", () => {
           questionGeneration: {
             mode: "codex_required",
             reason: "generated_question_set_invalid"
+          }
+        }
+      }
+    });
+  });
+
+  it("rejects investor-grade generated business analysis that omits an investor pressure pass", () => {
+    const commands = [
+      command("StartProject", 0, {
+        rawIdea: "Founder Brief 제품 스펙과 customer interview 근거 추적 앱",
+        localPrivacyMode: "local_only",
+        projectPurposeMode: "business",
+        projectPurposeModeConfirmation: "user_confirmed",
+        businessCriticIntensity: "investor_grade",
+        businessCriticIntensityConfirmation: "user_confirmed"
+      }, 1),
+      command("CaptureIntake", 1, {
+        answer: "Founder product spec과 customer interview 질문 품질을 investor-grade business risk까지 검증한다."
+      }, 2),
+      command("DraftInitialSpec", 2, {}, 3)
+    ] as const;
+    let state = createInitialProductEngineState(projectId, sessionId);
+    const eventDrafts = [];
+
+    for (const nextCommand of commands) {
+      const reduction = reduceProductEngineCommand(nextCommand, state);
+
+      expect(reduction.accepted).toBe(true);
+      eventDrafts.push(reduction.events[0]);
+      state = replayProductEngineEvents(
+        projectId,
+        sessionId,
+        eventDrafts.map((eventDraft, index) => ({
+          ...eventDraft,
+          eventId: `evt_investor_explicit_batch_${index + 1}` as EventId,
+          sequence: index + 1,
+          occurredAt: `2026-05-05T00:29:${index + 1}0.000Z`
+        }))
+      );
+    }
+
+    const analyze = reduceProductEngineCommand(
+      command("AnalyzeAmbiguity", 3, {
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet("strong")
+      }, 4),
+      state
+    );
+
+    expect(analyze).toMatchObject({
+      accepted: false,
+      rejectionReason: {
+        code: "VALIDATION_FAILED",
+        details: {
+          questionGeneration: {
+            mode: "codex_required",
+            reason: "generated_question_set_invalid",
+            validationIssues: expect.arrayContaining([
+              expect.stringContaining("investor_pressure_pass")
+            ])
           }
         }
       }

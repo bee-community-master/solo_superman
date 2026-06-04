@@ -12,6 +12,7 @@ Return JSON only. No markdown, comments, or prose outside JSON.
 Prompt artifact: generated-ambiguity-questions.v1.md
 Schema version: {{schemaVersion}}
 Project purpose mode: {{projectPurposeMode}}
+Business critic intensity: {{businessCriticIntensity}}
 Idea: {{rawIdea}}
 User goal/intake: {{intakeGoal}}
 Review axes: {{reviewAxes}}
@@ -48,6 +49,8 @@ JSON shape:
       "decisionItUnlocks": "<what this answer decides>",
       "ambiguityDimension": "goal|scope|constraints|success_criteria|context|decision_authority|assumption_pressure",
       "ambiguityRoutingPath": "human_judgment|existing_fact_check|current_research",
+      "businessCriticPressureKind": "balanced_con|core_assumption_challenge|investor_pressure_pass",
+      "businessCriticIntensityMinimum": "balanced|strong|investor_grade",
       "researchQuestion": "<what public evidence or existing facts must be checked before this answer becomes implementation-ready>",
       "possibleRoutes": ["question", "decision_candidate"],
       "suggestedResearchTask": "<concrete source-seeking task, if research can reduce this ambiguity>"
@@ -73,6 +76,10 @@ Rules:
 - Treat non-goals, decision authority, constraints, and success criteria as floor gates: if any of these would change implementation, ask that before softer context questions.
 - Use assumption_pressure when a question tests what would make the idea weaker, what tradeoff the user accepts, or what must be given up.
 - Include at least one pressure question in the set. It should ask what assumption could fail, what counterexample would change the plan, or what the user is willing to give up.
+- For business mode, mark pressure questions explicitly with businessCriticPressureKind and businessCriticIntensityMinimum.
+- If business critic intensity is balanced, pressure questions may use businessCriticPressureKind "balanced_con" and businessCriticIntensityMinimum "balanced".
+- If business critic intensity is strong, include at least one core-assumption challenge with businessCriticPressureKind "core_assumption_challenge" and businessCriticIntensityMinimum "strong".
+- If business critic intensity is investor_grade, include at least one core-assumption challenge and at least one investor pressure pass with businessCriticPressureKind "investor_pressure_pass" and businessCriticIntensityMinimum "investor_grade".
 - Mark human_judgment when the user must choose a value, priority, excluded scope, decision owner, or success threshold. Mark existing_fact_check when existing local docs/data can answer it. Mark current_research only when market, policy, price, competitor, public community/review, or user evidence may have changed.
 - For current_research questions, possibleRoutes must include "research_needed".
 - For current_research, researchQuestion and suggestedResearchTask must name: a concrete source area, the public/current evidence to inspect, what evidence would weaken the assumption, and what remaining human judgment cannot be answered by research. Do not emit generic tasks like "do more research" or "additional research needed".

@@ -2308,6 +2308,8 @@ describe("PR-02 sidecar health shell", () => {
           decisionItUnlocks: "First value proposition.",
           ambiguityDimension: "assumption_pressure",
           ambiguityRoutingPath: "human_judgment",
+          businessCriticPressureKind: "balanced_con",
+          businessCriticIntensityMinimum: "balanced",
           researchQuestion: "Check public guardian complaints for moments when notes, photos, or clinic apps stop being enough.",
           possibleRoutes: ["question", "decision_candidate"]
         }
@@ -2377,6 +2379,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(seenPrompt).toContain("Do not use a fixed question template");
       expect(seenPrompt).toContain("Apply an Idea-Fit Gate");
       expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
+      expect(seenPrompt).toContain("Business critic intensity: balanced");
+      expect(seenPrompt).toContain('businessCriticPressureKind "core_assumption_challenge"');
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
     } finally {
       await storage.close();
