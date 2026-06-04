@@ -1,4 +1,8 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { Codex, type CodexOptions, type ThreadOptions } from "@openai/codex-sdk";
 import {
   BLOCKED_ACTION_TYPES,
@@ -102,6 +106,7 @@ const GENERATED_PRODUCT_WORKER_CHANGED_FILE_CANDIDATES = [
 
 export interface CodexSdkTurnOptionsInput {
   readonly cwd?: string;
+  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface CodexSdkTurnOptions {
@@ -117,7 +122,7 @@ export class CodexRuntimeUnavailableError extends Error {
   }
 }
 
-const CODEX_ACCOUNT_READ_TIMEOUT_MS = 5_000;
+const CODEX_LOGIN_STATUS_TIMEOUT_MS = 5_000;
 const CODEX_PREVIEW_TURN_TIMEOUT_MS = 60_000;
 const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
@@ -200,9 +205,9 @@ function fixtureCodexLoginStart(now: () => string): CodexRuntimeLoginStartDto {
   });
 }
 
-export function codexAccountStatusFromAccountReadResponse(value: unknown): CodexRuntimeAccountDto {
+export function codexAccountStatusFromLoginStatusResponse(value: unknown): CodexRuntimeAccountDto {
   if (!isRecord(value)) {
-    return baseCodexAccountStatus("unknown", "Codex SDK account/read returned a malformed response.");
+    return baseCodexAccountStatus("unknown", "Codex CLI login status returned a malformed response.");
   }
 
   const account = value.account;
@@ -277,34 +282,67 @@ function codexPreviewTurnTimeoutMs(env: Readonly<Record<string, string | undefin
 }
 
 function codexSdkOptions(env: Readonly<Record<string, string | undefined>>): CodexOptions {
+  const codexPathOverride =
+    codexCommandMode(env) === "wsl" ? codexSdkWslLauncherPath(env) : undefined;
+
   return {
+    ...(codexPathOverride ? { codexPathOverride } : {}),
     env: codexSpawnEnv(env) as Record<string, string>
   };
 }
 
-function codexPreviewThreadOptions(cwd: string): ThreadOptions {
+function codexSdkWorkingDirectoryPath(
+  cwd: string,
+  env: Readonly<Record<string, string | undefined>>
+) {
+  if (codexCommandMode(env) !== "wsl") {
+    return cwd;
+  }
+
+  const windowsDrivePathMatch = /^([A-Za-z]):[\\/](.*)$/u.exec(cwd);
+  if (!windowsDrivePathMatch) {
+    return cwd;
+  }
+
+  const driveLetter = windowsDrivePathMatch[1];
+  const rest = windowsDrivePathMatch[2];
+  if (!driveLetter || rest === undefined) {
+    return cwd;
+  }
+
+  return `/mnt/${driveLetter.toLowerCase()}/${rest.replaceAll("\\", "/")}`;
+}
+
+function codexPreviewThreadOptions(
+  cwd: string,
+  env: Readonly<Record<string, string | undefined>>
+): ThreadOptions {
   return {
     approvalPolicy: "never",
     sandboxMode: "read-only",
-    workingDirectory: cwd,
+    workingDirectory: codexSdkWorkingDirectoryPath(cwd, env),
     modelReasoningEffort: "low",
     networkAccessEnabled: false,
     webSearchMode: "disabled"
   };
 }
 
-function codexWorkerThreadOptions(input: CodexWorkerExecutionInput): ThreadOptions {
+function codexWorkerThreadOptions(
+  input: CodexWorkerExecutionInput,
+  env: Readonly<Record<string, string | undefined>>
+): ThreadOptions {
   const protocolSmoke = isCodexWorkerProtocolSmoke(input);
+  const workingDirectory = codexSdkWorkingDirectoryPath(input.workingDirectory, env);
 
   return {
     approvalPolicy: "never",
     sandboxMode: protocolSmoke ? "read-only" : "workspace-write",
-    workingDirectory: input.workingDirectory,
+    workingDirectory,
     modelReasoningEffort: protocolSmoke ? "low" : "medium",
     networkAccessEnabled: false,
     webSearchMode: "disabled",
     skipGitRepoCheck: true,
-    ...(protocolSmoke ? {} : { additionalDirectories: [input.workingDirectory] })
+    ...(protocolSmoke ? {} : { additionalDirectories: [workingDirectory] })
   };
 }
 
@@ -396,6 +434,33 @@ export function codexWslShellCommand(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
   return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec ${["codex", ...args].map(shellQuote).join(" ")}`;
+}
+
+function codexWslPassthroughShellCommand(env: Readonly<Record<string, string | undefined>>) {
+  return `${codexWslNvmSourceCommand(env)}; ${codexWslPreflightCommand()}; exec codex "$@"`;
+}
+
+function codexSdkWslLauncherPath(env: Readonly<Record<string, string | undefined>>) {
+  const shellCommand = codexWslPassthroughShellCommand(env);
+  const content = [
+    "@echo off",
+    `wsl.exe -d ${windowsCmdQuote(codexWslDistro(env))} -- bash -lc ${windowsCmdQuote(shellCommand)} codex-sdk %*`,
+    ""
+  ].join("\r\n");
+  const hash = createHash("sha256").update(content).digest("hex").slice(0, 16);
+  const launcherPath = join(tmpdir(), "solo-superman-codex-sdk", `codex-sdk-wsl-${hash}.cmd`);
+
+  if (!existsSync(launcherPath) || readFileSync(launcherPath, "utf8") !== content) {
+    mkdirSync(dirname(launcherPath), { recursive: true });
+    writeFileSync(launcherPath, content, "utf8");
+    try {
+      chmodSync(launcherPath, 0o755);
+    } catch {
+      // Windows can launch .cmd files without POSIX executable bits.
+    }
+  }
+
+  return launcherPath;
 }
 
 function codexWslSpawnArgs(
@@ -631,7 +696,7 @@ export async function readCodexAccountStatus(
     };
     const timer = setTimeout(() => {
       finish(baseCodexAccountStatus("unknown", "Timed out while checking Codex login status."));
-    }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
+    }, CODEX_LOGIN_STATUS_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => {
       stdout.append(chunk);
@@ -690,7 +755,7 @@ export async function readCodexCliVersion(
     const timer = setTimeout(() => {
       child.kill();
       resolve(null);
-    }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
+    }, CODEX_LOGIN_STATUS_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => {
       stdout.append(chunk);
@@ -1382,9 +1447,11 @@ export function buildCodexSdkPreviewTurnOptions(
   input: CodexRuntimePreviewInput,
   options: CodexSdkTurnOptionsInput = {}
 ): CodexSdkTurnOptions {
+  const env = options.env ?? process.env;
+
   return {
     prompt: codexPreviewPrompt(input),
-    threadOptions: codexPreviewThreadOptions(options.cwd ?? process.cwd()),
+    threadOptions: codexPreviewThreadOptions(options.cwd ?? process.cwd(), env),
     outputSchema: codexPreviewOutputJsonSchema(input)
   };
 }
@@ -1725,10 +1792,12 @@ export function buildCodexSdkWorkerTurnOptions(
   input: CodexWorkerExecutionInput,
   options: CodexSdkTurnOptionsInput = {}
 ): CodexSdkTurnOptions {
+  const env = options.env ?? process.env;
   const scopedInput = options.cwd ? { ...input, workingDirectory: options.cwd } : input;
+
   return {
     prompt: codexWorkerPrompt(scopedInput),
-    threadOptions: codexWorkerThreadOptions(scopedInput),
+    threadOptions: codexWorkerThreadOptions(scopedInput, env),
     outputSchema: isCodexWorkerProtocolSmoke(scopedInput)
       ? codexWorkerProtocolSmokeAcknowledgementJsonSchema()
       : codexWorkerOutputJsonSchema()
@@ -2006,7 +2075,7 @@ export async function createLiveCodexPreview(
   try {
     const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
     const codex = codexFactory(codexSdkOptions(env));
-    const turnOptions = buildCodexSdkPreviewTurnOptions(input, { cwd: process.cwd() });
+    const turnOptions = buildCodexSdkPreviewTurnOptions(input, { cwd: process.cwd(), env });
     const thread = codex.startThread(turnOptions.threadOptions);
     const turn = await thread.run(turnOptions.prompt, {
       outputSchema: turnOptions.outputSchema,
@@ -2363,7 +2432,7 @@ export async function createLiveCodexWorkerExecution(
   try {
     const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
     const codex = codexFactory(codexSdkOptions(env));
-    const turnOptions = buildCodexSdkWorkerTurnOptions(input);
+    const turnOptions = buildCodexSdkWorkerTurnOptions(input, { env });
     const thread = codex.startThread(turnOptions.threadOptions);
     const turn = await thread.run(turnOptions.prompt, {
       outputSchema: turnOptions.outputSchema,
@@ -2522,12 +2591,16 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       return codexCliStatusPlan(env);
     },
 
+    buildSdkClientOptions() {
+      return codexSdkOptions(env);
+    },
+
     buildPreviewTurnOptions(input: CodexRuntimePreviewInput, requestOptions?: CodexSdkTurnOptionsInput) {
-      return buildCodexSdkPreviewTurnOptions(input, requestOptions);
+      return buildCodexSdkPreviewTurnOptions(input, { ...requestOptions, env: requestOptions?.env ?? env });
     },
 
     buildWorkerTurnOptions(input: CodexWorkerExecutionInput, requestOptions?: CodexSdkTurnOptionsInput) {
-      return buildCodexSdkWorkerTurnOptions(input, requestOptions);
+      return buildCodexSdkWorkerTurnOptions(input, { ...requestOptions, env: requestOptions?.env ?? env });
     },
 
     async createPreview(input: CodexRuntimePreviewInput): Promise<CodexPreviewOutputEnvelope> {

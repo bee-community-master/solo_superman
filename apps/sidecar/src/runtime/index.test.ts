@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   BLOCKED_ACTION_TYPES,
@@ -13,7 +14,7 @@ import {
   assertCodexPreviewOutputMatchesInput,
   assertCodexWorkerExecutionOutputMatchesInput,
   codexCliStatusPlan,
-  codexAccountStatusFromAccountReadResponse,
+  codexAccountStatusFromLoginStatusResponse,
   codexWslShellCommand,
   createCodexRuntimeAdapter,
   codexWorkerProtocolSmokeOutputTemplate,
@@ -449,6 +450,15 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     expect(shellCommand).toContain("could not find the Linux Codex CLI inside WSL");
     expect(shellCommand).not.toContain("then;");
     expect(shellCommand).toContain("\\$HOME");
+
+    const sdkOptions = adapter.buildSdkClientOptions();
+    expect(sdkOptions.codexPathOverride).toMatch(/codex-sdk-wsl-[a-f0-9]+\.cmd$/u);
+    const launcher = readFileSync(String(sdkOptions.codexPathOverride), "utf8");
+    expect(launcher).toContain("@echo off");
+    expect(launcher).toContain("wsl.exe -d \"Ubuntu\"");
+    expect(launcher).toContain("bash -lc");
+    expect(launcher).toContain("exec codex \\\"$@\\\"");
+    expect(launcher).toContain("codex-sdk %*");
   });
 
   it("pins Windows WSL Codex commands to the configured distro and Node major", () => {
@@ -651,9 +661,9 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     ).rejects.toThrow("Codex CLI login is required");
   });
 
-  it("maps Codex SDK account/read into a credential-free auth status", () => {
+  it("maps Codex CLI login status into a credential-free auth status", () => {
     expect(
-      codexAccountStatusFromAccountReadResponse({
+      codexAccountStatusFromLoginStatusResponse({
         account: {
           type: "chatgpt",
           email: "founder@example.com",
@@ -669,7 +679,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     });
-    expect(codexAccountStatusFromAccountReadResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
+    expect(codexAccountStatusFromLoginStatusResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
       status: "missing",
       requiresOpenaiAuth: true
     });
@@ -832,6 +842,24 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         }
       }
     });
+  });
+
+  it("converts Windows working directories for WSL-backed SDK worker execution", () => {
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {
+        SOLO_CODEX_WINDOWS_MODE: "wsl"
+      }
+    });
+    const turnOptions = adapter.buildWorkerTurnOptions(codexWorkerInputFixture(), {
+      cwd: "C:\\Users\\founder\\solo_superman"
+    });
+
+    expect(turnOptions.threadOptions).toMatchObject({
+      workingDirectory: "/mnt/c/Users/founder/solo_superman",
+      additionalDirectories: ["/mnt/c/Users/founder/solo_superman"]
+    });
+    expect(turnOptions.prompt).toContain("workingDirectory: C:\\Users\\founder\\solo_superman");
   });
 
   it("keeps worker-job smoke prompts bounded to a live protocol ledger envelope", () => {
