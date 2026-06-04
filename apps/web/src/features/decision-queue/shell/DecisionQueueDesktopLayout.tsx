@@ -4,8 +4,27 @@ import { LanguageSwitcher } from "../../../shared/i18n/app-language";
 import { DECISION_QUEUE_PAGE_ORDER, useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
+export type DecisionQueueDesktopLayoutController = Pick<
+  DecisionQueueShellController,
+  | "activePage"
+  | "activePageMeta"
+  | "blockedQueueCount"
+  | "confidence"
+  | "connect"
+  | "connectionLabel"
+  | "connectionState"
+  | "connectionTone"
+  | "isBusy"
+  | "navItems"
+  | "pageMeta"
+  | "projections"
+  | "setActivePage"
+  | "totalQueueCount"
+  | "workflowError"
+>;
+
 interface DecisionQueueDesktopLayoutProps {
-  readonly controller: DecisionQueueShellController;
+  readonly controller: DecisionQueueDesktopLayoutController;
   readonly children: ReactNode;
   readonly rightRail: ReactNode;
 }
