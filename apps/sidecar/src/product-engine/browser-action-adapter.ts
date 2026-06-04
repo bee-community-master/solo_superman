@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import type { LookupAddress } from "node:dns";
 import type {
   BrowserActionExecutionResult,
   BrowserActionPreviewDto,
@@ -33,6 +35,8 @@ const LOOPBACK_BROWSER_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"
 const PUBLIC_READ_BLOCKED_HOST_SUFFIXES = [".local", ".localhost", ".lan", ".home", ".internal", ".invalid"] as const;
 const DEFAULT_BROWSER_ACTION_TIMEOUT_MS = 30_000;
 const FETCH_LOG_SUMMARY_MAX_CHARS = 2_000;
+
+type BrowserActionDnsLookup = (hostname: string) => Promise<readonly Pick<LookupAddress, "address" | "family">[]>;
 
 export function hashBrowserActionPreview(input: {
   readonly targetUrl: string;
@@ -118,6 +122,134 @@ function isPublicReadHostname(hostname: string) {
   }
 
   return !PUBLIC_READ_BLOCKED_HOST_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+}
+
+function isNonPublicIpv4Address(hostname: string) {
+  const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
+
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first = 0, second = 0] = parts;
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function ipv4AddressFromIpv6Suffix(suffix: string) {
+  if (isIP(suffix) === 4) {
+    return suffix;
+  }
+
+  const hextets = suffix.split(":");
+
+  if (hextets.length !== 2 || hextets.some((hextet) => !/^[\da-f]{1,4}$/iu.test(hextet))) {
+    return null;
+  }
+
+  const [high = Number.NaN, low = Number.NaN] = hextets.map((hextet) => Number.parseInt(hextet, 16));
+
+  if (!Number.isInteger(high) || !Number.isInteger(low)) {
+    return null;
+  }
+
+  return `${Math.floor(high / 256)}.${high % 256}.${Math.floor(low / 256)}.${low % 256}`;
+}
+
+function ipv4AddressFromEmbeddedIpv6(hostname: string) {
+  if (hostname.startsWith("::ffff:")) {
+    return ipv4AddressFromIpv6Suffix(hostname.slice("::ffff:".length));
+  }
+
+  if (hostname.startsWith("::")) {
+    return ipv4AddressFromIpv6Suffix(hostname.slice("::".length));
+  }
+
+  return null;
+}
+
+function firstIpv6Hextet(hostname: string) {
+  const [first] = hostname.split(":");
+
+  if (!first || !/^[\da-f]{1,4}$/iu.test(first)) {
+    return null;
+  }
+
+  return Number.parseInt(first, 16);
+}
+
+function isNonPublicIpv6Address(hostname: string) {
+  const embeddedIpv4 = ipv4AddressFromEmbeddedIpv6(hostname);
+  const first = firstIpv6Hextet(hostname);
+  const isLinkLocal = first !== null && first >= 0xfe80 && first <= 0xfebf;
+  const isUniqueLocal = first !== null && first >= 0xfc00 && first <= 0xfdff;
+  const isMulticast = first !== null && first >= 0xff00 && first <= 0xffff;
+  const isDiscardOnly = first === 0x0100;
+
+  return (
+    Boolean(embeddedIpv4 && isNonPublicIpv4Address(embeddedIpv4)) ||
+    hostname === "::" ||
+    hostname === "::1" ||
+    hostname.startsWith("2001:db8:") ||
+    isLinkLocal ||
+    isUniqueLocal ||
+    isMulticast ||
+    isDiscardOnly
+  );
+}
+
+function isPublicIpAddress(value: string) {
+  const hostname = normalizedHostname(value);
+  const ipVersion = isIP(hostname);
+
+  if (ipVersion === 4) {
+    return !isNonPublicIpv4Address(hostname);
+  }
+
+  if (ipVersion === 6) {
+    return !isNonPublicIpv6Address(hostname);
+  }
+
+  return false;
+}
+
+async function lookupBrowserActionTarget(hostname: string) {
+  return lookup(hostname, { all: true });
+}
+
+export async function publicReadTargetDnsBlockReason(
+  target: BrowserActionTargetDto,
+  dnsLookup: BrowserActionDnsLookup = lookupBrowserActionTarget
+) {
+  try {
+    const addresses = await dnsLookup(target.hostname);
+
+    if (addresses.length > 0 && addresses.every(({ address }) => isPublicIpAddress(address))) {
+      return null;
+    }
+  } catch {
+    return blockReason(
+      "sandbox_failure",
+      "approved_public_read browser_action target DNS lookup failed before execution.",
+      [`browser_action:public_read_dns_lookup_failed:${target.hostname}`]
+    );
+  }
+
+  return blockReason(
+    "sandbox_failure",
+    "approved_public_read browser_action target DNS must resolve only to public addresses, not private, loopback, or otherwise non-public addresses.",
+    [`browser_action:blocked_public_read_dns:${target.hostname}`]
+  );
 }
 
 function portForUrl(url: URL) {
@@ -441,6 +573,20 @@ export async function runBrowserAction(input: BrowserActionApplyInput): Promise<
       target,
       action: input.action,
       blockReasons: [blockReason("sandbox_failure", "targetUrl does not match the approved authority browserTargetRef.")]
+    });
+  }
+
+  const dnsBlockReason =
+    input.record.sandboxBoundary.networkPolicy === "approved_public_read"
+      ? await publicReadTargetDnsBlockReason(target)
+      : null;
+
+  if (dnsBlockReason) {
+    return browserActionResult({
+      status: "blocked",
+      target,
+      action: input.action,
+      blockReasons: [dnsBlockReason]
     });
   }
 
