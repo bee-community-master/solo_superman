@@ -1101,7 +1101,7 @@ describe("PR-03 local libSQL storage foundation", () => {
         },
         sourceRefs: ["spec_current"],
         contextHash: "ctx_runtime_storage",
-        runtimeAdapterVersion: "codex-app-server-preview-v1",
+        runtimeAdapterVersion: "codex-sdk-runtime-v1",
         sourceEffectTaskId,
         blockedAction: {
           actionType: "shell_command",

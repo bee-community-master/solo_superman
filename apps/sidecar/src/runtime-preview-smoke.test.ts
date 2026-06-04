@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CODEX_APP_SERVER_GENERATED_VERSION,
+  CODEX_SDK_PACKAGE_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
   type CodexRuntimeStatusDto
@@ -17,8 +17,9 @@ function liveReadyStatus(): CodexRuntimeStatusDto {
   return {
     status: "available",
     adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
-    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
     transport: CODEX_RUNTIME_TRANSPORT,
+    codexCliVersion: "0.137.0",
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: true,
@@ -96,7 +97,7 @@ describe("runtime preview turn smoke", () => {
     });
   });
 
-  it("passes live preview-turn mode only when the effect persists a Codex app-server artifact", async () => {
+  it("passes live preview-turn mode only when the effect persists a Codex SDK artifact", async () => {
     const livePreviewAdapter = {
       ...createCodexRuntimeAdapter({ fixtureMode: true, env: {} }),
       async getStatus() {
@@ -123,7 +124,7 @@ describe("runtime preview turn smoke", () => {
         effectStatus: "succeeded",
         artifactKind: "ImplementationPlanPreviewArtifact",
         artifactStatus: "preview_ready",
-        artifactSource: "codex_app_server",
+        artifactSource: "codex_sdk",
         applyPolicy: "note_only"
       }
     });

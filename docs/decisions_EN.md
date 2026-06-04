@@ -13,7 +13,7 @@ This file preserves durable project decisions after the old numbered planning do
 | Tauri/native paths removed | Native app-host code paths are historical context, not the current architecture surface. | Reintroducing Tauri/native shell as the future default. |
 | Code-backed reference contract | Contract values must be backed by source code and verifier coverage. | Copying contract values into prose without verifier coverage. |
 | Local embedded libSQL + Drizzle | It supports local-first persistence and deterministic test fixtures. | Browser-only DB rewrite. |
-| Codex app-server preview first | It avoids requiring an OpenAI API key or ChatGPT web session in the default local path; backend question/research preview checks local Codex CLI login instead. | Asking every user for an API key or ChatGPT web credential during install. |
+| Codex SDK preview first | It avoids requiring an OpenAI API key or ChatGPT web session in the default local path; backend question/research preview checks local Codex CLI login instead. | Asking every user for an API key or ChatGPT web credential during install. |
 | ExecutionAuthorityRecord gate | File, shell, and browser actions need preview, approval, rollback, and evidence. | Blanket approval or silent auto-apply. |
 | ChatGPT browser delegation is separate and per-run | The user owns the browser session and approves each run; this path must not be confused with the default Codex CLI preview login. | Credential custody, account sharing/resale, or stable backend treatment of ChatGPT web UI. |
 | README remains short | End users need installation and first run, not implementation history. | Using the root README as a planning ledger. |

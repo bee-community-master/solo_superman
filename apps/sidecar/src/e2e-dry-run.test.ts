@@ -3013,7 +3013,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expectedStateVersion,
           payload: {
             source: "protocol_fixture",
-            runtimeAdapterVersion: "codex-app-server-preview-v1",
+            runtimeAdapterVersion: "codex-sdk-runtime-v1",
             turnPurpose: "implementation_plan_preview",
             contextHash: `ctx_phase15b_${actionType}`,
             prompt: `Preserve ${actionType} readiness metadata without executing the action.`,

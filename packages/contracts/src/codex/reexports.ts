@@ -39,15 +39,15 @@ export const BLOCKED_ACTION_TYPES = [
   "chatgpt_web_automation"
 ] as const;
 
-export const CODEX_APP_SERVER_GENERATED_VERSION = "codex-cli-0.128.0" as const;
-export const CODEX_RUNTIME_ADAPTER_VERSION = "codex-app-server-preview-v1" as const;
-export const CODEX_RUNTIME_TRANSPORT = "stdio" as const;
+export const CODEX_SDK_PACKAGE_VERSION = "0.137.0" as const;
+export const CODEX_RUNTIME_ADAPTER_VERSION = "codex-sdk-runtime-v1" as const;
+export const CODEX_RUNTIME_TRANSPORT = "codex-sdk-jsonl" as const;
 
 export type CodexTurnPurpose = (typeof CODEX_TURN_PURPOSES)[number];
 export type CodexArtifactKind = (typeof CODEX_ARTIFACT_KINDS)[number];
 export type CodexApplyPolicy = (typeof CODEX_APPLY_POLICIES)[number];
 export type BlockedActionType = (typeof BLOCKED_ACTION_TYPES)[number];
-export type CodexRuntimeSource = "codex_app_server" | "manual_prompt_handoff" | "protocol_fixture";
+export type CodexRuntimeSource = "codex_sdk" | "manual_prompt_handoff" | "protocol_fixture";
 export type CodexRuntimeStatus = "available" | "unavailable" | "blocked";
 export type CodexRuntimeExecutionMode = "fixture" | "live" | "manual_handoff";
 export type RuntimePreviewStatus = "preview_ready" | "manual_handoff" | "blocked";
@@ -76,7 +76,8 @@ export const CODEX_APPLY_POLICY_BY_TURN_PURPOSE = {
 export interface CodexRuntimeStatusDto {
   readonly status: CodexRuntimeStatus;
   readonly adapterVersion: typeof CODEX_RUNTIME_ADAPTER_VERSION;
-  readonly generatedSchemaVersion: typeof CODEX_APP_SERVER_GENERATED_VERSION;
+  readonly sdkPackageVersion: typeof CODEX_SDK_PACKAGE_VERSION;
+  readonly codexCliVersion: string | null;
   readonly transport: typeof CODEX_RUNTIME_TRANSPORT;
   readonly checkedAt: string;
   readonly manualHandoffAvailable: boolean;

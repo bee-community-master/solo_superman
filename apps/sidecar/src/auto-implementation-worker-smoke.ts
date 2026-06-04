@@ -27,7 +27,7 @@ import { createSidecarApp } from "./server";
 import { removeTemporaryDirectory } from "./test-cleanup";
 
 export const LIVE_WORKER_JOB_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_WORKER_JOB" as const;
-export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
+export const LIVE_TURNS_ENV = "SOLO_CODEX_SDK_LIVE_TURNS" as const;
 export const AUTO_IMPLEMENTATION_WORKER_SMOKE = "auto_implementation_worker_job" as const;
 
 const FIXTURE_NOW = "2026-05-23T00:00:00.000Z";

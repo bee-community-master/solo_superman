@@ -129,9 +129,10 @@ describe("verify-codex-live-runtime smoke plan", () => {
         liveTurnExecutionEnabled: true,
         manualHandoffAvailable: true,
         checkedAt: "2026-05-23T00:00:00.000Z",
-        adapterVersion: "codex-app-server-preview-pr-07",
-        generatedSchemaVersion: "codex-app-server-2026-05-21",
-        transport: "stdio",
+        adapterVersion: "codex-sdk-runtime-v1",
+        sdkPackageVersion: "0.137.0",
+        codexCliVersion: "0.137.0",
+        transport: "codex-sdk-jsonl",
         account: {
           status: "authenticated",
           accountType: "chatgpt",

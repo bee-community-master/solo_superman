@@ -27,14 +27,15 @@ function codexRuntimeStatus(
 ): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-app-server-preview-v1",
-    generatedSchemaVersion: "codex-cli-0.128.0",
-    transport: "stdio",
+    adapterVersion: "codex-sdk-runtime-v1",
+    sdkPackageVersion: "0.137.0",
+    codexCliVersion: "0.137.0",
+    transport: "codex-sdk-jsonl",
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
     executionMode: "manual_handoff",
-    reason: "Codex CLI login is available, but set SOLO_CODEX_APP_SERVER_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then.",
+    reason: "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then.",
     ...overrides,
     account: {
       status: "authenticated",
@@ -572,9 +573,10 @@ describe("AutoImplementationRunPanel view model", () => {
       executionModeLabel: "manual_handoff",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-app-server-preview-v1",
-      generatedSchemaVersionLabel: "codex-cli-0.128.0",
-      transportLabel: "stdio",
+      adapterVersionLabel: "codex-sdk-runtime-v1",
+      sdkPackageVersionLabel: "0.137.0",
+      codexCliVersionLabel: "0.137.0",
+      transportLabel: "codex-sdk-jsonl",
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -590,16 +592,17 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
     expect(markup).toContain("Codex runtime adapter");
-    expect(markup).toContain("codex-app-server-preview-v1");
-    expect(markup).toContain("Generated schema version");
-    expect(markup).toContain("codex-cli-0.128.0");
+    expect(markup).toContain("codex-sdk-runtime-v1");
+    expect(markup).toContain("SDK package version");
+    expect(markup).toContain("0.137.0");
+    expect(markup).toContain("Codex CLI version");
     expect(markup).toContain("Connection transport");
-    expect(markup).toContain("stdio");
+    expect(markup).toContain("codex-sdk-jsonl");
     expect(markup).toContain("Automatic runs");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
-    expect(markup).toContain("SOLO_CODEX_APP_SERVER_LIVE_TURNS=1");
+    expect(markup).toContain("SOLO_CODEX_SDK_LIVE_TURNS=1");
     expect(markup).toContain("import its result evidence");
 
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
@@ -617,7 +620,7 @@ describe("AutoImplementationRunPanel view model", () => {
         status: "available",
         liveTurnExecutionEnabled: true,
         executionMode: "live",
-        reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+        reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
       })
     );
 
@@ -625,9 +628,10 @@ describe("AutoImplementationRunPanel view model", () => {
       statusLabel: "available",
       executionModeLabel: "live",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-app-server-preview-v1",
-      generatedSchemaVersionLabel: "codex-cli-0.128.0",
-      transportLabel: "stdio",
+      adapterVersionLabel: "codex-sdk-runtime-v1",
+      sdkPackageVersionLabel: "0.137.0",
+      codexCliVersionLabel: "0.137.0",
+      transportLabel: "codex-sdk-jsonl",
       liveTurnsState: "enabled",
       manualHandoffState: "available"
     });

@@ -10,9 +10,10 @@ function codexRuntimeStatus(
 ): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-app-server-preview-v1",
-    generatedSchemaVersion: "codex-cli-0.128.0",
-    transport: "stdio",
+    adapterVersion: "codex-sdk-runtime-v1",
+    sdkPackageVersion: "0.137.0",
+    codexCliVersion: "0.137.0",
+    transport: "codex-sdk-jsonl",
     checkedAt: "2026-05-17T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,

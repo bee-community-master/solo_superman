@@ -5,9 +5,10 @@ import { codexRuntimeEvidenceView } from "./codex-runtime-status-view";
 function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-app-server-preview-v1",
-    generatedSchemaVersion: "codex-cli-0.128.0",
-    transport: "stdio",
+    adapterVersion: "codex-sdk-runtime-v1",
+    sdkPackageVersion: "0.137.0",
+    codexCliVersion: "0.137.0",
+    transport: "codex-sdk-jsonl",
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
@@ -36,7 +37,8 @@ describe("codexRuntimeEvidenceView", () => {
       accountLabel: "unknown",
       checkedAtLabel: null,
       adapterVersionLabel: null,
-      generatedSchemaVersionLabel: null,
+      sdkPackageVersionLabel: null,
+      codexCliVersionLabel: null,
       transportLabel: null,
       liveTurnsState: "unknown",
       manualHandoffState: "unknown",
@@ -55,9 +57,10 @@ describe("codexRuntimeEvidenceView", () => {
       accountPlanType: "plus",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-app-server-preview-v1",
-      generatedSchemaVersionLabel: "codex-cli-0.128.0",
-      transportLabel: "stdio",
+      adapterVersionLabel: "codex-sdk-runtime-v1",
+      sdkPackageVersionLabel: "0.137.0",
+      codexCliVersionLabel: "0.137.0",
+      transportLabel: "codex-sdk-jsonl",
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -68,13 +71,13 @@ describe("codexRuntimeEvidenceView", () => {
       status: "available",
       executionMode: "live",
       liveTurnExecutionEnabled: true,
-      reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+      reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
     }))).toMatchObject({
       statusLabel: "available",
       executionModeLabel: "live",
       liveTurnsState: "enabled",
       manualHandoffState: "available",
-      reasonLabel: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+      reasonLabel: "Live Codex SDK turn execution is enabled for preview-only artifacts."
     });
   });
 });

@@ -1056,10 +1056,16 @@ export function AutoImplementationRunPanel({
                 <dd>{run.workerRuntimeReadiness.adapterVersionLabel}</dd>
               </div>
             ) : null}
-            {run.workerRuntimeReadiness.generatedSchemaVersionLabel ? (
+            {run.workerRuntimeReadiness.sdkPackageVersionLabel ? (
               <div>
-                <dt>{copy.autoImplementation.workerRuntimeGeneratedSchemaVersion}</dt>
-                <dd>{run.workerRuntimeReadiness.generatedSchemaVersionLabel}</dd>
+                <dt>{copy.autoImplementation.workerRuntimeSdkPackageVersion}</dt>
+                <dd>{run.workerRuntimeReadiness.sdkPackageVersionLabel}</dd>
+              </div>
+            ) : null}
+            {run.workerRuntimeReadiness.codexCliVersionLabel ? (
+              <div>
+                <dt>{copy.autoImplementation.workerRuntimeCodexCliVersion}</dt>
+                <dd>{run.workerRuntimeReadiness.codexCliVersionLabel}</dd>
               </div>
             ) : null}
             {run.workerRuntimeReadiness.transportLabel ? (

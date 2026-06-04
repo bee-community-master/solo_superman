@@ -3819,7 +3819,7 @@ export function createProductEngineCommandService(
 
     const status = await codexRuntimeAdapter.getStatus();
 
-    return status.executionMode === "live" ? "codex_app_server" : "protocol_fixture";
+    return status.executionMode === "live" ? "codex_sdk" : "protocol_fixture";
   }
 
   async function runCodexRuntimePreviewEffect(effect: EffectTaskRecord) {

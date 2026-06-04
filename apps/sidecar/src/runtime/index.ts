@@ -1,14 +1,14 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createInterface } from "node:readline";
+import { spawn } from "node:child_process";
+import { Codex, type CodexOptions, type ThreadOptions } from "@openai/codex-sdk";
 import {
   BLOCKED_ACTION_TYPES,
-  CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_APPLY_POLICY_BY_TURN_PURPOSE,
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KIND_BY_TURN_PURPOSE,
   CODEX_ARTIFACT_KINDS,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
   CODEX_TURN_PURPOSES,
   CONTRACT_SCHEMA_VERSION,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
@@ -25,8 +25,6 @@ import {
   type AutoImplementationStage,
   type BlockedActionType,
   type CodexApplyPolicy,
-  type CodexAppServerClientRequest,
-  type CodexAppServerJsonValue,
   type CodexArtifactKind,
   type CodexRuntimeAccountDto,
   type CodexRuntimeLoginStartDto,
@@ -39,7 +37,9 @@ import {
   type TrackerDoc
 } from "@solo-superman/contracts";
 
-export const RUNTIME_ADAPTER_VERSION = "codex-app-server-preview-pr-07" as const;
+export const RUNTIME_ADAPTER_VERSION = "codex-sdk-runtime-v1" as const;
+
+type CodexJsonSchema = unknown;
 
 export interface CodexRuntimePreviewInput {
   readonly turnPurpose: CodexTurnPurpose;
@@ -86,7 +86,8 @@ export interface CodexRuntimeAdapterOptions {
   readonly loginLauncher?: () => Promise<CodexRuntimeLoginStartDto>;
   readonly livePreviewCreator?: (input: CodexRuntimePreviewInput) => Promise<CodexPreviewOutputEnvelope>;
   readonly liveWorkerExecutor?: (input: CodexWorkerExecutionInput) => Promise<CodexWorkerExecutionOutputEnvelope>;
-  readonly processFactory?: CodexAppServerProcessFactory;
+  readonly cliVersionReader?: () => Promise<string | null>;
+  readonly codexFactory?: (options: CodexOptions) => Codex;
 }
 
 export interface CodexRuntimePreviewFixtureOptions {
@@ -99,27 +100,15 @@ const GENERATED_PRODUCT_WORKER_CHANGED_FILE_CANDIDATES = [
   "generated-product/src/product-slice.test.mjs"
 ] as const;
 
-type CodexClientRequestFor<Method extends CodexAppServerClientRequest["method"]> = Extract<
-  CodexAppServerClientRequest,
-  { method: Method }
->;
-
-export interface CodexStdioTurnRequestOptions {
-  readonly requestIdPrefix?: string;
+export interface CodexSdkTurnOptionsInput {
   readonly cwd?: string;
 }
 
-export interface CodexStdioTurnRequestBundle {
-  readonly initializeRequest: CodexClientRequestFor<"initialize">;
-  readonly threadStartRequest: CodexClientRequestFor<"thread/start">;
-  readonly buildTurnStartRequest: (threadId: string) => CodexClientRequestFor<"turn/start">;
+export interface CodexSdkTurnOptions {
+  readonly prompt: string;
+  readonly threadOptions: ThreadOptions;
+  readonly outputSchema: CodexJsonSchema;
 }
-
-export type CodexAppServerProcessFactory = (
-  command: string,
-  args: readonly string[],
-  options: { readonly env: NodeJS.ProcessEnv }
-) => ChildProcessWithoutNullStreams;
 
 export class CodexRuntimeUnavailableError extends Error {
   constructor(message: string) {
@@ -134,8 +123,8 @@ const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
 const CODEX_LOGIN_COMMAND_ARGS = ["codex", "auth", "login"] as const;
-const CODEX_LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
-const CODEX_LIVE_TURN_TIMEOUT_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURN_TIMEOUT_MS" as const;
+const CODEX_LIVE_TURNS_ENV = "SOLO_CODEX_SDK_LIVE_TURNS" as const;
+const CODEX_LIVE_TURN_TIMEOUT_ENV = "SOLO_CODEX_SDK_LIVE_TURN_TIMEOUT_MS" as const;
 const CODEX_WINDOWS_MODE_ENV = "SOLO_CODEX_WINDOWS_MODE" as const;
 const CODEX_LEGACY_COMMAND_MODE_ENV = "SOLO_CODEX_COMMAND_MODE" as const;
 const CODEX_WSL_DISTRO_ENV = "SOLO_SUPERMAN_CODEX_WSL_DISTRO" as const;
@@ -213,7 +202,7 @@ function fixtureCodexLoginStart(now: () => string): CodexRuntimeLoginStartDto {
 
 export function codexAccountStatusFromAccountReadResponse(value: unknown): CodexRuntimeAccountDto {
   if (!isRecord(value)) {
-    return baseCodexAccountStatus("unknown", "Codex app-server account/read returned a malformed response.");
+    return baseCodexAccountStatus("unknown", "Codex SDK account/read returned a malformed response.");
   }
 
   const account = value.account;
@@ -228,7 +217,7 @@ export function codexAccountStatusFromAccountReadResponse(value: unknown): Codex
   }
 
   if (!isRecord(account) || typeof account.type !== "string") {
-    return baseCodexAccountStatus("unknown", "Codex app-server returned an unrecognized account shape.");
+    return baseCodexAccountStatus("unknown", "Codex SDK returned an unrecognized account shape.");
   }
 
   const accountType =
@@ -287,15 +276,36 @@ function codexPreviewTurnTimeoutMs(env: Readonly<Record<string, string | undefin
   return positiveIntegerEnvValue(env, CODEX_LIVE_TURN_TIMEOUT_ENV, CODEX_PREVIEW_TURN_TIMEOUT_MS);
 }
 
-function defaultCodexAppServerProcessFactory(
-  command: string,
-  args: readonly string[],
-  options: { readonly env: NodeJS.ProcessEnv }
-) {
-  return spawn(command, [...args], {
-    env: options.env,
-    stdio: ["pipe", "pipe", "pipe"]
-  });
+function codexSdkOptions(env: Readonly<Record<string, string | undefined>>): CodexOptions {
+  return {
+    env: codexSpawnEnv(env) as Record<string, string>
+  };
+}
+
+function codexPreviewThreadOptions(cwd: string): ThreadOptions {
+  return {
+    approvalPolicy: "never",
+    sandboxMode: "read-only",
+    workingDirectory: cwd,
+    modelReasoningEffort: "low",
+    networkAccessEnabled: false,
+    webSearchMode: "disabled"
+  };
+}
+
+function codexWorkerThreadOptions(input: CodexWorkerExecutionInput): ThreadOptions {
+  const protocolSmoke = isCodexWorkerProtocolSmoke(input);
+
+  return {
+    approvalPolicy: "never",
+    sandboxMode: protocolSmoke ? "read-only" : "workspace-write",
+    workingDirectory: input.workingDirectory,
+    modelReasoningEffort: protocolSmoke ? "low" : "medium",
+    networkAccessEnabled: false,
+    webSearchMode: "disabled",
+    skipGitRepoCheck: true,
+    ...(protocolSmoke ? {} : { additionalDirectories: [input.workingDirectory] })
+  };
 }
 
 function createLimitedTextCapture(limit = CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT) {
@@ -395,24 +405,24 @@ function codexWslSpawnArgs(
   return ["-d", codexWslDistro(env), "--", "bash", "-lc", codexWslShellCommand(args, env)] as const;
 }
 
-export function codexAppServerSpawnPlan(
+export function codexCliStatusPlan(
   env: Readonly<Record<string, string | undefined>> = process.env,
   platform: NodeJS.Platform = process.platform
 ) {
   if (codexCommandMode(env, platform) === "wsl") {
     return {
       command: "wsl.exe",
-      args: codexWslSpawnArgs(["app-server", "--listen", "stdio://"], env),
+      args: codexWslSpawnArgs(["login", "status"], env),
       transport: CODEX_RUNTIME_TRANSPORT,
-      generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
+      sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION
     } as const;
   }
 
   return {
     command: "codex",
-    args: ["app-server", "--listen", "stdio://"],
+    args: ["login", "status"],
     transport: CODEX_RUNTIME_TRANSPORT,
-    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION
   } as const;
 }
 
@@ -583,19 +593,6 @@ export async function startCodexLoginInBackgroundTerminal(
   }
 }
 
-function responseErrorMessage(
-  response: Readonly<Record<string, unknown>>,
-  fallback = "Codex app-server account/read failed."
-) {
-  const error = response.error;
-
-  if (isRecord(error) && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return fallback;
-}
-
 async function readAccountBeforeLogin(accountReader: () => Promise<CodexRuntimeAccountDto>) {
   try {
     return await accountReader();
@@ -604,132 +601,113 @@ async function readAccountBeforeLogin(accountReader: () => Promise<CodexRuntimeA
   }
 }
 
+
 export async function readCodexAccountStatus(
   env: Readonly<Record<string, string | undefined>> = process.env
 ): Promise<CodexRuntimeAccountDto> {
   return await new Promise((resolve) => {
     let settled = false;
-    const spawnPlan = codexAppServerSpawnPlan(env);
-    const startedAt = Date.now();
-
-    logCodexRuntimeDiagnostic("info", "account-read-spawn", {
-      command: spawnPlan.command,
-      args: spawnPlan.args,
-      transport: spawnPlan.transport,
-      generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
-      timeoutMs: CODEX_ACCOUNT_READ_TIMEOUT_MS
-    });
-
+    const spawnPlan = codexCliStatusPlan(env);
+    const stdout = createLimitedTextCapture();
+    const stderr = createLimitedTextCapture();
     const child = spawn(spawnPlan.command, [...spawnPlan.args], {
       env: codexSpawnEnv(env),
-      stdio: ["pipe", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"]
     });
-    const stderr = createLimitedTextCapture();
-    const lineReader = createInterface({ input: child.stdout });
-    const finish = (status: CodexRuntimeAccountDto, cause: string, details: Readonly<Record<string, unknown>> = {}) => {
+    const finish = (status: CodexRuntimeAccountDto) => {
       if (settled) {
         return;
       }
 
       settled = true;
       clearTimeout(timer);
-      lineReader.close();
       child.kill();
-      logCodexRuntimeDiagnostic(status.status === "authenticated" || status.status === "missing" ? "info" : "warn", "account-read-finished", {
-        cause,
-        elapsedMs: Date.now() - startedAt,
+      logCodexRuntimeDiagnostic(status.status === "authenticated" || status.status === "missing" ? "info" : "warn", "login-status-finished", {
         accountStatus: status.status,
         accountType: status.accountType ?? null,
-        hasEmail: Boolean(status.email),
-        hasPlanType: Boolean(status.planType),
-        reason: status.reason ?? null,
-        ...details
+        reason: status.reason ?? null
       });
       resolve(status);
     };
     const timer = setTimeout(() => {
-      finish(baseCodexAccountStatus("unknown", "Timed out while checking Codex login status."), "timeout");
+      finish(baseCodexAccountStatus("unknown", "Timed out while checking Codex login status."));
     }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
 
+    child.stdout.on("data", (chunk) => {
+      stdout.append(chunk);
+    });
     child.stderr.on("data", (chunk) => {
       stderr.append(chunk);
     });
-    child.stdin.on("error", (error) => {
-      finish(
-        baseCodexAccountStatus("unknown", `Could not send account/read to Codex app-server: ${error.message}`),
-        "stdin-error"
-      );
-    });
     child.on("error", (error) => {
-      finish(
-        baseCodexAccountStatus("unknown", `Could not start Codex app-server via ${spawnPlan.command}: ${error.message}`),
-        "spawn-error"
-      );
+      finish(baseCodexAccountStatus("blocked", `Could not start Codex CLI via ${spawnPlan.command}: ${error.message}`));
     });
     child.on("exit", (code, signal) => {
       if (!settled) {
+        const stdoutText = stdout.trimmed();
         const stderrText = stderr.trimmed();
-        finish(
-          baseCodexAccountStatus(
-            "unknown",
-            stderrText ? `Codex app-server exited before account status was available: ${stderrText}` : "Codex app-server exited before account status was available."
-          ),
-          "process-exit",
-          {
-            exitCode: code,
-            signal,
-            stderr: stderrText || null
-          }
-        );
+        if (code === 0) {
+          finish(codexAccountStatusFromLoginStatusOutput(stdoutText));
+          return;
+        }
+
+        const detail = stderrText || stdoutText || signal || `exit ${code ?? "unknown"}`;
+        finish(baseCodexAccountStatus("missing", `Codex CLI login status is not authenticated: ${detail}`));
       }
     });
-    lineReader.on("line", (line) => {
-      let response: unknown;
+  });
+}
 
-      try {
-        response = JSON.parse(line) as unknown;
-      } catch {
-        return;
-      }
+export function codexAccountStatusFromLoginStatusOutput(value: string): CodexRuntimeAccountDto {
+  const lowerOutput = value.toLowerCase();
+  const accountType: CodexRuntimeAccountDto["accountType"] =
+    lowerOutput.includes("api key") || lowerOutput.includes("apikey")
+      ? "apiKey"
+      : lowerOutput.includes("bedrock")
+        ? "amazonBedrock"
+        : "chatgpt";
 
-      if (!isRecord(response) || response.id !== "solo-superman:account-read") {
-        return;
-      }
+  return {
+    ...baseCodexAccountStatus("authenticated"),
+    accountType,
+    requiresOpenaiAuth: accountType === "chatgpt"
+  };
+}
 
-      if (Object.prototype.hasOwnProperty.call(response, "result")) {
-        finish(codexAccountStatusFromAccountReadResponse(response.result), "account-read-result");
-        return;
-      }
-
-      finish(baseCodexAccountStatus("unknown", responseErrorMessage(response)), "account-read-error");
+export async function readCodexCliVersion(
+  env: Readonly<Record<string, string | undefined>> = process.env
+): Promise<string | null> {
+  return await new Promise((resolve) => {
+    const spawnPlan =
+      codexCommandMode(env) === "wsl"
+        ? { command: "wsl.exe", args: codexWslSpawnArgs(["--version"], env) }
+        : { command: "codex", args: ["--version"] as const };
+    const stdout = createLimitedTextCapture(200);
+    const child = spawn(spawnPlan.command, [...spawnPlan.args], {
+      env: codexSpawnEnv(env),
+      stdio: ["ignore", "pipe", "ignore"]
     });
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve(null);
+    }, CODEX_ACCOUNT_READ_TIMEOUT_MS);
 
-    child.stdin.write(
-      `${JSON.stringify({
-        method: "initialize",
-        id: "solo-superman:initialize",
-        params: {
-          clientInfo: {
-            name: "solo-superman-sidecar",
-            title: "Solo Superman Sidecar",
-            version: RUNTIME_ADAPTER_VERSION
-          },
-          capabilities: {
-            experimentalApi: true,
-            optOutNotificationMethods: null
-          }
-        }
-      })}\n`
-    );
-    child.stdin.write(
-      `${JSON.stringify({
-        method: "account/read",
-        id: "solo-superman:account-read",
-        params: {
-          refreshToken: false
-        }
-      })}\n`
-    );
+    child.stdout.on("data", (chunk) => {
+      stdout.append(chunk);
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(null);
+    });
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        resolve(null);
+        return;
+      }
+
+      resolve(stdout.trimmed().match(/\b\d+\.\d+\.\d+\b/u)?.[0] ?? null);
+    });
   });
 }
 
@@ -935,7 +913,7 @@ function applyPolicyForTurnPurpose(turnPurpose: CodexTurnPurpose): CodexApplyPol
   return CODEX_APPLY_POLICY_BY_TURN_PURPOSE[turnPurpose];
 }
 
-function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexAppServerJsonValue {
+function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexJsonSchema {
   const blockedProperties = input.requestedActionType
     ? {
         blockedAction: {
@@ -976,7 +954,7 @@ function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexAp
   };
 }
 
-function codexPreviewOutputJsonSchema(input: CodexRuntimePreviewInput): CodexAppServerJsonValue {
+function codexPreviewOutputJsonSchema(input: CodexRuntimePreviewInput): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1002,14 +980,14 @@ function optionalPhase15bUpgradeHints(payloadRecord: Readonly<Record<string, unk
     : undefined;
 }
 
-function stringArrayJsonSchema(): CodexAppServerJsonValue {
+function stringArrayJsonSchema(): CodexJsonSchema {
   return {
     type: "array",
     items: { type: "string", minLength: 1 }
   };
 }
 
-function nullableJsonSchema(schema: CodexAppServerJsonValue): CodexAppServerJsonValue {
+function nullableJsonSchema(schema: CodexJsonSchema): CodexJsonSchema {
   return {
     anyOf: [
       schema,
@@ -1018,7 +996,7 @@ function nullableJsonSchema(schema: CodexAppServerJsonValue): CodexAppServerJson
   };
 }
 
-function trackerDocJsonSchema(): CodexAppServerJsonValue {
+function trackerDocJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1032,7 +1010,7 @@ function trackerDocJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function implementationStepDocJsonSchema(): CodexAppServerJsonValue {
+function implementationStepDocJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1050,7 +1028,7 @@ function implementationStepDocJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function stepCommitRecordJsonSchema(): CodexAppServerJsonValue {
+function stepCommitRecordJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1067,7 +1045,7 @@ function stepCommitRecordJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function noCodeStepEvidenceJsonSchema(): CodexAppServerJsonValue {
+function noCodeStepEvidenceJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1092,7 +1070,7 @@ function noCodeStepEvidenceJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function codeReviewRecordJsonSchema(): CodexAppServerJsonValue {
+function codeReviewRecordJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1121,7 +1099,7 @@ function codeReviewRecordJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function cleanCodeReviewRecordJsonSchema(): CodexAppServerJsonValue {
+function cleanCodeReviewRecordJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1150,7 +1128,7 @@ function cleanCodeReviewRecordJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function testEvidenceRecordJsonSchema(): CodexAppServerJsonValue {
+function testEvidenceRecordJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1179,7 +1157,7 @@ function testEvidenceRecordJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function missingTestAuditRecordJsonSchema(): CodexAppServerJsonValue {
+function missingTestAuditRecordJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1195,7 +1173,7 @@ function missingTestAuditRecordJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function implementationStepBlockerJsonSchema(): CodexAppServerJsonValue {
+function implementationStepBlockerJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1210,7 +1188,7 @@ function implementationStepBlockerJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function recordImplementationStepLedgerPayloadJsonSchema(): CodexAppServerJsonValue {
+function recordImplementationStepLedgerPayloadJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1258,7 +1236,7 @@ function recordImplementationStepLedgerPayloadJsonSchema(): CodexAppServerJsonVa
   };
 }
 
-function phase15bUpgradeHintsJsonSchema(): CodexAppServerJsonValue {
+function phase15bUpgradeHintsJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1400,77 +1378,19 @@ function codexPreviewPrompt(input: CodexRuntimePreviewInput) {
     .join("\n");
 }
 
-export function buildCodexStdioTurnRequests(
+export function buildCodexSdkPreviewTurnOptions(
   input: CodexRuntimePreviewInput,
-  options: CodexStdioTurnRequestOptions = {}
-): CodexStdioTurnRequestBundle {
-  const requestIdPrefix = options.requestIdPrefix ?? `codex-preview-${input.contextHash}`;
-  const cwd = options.cwd ?? null;
-
+  options: CodexSdkTurnOptionsInput = {}
+): CodexSdkTurnOptions {
   return {
-    initializeRequest: {
-      method: "initialize",
-      id: `${requestIdPrefix}:initialize`,
-      params: {
-        clientInfo: {
-          name: "solo-superman-sidecar",
-          title: "Solo Superman Sidecar",
-          version: RUNTIME_ADAPTER_VERSION
-        },
-        capabilities: {
-          experimentalApi: true,
-          optOutNotificationMethods: null
-        }
-      }
-    },
-    threadStartRequest: {
-      method: "thread/start",
-      id: `${requestIdPrefix}:thread-start`,
-      params: {
-        cwd,
-        approvalPolicy: "never",
-        approvalsReviewer: "user",
-        sandbox: "read-only",
-        config: null,
-        serviceName: "solo-superman-runtime-preview",
-        baseInstructions:
-          "You are producing preview-only artifacts for Solo Superman Phase 1/1.5B. You never execute actions.",
-        developerInstructions:
-          "Return only the requested JSON preview artifact. Forbidden runtime actions must become blocked artifacts with Phase 1.5B readiness hints.",
-        ephemeral: true,
-        sessionStartSource: "clear"
-      }
-    },
-    buildTurnStartRequest(threadId: string) {
-      return {
-        method: "turn/start",
-        id: `${requestIdPrefix}:turn-start`,
-        params: {
-          threadId,
-          input: [
-            {
-              type: "text",
-              text: codexPreviewPrompt(input),
-              text_elements: []
-            }
-          ],
-          cwd,
-          approvalPolicy: "never",
-          approvalsReviewer: "user",
-          sandboxPolicy: {
-            type: "readOnly",
-            networkAccess: false
-          },
-          effort: "low",
-          outputSchema: codexPreviewOutputJsonSchema(input)
-        }
-      };
-    }
+    prompt: codexPreviewPrompt(input),
+    threadOptions: codexPreviewThreadOptions(options.cwd ?? process.cwd()),
+    outputSchema: codexPreviewOutputJsonSchema(input)
   };
 }
 
 
-function codexWorkerOutputJsonSchema(): CodexAppServerJsonValue {
+function codexWorkerOutputJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1502,7 +1422,7 @@ function codexWorkerOutputJsonSchema(): CodexAppServerJsonValue {
   };
 }
 
-function codexWorkerProtocolSmokeAcknowledgementJsonSchema(): CodexAppServerJsonValue {
+function codexWorkerProtocolSmokeAcknowledgementJsonSchema(): CodexJsonSchema {
   return {
     type: "object",
     additionalProperties: false,
@@ -1753,7 +1673,7 @@ function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
   if (protocolSmoke) {
     return [
       "Acknowledge one Solo Superman live worker-job protocol smoke.",
-      "This smoke verifies the live Codex app-server turn can return a small structured response. The sidecar will attach deterministic non-release ImplementationStepLedger protocol evidence after this acknowledgement.",
+      "This smoke verifies the live Codex SDK turn can return a small structured response. The sidecar will attach deterministic non-release ImplementationStepLedger protocol evidence after this acknowledgement.",
       "Do not call tools, do not edit files, do not run shell commands, do not browse, and do not claim production, release-device, external mutation, or final-submit evidence.",
       "Return exactly one JSON object matching the provided output schema.",
       "",
@@ -1801,331 +1721,18 @@ function codexWorkerPrompt(input: CodexWorkerExecutionInput) {
   ].join("\n");
 }
 
-export function buildCodexWorkerTurnRequests(
+export function buildCodexSdkWorkerTurnOptions(
   input: CodexWorkerExecutionInput,
-  options: CodexStdioTurnRequestOptions = {}
-): CodexStdioTurnRequestBundle {
-  const requestIdPrefix = options.requestIdPrefix ?? `codex-worker-${input.jobId}`;
-  const cwd = options.cwd ?? input.workingDirectory;
-  const protocolSmoke = isCodexWorkerProtocolSmoke(input);
-
+  options: CodexSdkTurnOptionsInput = {}
+): CodexSdkTurnOptions {
+  const scopedInput = options.cwd ? { ...input, workingDirectory: options.cwd } : input;
   return {
-    initializeRequest: {
-      method: "initialize",
-      id: `${requestIdPrefix}:initialize`,
-      params: {
-        clientInfo: {
-          name: "solo-superman-sidecar",
-          title: "Solo Superman Sidecar",
-          version: RUNTIME_ADAPTER_VERSION
-        },
-        capabilities: {
-          experimentalApi: true,
-          optOutNotificationMethods: null
-        }
-      }
-    },
-    threadStartRequest: {
-      method: "thread/start",
-      id: `${requestIdPrefix}:thread-start`,
-      params: {
-        cwd,
-        approvalPolicy: "never",
-        approvalsReviewer: "user",
-        sandbox: protocolSmoke ? "read-only" : "workspace-write",
-        config: null,
-        serviceName: "solo-superman-auto-worker",
-        baseInstructions: protocolSmoke
-          ? "You are acknowledging a Solo Superman live worker protocol smoke. You do not perform implementation work or create ledger evidence."
-          : "You are a local sandboxed Codex worker for Solo Superman auto implementation. You may edit only the generated workspace and must return ledger evidence.",
-        developerInstructions: protocolSmoke
-          ? "Return only the acknowledgement JSON object. Do not call tools, edit files, run shell commands, browse, or claim production/release evidence."
-          : "Never request or store secrets. Never perform external writes, production deploys, account actions, or destructive operations. Return JSON only.",
-        ephemeral: true,
-        sessionStartSource: "clear"
-      }
-    },
-    buildTurnStartRequest(threadId: string) {
-      return {
-        method: "turn/start",
-        id: `${requestIdPrefix}:turn-start`,
-        params: {
-          threadId,
-          input: [
-            {
-              type: "text",
-              text: codexWorkerPrompt(input),
-              text_elements: []
-            }
-          ],
-          cwd,
-          approvalPolicy: "never",
-          approvalsReviewer: "user",
-          sandboxPolicy: protocolSmoke
-            ? {
-                type: "readOnly",
-                networkAccess: false
-              }
-            : {
-                type: "workspaceWrite",
-                writableRoots: [input.workingDirectory],
-                networkAccess: false,
-                excludeTmpdirEnvVar: true,
-                excludeSlashTmp: true
-              },
-          effort: protocolSmoke ? "low" : "medium",
-          outputSchema: protocolSmoke ? codexWorkerProtocolSmokeAcknowledgementJsonSchema() : codexWorkerOutputJsonSchema()
-        }
-      };
-    }
+    prompt: codexWorkerPrompt(scopedInput),
+    threadOptions: codexWorkerThreadOptions(scopedInput),
+    outputSchema: isCodexWorkerProtocolSmoke(scopedInput)
+      ? codexWorkerProtocolSmokeAcknowledgementJsonSchema()
+      : codexWorkerOutputJsonSchema()
   };
-}
-
-function resultThreadId(value: unknown) {
-  if (!isRecord(value) || !isRecord(value.thread) || typeof value.thread.id !== "string") {
-    throw new Error("Codex app-server thread/start returned an invalid thread id.");
-  }
-
-  return value.thread.id;
-}
-
-function resultTurnId(value: unknown) {
-  if (!isRecord(value) || !isRecord(value.turn) || typeof value.turn.id !== "string") {
-    throw new Error("Codex app-server turn/start returned an invalid turn id.");
-  }
-
-  return value.turn.id;
-}
-
-function textFromRawResponseItem(value: unknown) {
-  if (!isRecord(value) || value.type !== "message" || !Array.isArray(value.content)) {
-    return null;
-  }
-
-  const outputText = value.content
-    .filter((item): item is Readonly<Record<string, unknown>> => isRecord(item) && item.type === "output_text")
-    .map((item) => (typeof item.text === "string" ? item.text : ""))
-    .join("");
-
-  return outputText.trim().length > 0 ? outputText : null;
-}
-
-function textFromCompletedThreadItem(value: unknown) {
-  if (!isRecord(value) || value.type !== "agentMessage" || typeof value.text !== "string") {
-    return null;
-  }
-
-  return value.text.trim().length > 0 ? value.text : null;
-}
-
-function turnFailureMessage(value: unknown) {
-  if (!isRecord(value)) {
-    return "Codex live preview turn failed.";
-  }
-
-  const error = value.error;
-
-  if (isRecord(error) && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return "Codex live preview turn failed.";
-}
-
-export async function createLiveCodexPreview(
-  input: CodexRuntimePreviewInput,
-  options: {
-    readonly env?: Readonly<Record<string, string | undefined>>;
-    readonly now?: () => string;
-    readonly processFactory?: CodexAppServerProcessFactory;
-  } = {}
-): Promise<CodexPreviewOutputEnvelope> {
-  const env = options.env ?? process.env;
-  const spawnPlan = codexAppServerSpawnPlan(env);
-  const processFactory = options.processFactory ?? defaultCodexAppServerProcessFactory;
-  const timeoutMs = codexPreviewTurnTimeoutMs(env);
-  const requestBundle = buildCodexStdioTurnRequests(input, { cwd: process.cwd() });
-  const child = processFactory(spawnPlan.command, [...spawnPlan.args], { env: codexSpawnEnv(env) });
-  const lineReader = createInterface({ input: child.stdout });
-  const stderr = createLimitedTextCapture();
-  const pendingResponses = new Map<
-    string,
-    {
-      readonly resolve: (value: unknown) => void;
-      readonly reject: (error: Error) => void;
-    }
-  >();
-  let threadId: string | null = null;
-  let turnId: string | null = null;
-  let outputDeltaText = "";
-  let completedMessageText: string | null = null;
-  let settled = false;
-
-  logCodexRuntimeDiagnostic("info", "live-preview-spawn", {
-    command: spawnPlan.command,
-    args: spawnPlan.args,
-    transport: spawnPlan.transport,
-    generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
-    timeoutMs
-  });
-
-  function rejectPending(error: Error) {
-    for (const pending of pendingResponses.values()) {
-      pending.reject(error);
-    }
-    pendingResponses.clear();
-  }
-
-  function sendRequest(request: CodexAppServerClientRequest) {
-    return new Promise<unknown>((resolve, reject) => {
-      pendingResponses.set(String(request.id), { resolve, reject });
-      child.stdin.write(`${JSON.stringify(request)}\n`, (error) => {
-        if (error) {
-          pendingResponses.delete(String(request.id));
-          reject(error);
-        }
-      });
-    });
-  }
-
-  const completedTurn = new Promise<CodexPreviewOutputEnvelope>((resolve, reject) => {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    function finishWithError(error: Error) {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      rejectPending(error);
-      reject(error);
-    }
-
-    timeout = setTimeout(() => {
-      finishWithError(new Error(`Codex live preview did not finish within ${timeoutMs}ms.`));
-    }, timeoutMs);
-
-    child.stderr.on("data", (chunk) => {
-      stderr.append(chunk);
-    });
-    child.once("error", (error) => {
-      finishWithError(error);
-    });
-    child.once("exit", (code, signal) => {
-      if (settled) {
-        return;
-      }
-
-      const detail = stderr.trimmed() || signal || `exit ${code ?? "unknown"}`;
-      finishWithError(new Error(`Codex app-server exited before live preview completed: ${detail}`));
-    });
-    lineReader.on("line", (line) => {
-      let message: unknown;
-
-      try {
-        message = JSON.parse(line) as unknown;
-      } catch {
-        return;
-      }
-
-      if (!isRecord(message)) {
-        return;
-      }
-
-      if (typeof message.id === "string") {
-        const pending = pendingResponses.get(message.id);
-
-        if (!pending) {
-          return;
-        }
-
-        pendingResponses.delete(message.id);
-
-        if (Object.prototype.hasOwnProperty.call(message, "error")) {
-          pending.reject(new Error(responseErrorMessage(message, `Codex app-server request ${message.id} failed.`)));
-          return;
-        }
-
-        pending.resolve(message.result);
-        return;
-      }
-
-      if (typeof message.method !== "string" || !isRecord(message.params)) {
-        return;
-      }
-
-      const params = message.params;
-
-      if (threadId && params.threadId !== threadId) {
-        return;
-      }
-
-      const notificationTurnId =
-        typeof params.turnId === "string"
-          ? params.turnId
-          : isRecord(params.turn) && typeof params.turn.id === "string"
-            ? params.turn.id
-            : null;
-
-      if (turnId && notificationTurnId && notificationTurnId !== turnId) {
-        return;
-      }
-
-      if (message.method === "item/agentMessage/delta" && typeof params.delta === "string") {
-        outputDeltaText = `${outputDeltaText}${params.delta}`;
-        return;
-      }
-
-      if (message.method === "rawResponseItem/completed") {
-        completedMessageText = textFromRawResponseItem(params.item) ?? completedMessageText;
-        return;
-      }
-
-      if (message.method === "item/completed") {
-        completedMessageText = textFromCompletedThreadItem(params.item) ?? completedMessageText;
-        return;
-      }
-
-      if (message.method === "turn/completed" && isRecord(params.turn)) {
-        const turn = params.turn;
-
-        if (turn.status !== "completed") {
-          finishWithError(new Error(turnFailureMessage(turn)));
-          return;
-        }
-
-        try {
-          const output = parseCodexPreviewOutput(completedMessageText ?? outputDeltaText);
-
-          assertCodexPreviewOutputMatchesInput(input, output);
-          settled = true;
-          if (timeout) {
-            clearTimeout(timeout);
-          }
-          resolve(output);
-        } catch (error) {
-          finishWithError(error instanceof Error ? error : new Error(String(error)));
-        }
-      }
-    });
-  });
-  void completedTurn.catch(() => undefined);
-
-  try {
-    await sendRequest(requestBundle.initializeRequest);
-    threadId = resultThreadId(await sendRequest(requestBundle.threadStartRequest));
-    turnId = resultTurnId(await sendRequest(requestBundle.buildTurnStartRequest(threadId)));
-
-    return await completedTurn;
-  } finally {
-    lineReader.close();
-    if (!child.killed) {
-      child.kill();
-    }
-  }
 }
 
 function parseJsonObject(raw: string) {
@@ -2379,6 +1986,45 @@ export function fixtureCodexPreviewOutput(
         : {})
     }
   };
+}
+
+export async function createLiveCodexPreview(
+  input: CodexRuntimePreviewInput,
+  options: {
+    readonly env?: Readonly<Record<string, string | undefined>>;
+    readonly now?: () => string;
+    readonly codexFactory?: (options: CodexOptions) => Codex;
+  } = {}
+): Promise<CodexPreviewOutputEnvelope> {
+  const env = options.env ?? process.env;
+  const timeoutMs = codexPreviewTurnTimeoutMs(env);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
+    const codex = codexFactory(codexSdkOptions(env));
+    const turnOptions = buildCodexSdkPreviewTurnOptions(input, { cwd: process.cwd() });
+    const thread = codex.startThread(turnOptions.threadOptions);
+    const turn = await thread.run(turnOptions.prompt, {
+      outputSchema: turnOptions.outputSchema,
+      signal: controller.signal
+    });
+    const output = parseCodexPreviewOutput(turn.finalResponse);
+
+    assertCodexPreviewOutputMatchesInput(input, output);
+
+    return output;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Codex live preview did not finish within ${timeoutMs}ms.`, { cause: error });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 
@@ -2704,200 +2350,39 @@ export async function createLiveCodexWorkerExecution(
   input: CodexWorkerExecutionInput,
   options: {
     readonly env?: Readonly<Record<string, string | undefined>>;
-    readonly processFactory?: CodexAppServerProcessFactory;
+    readonly codexFactory?: (options: CodexOptions) => Codex;
   } = {}
 ): Promise<CodexWorkerExecutionOutputEnvelope> {
   const env = options.env ?? process.env;
-  const spawnPlan = codexAppServerSpawnPlan(env);
-  const processFactory = options.processFactory ?? defaultCodexAppServerProcessFactory;
   const timeoutMs = codexPreviewTurnTimeoutMs(env);
-  const requestBundle = buildCodexWorkerTurnRequests(input, { cwd: input.workingDirectory });
-  const child = processFactory(spawnPlan.command, [...spawnPlan.args], { env: codexSpawnEnv(env) });
-  const lineReader = createInterface({ input: child.stdout });
-  const stderr = createLimitedTextCapture();
-  const pendingResponses = new Map<
-    string,
-    {
-      readonly resolve: (value: unknown) => void;
-      readonly reject: (error: Error) => void;
-    }
-  >();
-  let threadId: string | null = null;
-  let turnId: string | null = null;
-  let outputDeltaText = "";
-  let completedMessageText: string | null = null;
-  let settled = false;
-
-  logCodexRuntimeDiagnostic("info", "worker-spawn", {
-    command: spawnPlan.command,
-    args: spawnPlan.args,
-    transport: spawnPlan.transport,
-    generatedSchemaVersion: spawnPlan.generatedSchemaVersion,
-    timeoutMs,
-    jobId: input.jobId,
-    workingDirectory: input.workingDirectory
-  });
-
-  function rejectPending(error: Error) {
-    for (const pending of pendingResponses.values()) {
-      pending.reject(error);
-    }
-    pendingResponses.clear();
-  }
-
-  function sendRequest(request: CodexAppServerClientRequest) {
-    return new Promise<unknown>((resolve, reject) => {
-      pendingResponses.set(String(request.id), { resolve, reject });
-      child.stdin.write(`${JSON.stringify(request)}\n`, (error) => {
-        if (error) {
-          pendingResponses.delete(String(request.id));
-          reject(error);
-        }
-      });
-    });
-  }
-
-  const completedTurn = new Promise<CodexWorkerExecutionOutputEnvelope>((resolve, reject) => {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-
-    function finishWithError(error: Error) {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      rejectPending(error);
-      reject(error);
-    }
-
-    timeout = setTimeout(() => {
-      finishWithError(new Error(`Codex worker execution did not finish within ${timeoutMs}ms.`));
-    }, timeoutMs);
-
-    child.stderr.on("data", (chunk) => {
-      stderr.append(chunk);
-    });
-    child.once("error", (error) => {
-      finishWithError(error);
-    });
-    child.once("exit", (code, signal) => {
-      if (settled) {
-        return;
-      }
-
-      const detail = stderr.trimmed() || signal || `exit ${code ?? "unknown"}`;
-      finishWithError(new Error(`Codex app-server exited before worker execution completed: ${detail}`));
-    });
-    lineReader.on("line", (line) => {
-      let message: unknown;
-
-      try {
-        message = JSON.parse(line) as unknown;
-      } catch {
-        return;
-      }
-
-      if (!isRecord(message)) {
-        return;
-      }
-
-      if (typeof message.id === "string") {
-        const pending = pendingResponses.get(message.id);
-
-        if (!pending) {
-          return;
-        }
-
-        pendingResponses.delete(message.id);
-
-        if (Object.prototype.hasOwnProperty.call(message, "error")) {
-          pending.reject(new Error(responseErrorMessage(message, `Codex app-server request ${message.id} failed.`)));
-          return;
-        }
-
-        pending.resolve(message.result);
-        return;
-      }
-
-      if (typeof message.method !== "string" || !isRecord(message.params)) {
-        return;
-      }
-
-      const params = message.params;
-
-      if (threadId && params.threadId !== threadId) {
-        return;
-      }
-
-      const notificationTurnId =
-        typeof params.turnId === "string"
-          ? params.turnId
-          : isRecord(params.turn) && typeof params.turn.id === "string"
-            ? params.turn.id
-            : null;
-
-      if (turnId && notificationTurnId && notificationTurnId !== turnId) {
-        return;
-      }
-
-      if (message.method === "item/agentMessage/delta" && typeof params.delta === "string") {
-        outputDeltaText = `${outputDeltaText}${params.delta}`;
-        return;
-      }
-
-      if (message.method === "rawResponseItem/completed") {
-        completedMessageText = textFromRawResponseItem(params.item) ?? completedMessageText;
-        return;
-      }
-
-      if (message.method === "item/completed") {
-        completedMessageText = textFromCompletedThreadItem(params.item) ?? completedMessageText;
-        return;
-      }
-
-      if (message.method === "turn/completed" && isRecord(params.turn)) {
-        const turn = params.turn;
-
-        if (turn.status !== "completed") {
-          finishWithError(new Error(turnFailureMessage(turn)));
-          return;
-        }
-
-        try {
-          const rawOutput = completedMessageText ?? outputDeltaText;
-          const output = isCodexWorkerProtocolSmoke(input)
-            ? parseCodexWorkerProtocolSmokeOutput(input, rawOutput)
-            : parseCodexWorkerExecutionOutput(rawOutput);
-
-          assertCodexWorkerExecutionOutputMatchesInput(input, output);
-
-          settled = true;
-          if (timeout) {
-            clearTimeout(timeout);
-          }
-          resolve(output);
-        } catch (error) {
-          finishWithError(error instanceof Error ? error : new Error(String(error)));
-        }
-      }
-    });
-  });
-  void completedTurn.catch(() => undefined);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
   try {
-    await sendRequest(requestBundle.initializeRequest);
-    threadId = resultThreadId(await sendRequest(requestBundle.threadStartRequest));
-    turnId = resultTurnId(await sendRequest(requestBundle.buildTurnStartRequest(threadId)));
+    const codexFactory = options.codexFactory ?? ((codexOptions: CodexOptions) => new Codex(codexOptions));
+    const codex = codexFactory(codexSdkOptions(env));
+    const turnOptions = buildCodexSdkWorkerTurnOptions(input);
+    const thread = codex.startThread(turnOptions.threadOptions);
+    const turn = await thread.run(turnOptions.prompt, {
+      outputSchema: turnOptions.outputSchema,
+      signal: controller.signal
+    });
+    const output = isCodexWorkerProtocolSmoke(input)
+      ? parseCodexWorkerProtocolSmokeOutput(input, turn.finalResponse)
+      : parseCodexWorkerExecutionOutput(turn.finalResponse);
 
-    return await completedTurn;
-  } finally {
-    lineReader.close();
-    if (!child.killed) {
-      child.kill();
+    assertCodexWorkerExecutionOutputMatchesInput(input, output);
+
+    return output;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Codex worker execution did not finish within ${timeoutMs}ms.`, { cause: error });
     }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -2905,6 +2390,7 @@ function statusDto(input: {
   readonly status: CodexRuntimeStatusDto["status"];
   readonly checkedAt: string;
   readonly account: CodexRuntimeAccountDto;
+  readonly codexCliVersion: string | null;
   readonly liveTurnExecutionEnabled: boolean;
   readonly executionMode: CodexRuntimeStatusDto["executionMode"];
   readonly reason?: string;
@@ -2912,7 +2398,8 @@ function statusDto(input: {
   return {
     status: input.status,
     adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
-    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: input.codexCliVersion,
     transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: input.checkedAt,
     manualHandoffAvailable: true,
@@ -2926,8 +2413,9 @@ function statusDto(input: {
 export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = {}) {
   const now = options.now ?? (() => new Date().toISOString());
   const env = options.env ?? process.env;
-  const fixtureMode = options.fixtureMode ?? env.SOLO_CODEX_APP_SERVER_USE_FIXTURES === "1";
+  const fixtureMode = options.fixtureMode ?? env.SOLO_CODEX_SDK_USE_FIXTURES === "1";
   const accountReader = options.accountReader ?? (() => readCodexAccountStatus(env));
+  const cliVersionReader = options.cliVersionReader ?? (() => readCodexCliVersion(env));
   const loginLauncher = options.loginLauncher ?? (() => startCodexLoginInBackgroundTerminal(env, process.cwd(), now));
   const livePreviewCreator =
     options.livePreviewCreator ??
@@ -2935,14 +2423,14 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       createLiveCodexPreview(input, {
         env,
         now,
-        ...(options.processFactory ? { processFactory: options.processFactory } : {})
+        ...(options.codexFactory ? { codexFactory: options.codexFactory } : {})
       }));
   const liveWorkerExecutor =
     options.liveWorkerExecutor ??
     ((input: CodexWorkerExecutionInput) =>
       createLiveCodexWorkerExecution(input, {
         env,
-        ...(options.processFactory ? { processFactory: options.processFactory } : {})
+        ...(options.codexFactory ? { codexFactory: options.codexFactory } : {})
       }));
   const liveTurnExecutionEnabled = envFlagEnabled(env, CODEX_LIVE_TURNS_ENV);
 
@@ -2953,24 +2441,26 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
           status: "available",
           checkedAt: now(),
           account: fixtureCodexAccountStatus(),
+          codexCliVersion: CODEX_SDK_PACKAGE_VERSION,
           liveTurnExecutionEnabled: false,
           executionMode: "fixture",
           reason: "Fixture mode simulates Codex preview execution."
         });
       }
 
-      if (env.SOLO_CODEX_APP_SERVER_DISABLED === "1") {
+      if (env.SOLO_CODEX_SDK_DISABLED === "1") {
         return statusDto({
           status: "unavailable",
           checkedAt: now(),
-          account: baseCodexAccountStatus("blocked", "SOLO_CODEX_APP_SERVER_DISABLED skips Codex account probing."),
+          account: baseCodexAccountStatus("blocked", "SOLO_CODEX_SDK_DISABLED skips Codex account probing."),
+          codexCliVersion: null,
           liveTurnExecutionEnabled: false,
           executionMode: "manual_handoff",
-          reason: "SOLO_CODEX_APP_SERVER_DISABLED disables live app-server probing."
+          reason: "SOLO_CODEX_SDK_DISABLED disables live Codex SDK probing."
         });
       }
 
-      const account = await accountReader();
+      const [account, codexCliVersion] = await Promise.all([accountReader(), cliVersionReader()]);
       const isAuthenticated = account.status === "authenticated";
 
       if (liveTurnExecutionEnabled && isAuthenticated) {
@@ -2978,9 +2468,10 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
           status: "available",
           checkedAt: now(),
           account,
+          codexCliVersion,
           liveTurnExecutionEnabled: true,
           executionMode: "live",
-          reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+          reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
         });
       }
 
@@ -2988,6 +2479,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
         status: "unavailable",
         checkedAt: now(),
         account,
+        codexCliVersion,
         liveTurnExecutionEnabled,
         executionMode: "manual_handoff",
         reason:
@@ -3002,13 +2494,13 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
         return fixtureCodexLoginStart(now);
       }
 
-      if (env.SOLO_CODEX_APP_SERVER_DISABLED === "1") {
+      if (env.SOLO_CODEX_SDK_DISABLED === "1") {
         return codexLoginStartDto({
           status: "unavailable",
           startedAt: now(),
           terminal: "none",
           message: "`codex auth login` was not started because live Codex probing is disabled.",
-          reason: "SOLO_CODEX_APP_SERVER_DISABLED disables Codex CLI login helpers."
+          reason: "SOLO_CODEX_SDK_DISABLED disables Codex CLI login helpers."
         });
       }
 
@@ -3026,16 +2518,16 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
       return loginLauncher();
     },
 
-    buildStdioSpawnPlan() {
-      return codexAppServerSpawnPlan(env);
+    buildCliStatusPlan() {
+      return codexCliStatusPlan(env);
     },
 
-    buildPreviewTurnRequests(input: CodexRuntimePreviewInput, requestOptions?: CodexStdioTurnRequestOptions) {
-      return buildCodexStdioTurnRequests(input, requestOptions);
+    buildPreviewTurnOptions(input: CodexRuntimePreviewInput, requestOptions?: CodexSdkTurnOptionsInput) {
+      return buildCodexSdkPreviewTurnOptions(input, requestOptions);
     },
 
-    buildWorkerTurnRequests(input: CodexWorkerExecutionInput, requestOptions?: CodexStdioTurnRequestOptions) {
-      return buildCodexWorkerTurnRequests(input, requestOptions);
+    buildWorkerTurnOptions(input: CodexWorkerExecutionInput, requestOptions?: CodexSdkTurnOptionsInput) {
+      return buildCodexSdkWorkerTurnOptions(input, requestOptions);
     },
 
     async createPreview(input: CodexRuntimePreviewInput): Promise<CodexPreviewOutputEnvelope> {
@@ -3045,7 +2537,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
 
       if (!liveTurnExecutionEnabled) {
         throw new CodexRuntimeUnavailableError(
-          `Live Codex app-server turn execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable preview-only turns; manual handoff fallback is required.`
+          `Live Codex SDK turn execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable preview-only turns; manual handoff fallback is required.`
         );
       }
 
@@ -3053,7 +2545,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
 
       if (account.status !== "authenticated") {
         throw new CodexRuntimeUnavailableError(
-          "Codex CLI login is required before live Codex app-server turn execution can start."
+          "Codex CLI login is required before live Codex SDK turn execution can start."
         );
       }
 
@@ -3067,7 +2559,7 @@ export function createCodexRuntimeAdapter(options: CodexRuntimeAdapterOptions = 
 
       if (!liveTurnExecutionEnabled) {
         throw new CodexRuntimeUnavailableError(
-          `Live Codex app-server worker execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable bounded local worker turns; the worker job remains blocked until runtime evidence is available.`
+          `Live Codex SDK worker execution is not enabled. Set ${CODEX_LIVE_TURNS_ENV}=1 to enable bounded local worker turns; the worker job remains blocked until runtime evidence is available.`
         );
       }
 
