@@ -322,4 +322,13 @@ describe("ImplementationView", () => {
     expect(markup).toContain("available");
     expect(markup).toContain("Tool available. No background tasks are pending.");
   });
+
+  it("localizes runtime pending summary copy for Korean users", () => {
+    const markup = renderImplementationView({
+      runtimeStatus: codexRuntimeStatus()
+    }, "ko");
+
+    expect(markup).toContain("도구 사용 불가. 대기 중인 백그라운드 작업은 없습니다.");
+    expect(markup).not.toContain("No background tasks are pending.");
+  });
 });

@@ -87,6 +87,9 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         ]
       ]
     : [];
+  const pendingSummaryLabel = pendingSummary.totalPending
+    ? copy.implementation.pendingBackgroundTasks(pendingSummary.totalPending)
+    : copy.implementation.noBackgroundTasks;
   const hasActiveSession = Boolean(projections.session);
   const hasImplementationContext = hasActiveSession || autoImplementationRunView.hasRun;
   const hasCompletionSource =
@@ -329,7 +332,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {copy.implementation.refreshRuntimeStatus}
           </button>
         </div>
-        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummaryLabel}` : pendingSummaryLabel}</p>
         {runtimeStatus ? (
           <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
             {runtimeEvidenceItems.map(([label, value]) => (

@@ -180,6 +180,9 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
     expect(markup).toContain("Enter an idea summary before starting.");
     expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');
+    expect(markup.indexOf("Create first questions")).toBeLessThan(
+      markup.indexOf("First-question readiness checklist")
+    );
   });
 
   it("shows a ready state once all first-question prerequisites are complete", () => {
@@ -191,6 +194,16 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Ready to create first questions");
     expect(markup).toContain("Everything needed for the first question is in place.");
     expect(markup).toContain("<button type=\"submit\">Create first questions</button>");
+  });
+
+  it("keeps the first-question CTA disabled while the first-run action is already running", () => {
+    const markup = renderOnboardingView({
+      canStart: true,
+      isBusy: true,
+      initialQueueStartBlockerMessages: []
+    });
+
+    expect(markup).toContain('<button type="submit" disabled="">Running</button>');
   });
 
   it("keeps Codex login feedback visible when runtime status is still unknown", () => {

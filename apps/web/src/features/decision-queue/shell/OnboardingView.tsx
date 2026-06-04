@@ -131,7 +131,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             ) : null}
           </div>
           <div className="session-action-column">
-            <button type="submit" disabled={!canStart}>
+            <button type="submit" disabled={!canStart || isBusy}>
               {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
             </button>
             <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
