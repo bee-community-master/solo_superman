@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   CONTRACT_SCHEMA_VERSION,
   CANONICAL_INITIAL_SPEC_SECTIONS,
+  type BusinessCriticIntensity,
+  type BusinessCriticPressureKind,
   type CommandId,
   type CorrelationId,
   type DecisionQueueProjection,
@@ -53,10 +55,6 @@ function command(
   payload: Readonly<Record<string, unknown>>,
   index: number
 ) {
-  const commandPayload = commandType === "AnalyzeAmbiguity" && !Object.prototype.hasOwnProperty.call(payload, "generatedQuestionSet")
-    ? { ...payload, generatedQuestionSet: generatedBusinessQuestionSet() }
-    : payload;
-
   return {
     commandId: `cmd_product_engine_${index}` as CommandId,
     commandType,
@@ -65,28 +63,6 @@ function command(
     actor: "user",
     issuedAt: `2026-05-05T00:00:0${index}.000Z`,
     idempotencyKey: `${commandType}:${index}`,
-    expectedStateVersion: expectedStateVersion as StateVersion,
-    causationId: index === 1 ? null : (`cmd_product_engine_${index - 1}` as CommandId),
-    correlationId,
-    schemaVersion: CONTRACT_SCHEMA_VERSION,
-    payload: commandPayload
-  } as const;
-}
-
-function commandWithoutGeneratedQuestionSet(
-  commandType: Parameters<typeof reduceProductEngineCommand>[0]["commandType"],
-  expectedStateVersion: number,
-  payload: Readonly<Record<string, unknown>>,
-  index: number
-) {
-  return {
-    commandId: `cmd_product_engine_${index}` as CommandId,
-    commandType,
-    projectId,
-    sessionId,
-    actor: "user",
-    issuedAt: `2026-05-05T00:00:0${index}.000Z`,
-    idempotencyKey: `${commandType}:raw:${index}`,
     expectedStateVersion: expectedStateVersion as StateVersion,
     causationId: index === 1 ? null : (`cmd_product_engine_${index - 1}` as CommandId),
     correlationId,
@@ -115,8 +91,8 @@ function generatedQuestion(input: {
   readonly expectedAnswerType?: "choice" | "text" | "rank" | "evidence" | "experiment";
   readonly ambiguityDimension?: string;
   readonly ambiguityRoutingPath?: "human_judgment" | "existing_fact_check" | "current_research";
-  readonly businessCriticIntensityMinimum?: "balanced" | "strong" | "investor_grade";
-  readonly businessCriticPressureKind?: "balanced_con" | "core_assumption_challenge" | "investor_pressure_pass";
+  readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
   readonly possibleRoutes?: readonly string[];
   readonly answerOptions?: readonly ReturnType<typeof generatedOption>[];
 }) {
@@ -164,7 +140,7 @@ function generatedQuestion(input: {
 }
 
 function generatedBusinessQuestionSet(
-  intensity: "balanced" | "strong" | "investor_grade" = "balanced"
+  intensity: BusinessCriticIntensity = "balanced"
 ) {
   const baseQuestions = [
     generatedQuestion({
@@ -494,7 +470,7 @@ function withConfirmedBusinessPurposeMode(state: ProductEngineStateSnapshot): Pr
 }
 
 function stateWithActiveQuestionBatch(
-  businessCriticIntensity: "balanced" | "strong" | "investor_grade" = "balanced"
+  businessCriticIntensity: BusinessCriticIntensity = "balanced"
 ) {
   const commands = [
     command("StartProject", 0, {
@@ -603,7 +579,8 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 2),
       command("DraftInitialSpec", 2, {}, 3),
       command("AnalyzeAmbiguity", 3, {
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet()
       }, 4),
       command("ActivateQuestionBatch", 4, {}, 5)
     ] as const;
@@ -1045,7 +1022,7 @@ describe("PR-04 ProductEngine reducer", () => {
     }
 
     const analyze = reduceProductEngineCommand(
-      commandWithoutGeneratedQuestionSet("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
+      command("AnalyzeAmbiguity", 3, { targetRef: "current_spec" }, 4),
       state
     );
 
@@ -2336,7 +2313,8 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 2),
       command("DraftInitialSpec", 2, {}, 3),
       command("AnalyzeAmbiguity", 3, {
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet()
       }, 4)
     ] as const;
 
@@ -2588,7 +2566,8 @@ describe("PR-04 ProductEngine reducer", () => {
       }, 2),
       command("DraftInitialSpec", 2, {}, 3),
       command("AnalyzeAmbiguity", 3, {
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedBusinessQuestionSet()
       }, 4),
       command("ActivateQuestionBatch", 4, {}, 5)
     ] as const;

@@ -2048,6 +2048,35 @@ function businessCriticIntensityMinimumForGeneratedSeed(seed: AmbiguityIssueSeed
   return seed.businessCriticIntensityMinimum ?? "balanced";
 }
 
+interface BusinessCriticSeedMetadata {
+  readonly category?: BusinessCriticalQuestionCategory;
+  readonly pressureKind?: BusinessCriticPressureKind;
+  readonly intensityMinimum?: BusinessCriticIntensity;
+}
+
+function businessCriticMetadataForSeed(input: {
+  readonly mode: ProjectPurposeMode;
+  readonly source: AmbiguityIssueSeedSource;
+  readonly seed: AmbiguityIssueSeed;
+}): BusinessCriticSeedMetadata {
+  if (input.mode !== "business") {
+    return {};
+  }
+  const category = categoryForBusinessSeed(input.seed);
+  const pressureKind = input.source === "generated_json"
+    ? businessCriticPressureKindForGeneratedSeed(input.seed)
+    : input.seed.businessCriticPressureKind;
+  const intensityMinimum = input.source === "generated_json"
+    ? businessCriticIntensityMinimumForGeneratedSeed(input.seed)
+    : input.seed.businessCriticIntensityMinimum ?? "balanced";
+
+  return {
+    ...(category ? { category } : {}),
+    ...(pressureKind ? { pressureKind } : {}),
+    intensityMinimum
+  };
+}
+
 function questionTextForSeed(
   seed: AmbiguityIssueSeed,
   context: OnboardingQuestionContext,
@@ -2103,17 +2132,11 @@ function createAmbiguityIssuesFromSeeds(input: {
   const sharedQuestionContext = questionContextSnapshot(context);
 
   return input.seeds.map((seed, index) => {
-    const businessCriticCategory = input.mode === "business" ? categoryForBusinessSeed(seed) : undefined;
-    const businessCriticPressureKind = input.mode === "business"
-      ? input.source === "generated_json"
-        ? businessCriticPressureKindForGeneratedSeed(seed)
-        : seed.businessCriticPressureKind
-      : undefined;
-    const businessCriticIntensityMinimum = input.mode === "business"
-      ? input.source === "generated_json"
-        ? businessCriticIntensityMinimumForGeneratedSeed(seed)
-        : seed.businessCriticIntensityMinimum ?? "balanced"
-      : undefined;
+    const businessCriticMetadata = businessCriticMetadataForSeed({
+      mode: input.mode,
+      source: input.source,
+      seed
+    });
     const suggestedResearchTask = suggestedResearchTaskForSeed(seed, context, input.source);
     const researchQuestion = contextualResearchQuestionForSeed(seed, context, input.source);
     const initialAnswerOptions = seed.answerOptions ?? answerOptionsForSeed({
@@ -2141,12 +2164,12 @@ function createAmbiguityIssuesFromSeeds(input: {
       topicKey: seed.topicKey,
       ...(seed.purposeModeAxis ? { purposeModeAxis: seed.purposeModeAxis } : {}),
       ...(seed.purposeModeEffect ? { purposeModeEffect: seed.purposeModeEffect } : {}),
-      ...(input.mode === "business" && businessCriticCategory ? { businessCriticCategory } : {}),
-      ...(input.mode === "business" && businessCriticIntensityMinimum
-        ? { businessCriticIntensityMinimum }
+      ...(businessCriticMetadata.category ? { businessCriticCategory: businessCriticMetadata.category } : {}),
+      ...(businessCriticMetadata.intensityMinimum
+        ? { businessCriticIntensityMinimum: businessCriticMetadata.intensityMinimum }
         : {}),
-      ...(businessCriticPressureKind
-        ? { businessCriticPressureKind }
+      ...(businessCriticMetadata.pressureKind
+        ? { businessCriticPressureKind: businessCriticMetadata.pressureKind }
         : input.mode === "business"
           ? { businessCriticPressureKind: "balanced_con" as const }
           : {}),
@@ -2167,7 +2190,7 @@ function createAmbiguityIssuesFromSeeds(input: {
       ...(researchQuestion ? { researchQuestion } : {}),
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: 0,
-      repeatLimit: businessCriticPressureKind
+      repeatLimit: businessCriticMetadata.pressureKind
         ? BUSINESS_CRITIC_FOLLOW_UP_QUESTION_LIMIT
         : DEFAULT_FOLLOW_UP_QUESTION_LIMIT,
       possibleRoutes: seed.routes,

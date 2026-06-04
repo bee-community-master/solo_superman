@@ -172,6 +172,40 @@ function rawStringList(value: unknown) {
     : [];
 }
 
+interface BusinessCriticPressureMetadataValidation {
+  readonly invalidIntensityMinimum: boolean;
+  readonly invalidPressureKind: boolean;
+  readonly missingPressureKind: boolean;
+  readonly invalidInvestorMinimum: boolean;
+  readonly invalidCoreAssumptionMinimum: boolean;
+  readonly invalidBalancedMinimum: boolean;
+}
+
+function businessCriticPressureMetadataValidation(input: {
+  readonly rawIntensityMinimum: string;
+  readonly intensityMinimum: BusinessCriticIntensity;
+  readonly rawPressureKind: string;
+  readonly pressureKind: BusinessCriticPressureKind;
+}): BusinessCriticPressureMetadataValidation {
+  return {
+    invalidIntensityMinimum:
+      Boolean(input.rawIntensityMinimum) && !ALLOWED_BUSINESS_CRITIC_INTENSITIES.has(input.intensityMinimum),
+    invalidPressureKind: Boolean(input.rawPressureKind) && !ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS.has(input.pressureKind),
+    missingPressureKind: Boolean(input.rawIntensityMinimum) && !input.rawPressureKind,
+    invalidInvestorMinimum: input.pressureKind === "investor_pressure_pass" && input.intensityMinimum !== "investor_grade",
+    invalidCoreAssumptionMinimum:
+      input.pressureKind === "core_assumption_challenge" && !["strong", "investor_grade"].includes(input.intensityMinimum),
+    invalidBalancedMinimum:
+      input.pressureKind === "balanced_con" &&
+      Boolean(input.rawIntensityMinimum) &&
+      input.intensityMinimum !== "balanced"
+  };
+}
+
+function hasInvalidBusinessCriticPressureMetadata(validation: BusinessCriticPressureMetadataValidation) {
+  return Object.values(validation).some(Boolean);
+}
+
 function normalizedResearchTaskText(value: string) {
   return value
     .replace(/[.。!?？！，,\s]+/gu, " ")
@@ -448,6 +482,12 @@ function parseGeneratedQuestion(
   const businessCriticIntensityMinimum = rawBusinessCriticIntensityMinimum as BusinessCriticIntensity;
   const rawBusinessCriticPressureKind = rawStringValue(value.businessCriticPressureKind);
   const businessCriticPressureKind = rawBusinessCriticPressureKind as BusinessCriticPressureKind;
+  const businessCriticPressureMetadata = businessCriticPressureMetadataValidation({
+    rawIntensityMinimum: rawBusinessCriticIntensityMinimum,
+    intensityMinimum: businessCriticIntensityMinimum,
+    rawPressureKind: rawBusinessCriticPressureKind,
+    pressureKind: businessCriticPressureKind
+  });
   const researchQuestion = stringValue(value.researchQuestion) || undefined;
   const routes = rawStringList(value.possibleRoutes ?? value.routes) as AmbiguityPossibleRoute[];
   const suggestedResearchTask = stringValue(value.suggestedResearchTask) || undefined;
@@ -490,22 +530,22 @@ function parseGeneratedQuestion(
   } else if (!ALLOWED_AMBIGUITY_ROUTING_PATHS.has(ambiguityRoutingPath)) {
     issue(issues, `${path}.ambiguityRoutingPath`, "must be human_judgment, existing_fact_check, or current_research");
   }
-  if (rawBusinessCriticIntensityMinimum && !ALLOWED_BUSINESS_CRITIC_INTENSITIES.has(businessCriticIntensityMinimum)) {
+  if (businessCriticPressureMetadata.invalidIntensityMinimum) {
     issue(issues, `${path}.businessCriticIntensityMinimum`, "must be balanced, strong, or investor_grade when provided");
   }
-  if (rawBusinessCriticPressureKind && !ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS.has(businessCriticPressureKind)) {
+  if (businessCriticPressureMetadata.invalidPressureKind) {
     issue(issues, `${path}.businessCriticPressureKind`, "must be balanced_con, core_assumption_challenge, or investor_pressure_pass when provided");
   }
-  if (rawBusinessCriticIntensityMinimum && !rawBusinessCriticPressureKind) {
+  if (businessCriticPressureMetadata.missingPressureKind) {
     issue(issues, `${path}.businessCriticPressureKind`, "is required when businessCriticIntensityMinimum is provided");
   }
-  if (businessCriticPressureKind === "investor_pressure_pass" && businessCriticIntensityMinimum !== "investor_grade") {
+  if (businessCriticPressureMetadata.invalidInvestorMinimum) {
     issue(issues, `${path}.businessCriticIntensityMinimum`, "must be investor_grade for investor pressure questions");
   }
-  if (businessCriticPressureKind === "core_assumption_challenge" && !["strong", "investor_grade"].includes(businessCriticIntensityMinimum)) {
+  if (businessCriticPressureMetadata.invalidCoreAssumptionMinimum) {
     issue(issues, `${path}.businessCriticIntensityMinimum`, "must be strong or investor_grade for core-assumption challenge questions");
   }
-  if (businessCriticPressureKind === "balanced_con" && rawBusinessCriticIntensityMinimum && businessCriticIntensityMinimum !== "balanced") {
+  if (businessCriticPressureMetadata.invalidBalancedMinimum) {
     issue(issues, `${path}.businessCriticIntensityMinimum`, "must be balanced for balanced pressure questions");
   }
   if (question && questionHasMultipleDecisionAxes(question)) {
@@ -574,15 +614,7 @@ function parseGeneratedQuestion(
     !ALLOWED_AMBIGUITY_DIMENSIONS.has(ambiguityDimension) ||
     !rawAmbiguityRoutingPath ||
     !ALLOWED_AMBIGUITY_ROUTING_PATHS.has(ambiguityRoutingPath) ||
-    (rawBusinessCriticIntensityMinimum && !ALLOWED_BUSINESS_CRITIC_INTENSITIES.has(businessCriticIntensityMinimum)) ||
-    (rawBusinessCriticPressureKind && !ALLOWED_BUSINESS_CRITIC_PRESSURE_KINDS.has(businessCriticPressureKind)) ||
-    (rawBusinessCriticIntensityMinimum && !rawBusinessCriticPressureKind) ||
-    (businessCriticPressureKind === "investor_pressure_pass" && businessCriticIntensityMinimum !== "investor_grade") ||
-    (businessCriticPressureKind === "core_assumption_challenge" &&
-      !["strong", "investor_grade"].includes(businessCriticIntensityMinimum)) ||
-    (businessCriticPressureKind === "balanced_con" &&
-      rawBusinessCriticIntensityMinimum &&
-      businessCriticIntensityMinimum !== "balanced") ||
+    hasInvalidBusinessCriticPressureMetadata(businessCriticPressureMetadata) ||
     questionHasMultipleDecisionAxes(question) ||
     !routes.length ||
     routes.some((route) => !ALLOWED_ROUTES.has(route)) ||

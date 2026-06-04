@@ -1,6 +1,5 @@
+import type { BusinessCriticIntensity, BusinessCriticPressureKind } from "@solo-superman/contracts";
 import { GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION } from "@solo-superman/core";
-
-type BusinessCriticIntensity = "balanced" | "strong" | "investor_grade";
 
 function option(id: string, label: string) {
   return {
@@ -24,7 +23,7 @@ function question(input: {
   readonly ambiguityDimension?: string;
   readonly ambiguityRoutingPath?: "human_judgment" | "existing_fact_check" | "current_research";
   readonly businessCriticIntensityMinimum?: BusinessCriticIntensity;
-  readonly businessCriticPressureKind?: "balanced_con" | "core_assumption_challenge" | "investor_pressure_pass";
+  readonly businessCriticPressureKind?: BusinessCriticPressureKind;
   readonly possibleRoutes?: readonly string[];
   readonly answerOptions?: readonly ReturnType<typeof option>[];
   readonly researchQuestion?: string;
