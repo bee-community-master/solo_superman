@@ -13157,6 +13157,69 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("rejects ambiguity analysis when generated question JSON is missing at the route boundary", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A route test idea that requires generated questions before analysis"
+      );
+      await storageApp.request(`/api/v1/sessions/${sessionId}/intake`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          answer: "Validate the generated-question-only route boundary."
+        })
+      });
+      await storageApp.request(`/api/v1/sessions/${sessionId}/spec/initial`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 2
+        })
+      });
+
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/spec/analyze`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 3,
+          targetRef: "current_spec"
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "COMMAND_PRECONDITION_FAILED",
+          message: "AnalyzeAmbiguity requires Codex-generated question JSON.",
+          details: {
+            questionGeneration: {
+              mode: "codex_required",
+              reason: "generated_question_set_missing"
+            }
+          }
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("rejects stale ProductEngine expectedStateVersion without appending events", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
 

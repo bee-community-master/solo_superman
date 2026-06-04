@@ -147,10 +147,6 @@ export function initialQueueStartBlockerList({
   return blockers;
 }
 
-export function initialResearchAutomationAllowsCodex(permission: InitialResearchAutomationPermission): boolean {
-  return permission === "allow_codex" || permission === "allow_codex_and_chatgpt_visible";
-}
-
 export function initialResearchAutomationAllowsVisibleChatGpt(
   permission: InitialResearchAutomationPermission
 ): boolean {
