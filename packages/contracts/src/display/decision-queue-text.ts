@@ -1,6 +1,6 @@
 export type DecisionQueueDisplayLanguage = "en" | "ja" | "ko";
 
-const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
+const DECISION_QUEUE_PRODUCT_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   [/\bcurrent public evidence\b/giu, "현재 공개 근거"],
   [/가장\s+먼저\s+검증할\s+primary customer/giu, "가장 먼저 검증할 고객/사용자"],
   [/첫\s+Build Slice/giu, "첫 구현 범위"],
@@ -44,7 +44,10 @@ const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, 
   [/\bpaid intent\b/giu, "돈을 낼 이유"],
   [/\bcore-assumption risk\b/giu, "핵심 가설 리스크"],
   [/\bsource_quality_insufficient\b/giu, "출처 품질 부족"],
-  [/\bassumption_pressure\b/giu, "가설 압박"],
+  [/\bassumption_pressure\b/giu, "가설 압박"]
+];
+
+const PUBLIC_RESEARCH_SNIPPET_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   [
     /\bUse this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce\.?/giu,
     "이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다."
@@ -61,7 +64,10 @@ const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, 
   [/\bsource freshness\b/giu, "출처 최신성"],
   [/\blimitations?\b/giu, "한계"],
   [/\bcounterexamples?\b/giu, "반례"],
-  [/\bother perspectives?\b/giu, "다른 관점"],
+  [/\bother perspectives?\b/giu, "다른 관점"]
+];
+
+const DECISION_QUEUE_STATUS_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   [/\bimplementation-ready\b/giu, "구현 준비 완료"],
   [/\bprice proxy\b/giu, "가격 확인 방법"],
   [/\bproxy\b/giu, "행동 신호"],
@@ -101,37 +107,51 @@ const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, 
   [/\bclaim\b/giu, "주장"]
 ];
 
+const USER_FACING_DECISION_QUEUE_TERM_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
+  ...DECISION_QUEUE_PRODUCT_TERM_REPLACEMENTS,
+  ...PUBLIC_RESEARCH_SNIPPET_REPLACEMENTS,
+  ...DECISION_QUEUE_STATUS_TERM_REPLACEMENTS
+];
+
+const INTERNAL_RESEARCH_META_REPLACEMENTS: readonly RegExp[] = [
+  /\bPage body could not be fetched before timeout;?\s*/giu,
+  /\bFull page text was unavailable before timeout, so only the search-result summary is shown\.?/giu,
+  /\b(?:search-result|rch-result|result)\s+snippet retained for review\.?/giu,
+  /\bsnippet retained for review\.?/giu,
+  /\bSource snippets and fetched page text require quality-gate review before accepted (?:evidence|근거)\.?/giu,
+  /\bSource snippets and fetched page text require review before accepted (?:evidence|근거)\.?/giu,
+  /\bBrowser search snippets can be incomplete; quality-gate review must verify claims before acceptance\.?/giu,
+  /\bBrowser search snippets can be incomplete;?\s*/giu,
+  /\bSearch snippets and available page text may be incomplete, so important claims still need follow-up confirmation\.?/giu,
+  /\bOnly publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used\.?/giu,
+  /\bquality-gate review must verify claims before acceptance\.?/giu,
+  /\bquality-gate review before accepted (?:evidence|근거)\.?/giu,
+  /\bPublic page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial\.?/giu,
+  /\bBrowser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used\.?/giu,
+  /\bRandom delay range was \d+-\d+ms with at most \d+ fetched public page\(s\)\.?/giu,
+  /\bPublic web research completed for [^.。!?]+[.。!?]?/giu,
+  /\bQuery:\s*[^.。!?]+[.。!?]?/giu,
+  /\bSources reviewed:\s*\d+[.。!?]?/giu,
+  /\bPro:\s*At least one public source was reachable through a read-only browser search\.?/giu,
+  /\bLimitation:\s*Browser search snippets can be incomplete;?\s*/giu,
+  /\b(?:Pro|Con|Limitation):\s*$/giu,
+  /\bread-only browser search\.?/giu,
+  /\bread-only public web search\.?/giu
+];
+
+function stripInternalResearchMetaLine(line: string) {
+  return INTERNAL_RESEARCH_META_REPLACEMENTS.reduce(
+    (current, pattern) => current.replace(pattern, ""),
+    line
+  )
+    .replace(/\s+([.。!?])/gu, "$1")
+    .trim();
+}
+
 export function stripInternalResearchMetaText(value: string) {
   return value
     .split(/\r?\n/u)
-    .map((line) =>
-      line
-        .replace(/\bPage body could not be fetched before timeout;?\s*/giu, "")
-        .replace(/\bFull page text was unavailable before timeout, so only the search-result summary is shown\.?/giu, "")
-        .replace(/\b(?:search-result|rch-result|result)\s+snippet retained for review\.?/giu, "")
-        .replace(/\bsnippet retained for review\.?/giu, "")
-        .replace(/\bSource snippets and fetched page text require quality-gate review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bSource snippets and fetched page text require review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bBrowser search snippets can be incomplete; quality-gate review must verify claims before acceptance\.?/giu, "")
-        .replace(/\bBrowser search snippets can be incomplete;?\s*/giu, "")
-        .replace(/\bSearch snippets and available page text may be incomplete, so important claims still need follow-up confirmation\.?/giu, "")
-        .replace(/\bOnly publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used\.?/giu, "")
-        .replace(/\bquality-gate review must verify claims before acceptance\.?/giu, "")
-        .replace(/\bquality-gate review before accepted (?:evidence|근거)\.?/giu, "")
-        .replace(/\bPublic page opened, but readable body text was blocked by a login, CAPTCHA, or anti-bot interstitial\.?/giu, "")
-        .replace(/\bBrowser-based public web search only; no login, CAPTCHA, anti-bot bypass, paid-service access, or external search API was used\.?/giu, "")
-        .replace(/\bRandom delay range was \d+-\d+ms with at most \d+ fetched public page\(s\)\.?/giu, "")
-        .replace(/\bPublic web research completed for [^.。!?]+[.。!?]?/giu, "")
-        .replace(/\bQuery:\s*[^.。!?]+[.。!?]?/giu, "")
-        .replace(/\bSources reviewed:\s*\d+[.。!?]?/giu, "")
-        .replace(/\bPro:\s*At least one public source was reachable through a read-only browser search\.?/giu, "")
-        .replace(/\bLimitation:\s*Browser search snippets can be incomplete;?\s*/giu, "")
-        .replace(/\b(?:Pro|Con|Limitation):\s*$/giu, "")
-        .replace(/\bread-only browser search\.?/giu, "")
-        .replace(/\bread-only public web search\.?/giu, "")
-        .replace(/\s+([.。!?])/gu, "$1")
-        .trim()
-    )
+    .map(stripInternalResearchMetaLine)
     .filter(Boolean)
     .join("\n")
     .replace(/\n{3,}/gu, "\n\n")

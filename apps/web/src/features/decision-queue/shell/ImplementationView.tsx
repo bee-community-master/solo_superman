@@ -216,110 +216,110 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           </section>
         ) : null}
         {hasImplementationContext ? (
-        <div className="card-actions panel-actions">
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
-            {copy.planning.scoreCompleteness}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
-            {copy.handoff.planningActionLabels.prepareFounderBrief}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
-            {copy.handoff.runGate}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContext()}>
-            {copy.handoff.planningActionLabels.prepareImplementationContext}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContextAndCreateRun()}>
-            {copy.autoImplementation.prepareContextAndCreate}
-          </button>
-          <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
-            {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
-          </button>
-        </div>
+          <div className="card-actions panel-actions">
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
+              {copy.planning.scoreCompleteness}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
+              {copy.handoff.planningActionLabels.prepareFounderBrief}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
+              {copy.handoff.runGate}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContext()}>
+              {copy.handoff.planningActionLabels.prepareImplementationContext}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContextAndCreateRun()}>
+              {copy.autoImplementation.prepareContextAndCreate}
+            </button>
+            <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
+              {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
+            </button>
+          </div>
         ) : null}
       </section>
 
       {hasImplementationContext ? <ReleaseReadinessPanel /> : null}
 
       {hasImplementationContext ? (
-      <AutoImplementationRunPanel
-        run={autoImplementationRunView}
-        isBusy={isBusy}
-        canCreateRun={canCreateAutoImplementationRun}
-        onCreateRun={() => {
-          void createAutoImplementationRun();
-        }}
-        onPlanWorkerJob={() => {
-          void planAutoImplementationWorkerJob();
-        }}
-        onRecordStageTick={() => {
-          void recordAutoImplementationStageTick();
-        }}
-        onStartStage={() => {
-          void startAutoImplementationStage();
-        }}
-        onPauseStage={() => {
-          void pauseAutoImplementationStage();
-        }}
-        onBlockStage={() => {
-          void blockAutoImplementationStage();
-        }}
-        onCompleteWorkerJob={() => {
-          void completeAutoImplementationWorkerJobFromLedger();
-        }}
-        workerLedgerImportDraft={workerLedgerImportDraft}
-        onWorkerLedgerImportDraftChange={setWorkerLedgerImportDraft}
-        onImportWorkerLedger={() => {
-          void importAutoImplementationWorkerLedgerFromDraft();
-        }}
-        onRecordGitHubIssueDryRun={() => {
-          void recordAutoImplementationGitHubIssueDryRun();
-        }}
-        onApplyGitHubIssueCreation={() => {
-          void applyAutoImplementationGitHubIssueCreation();
-        }}
-        onRecordPullRequestOpenDryRun={() => {
-          void recordAutoImplementationPullRequestOpenDryRun();
-        }}
-        onApplyPullRequestOpen={() => {
-          void applyAutoImplementationPullRequestOpen();
-        }}
-        onRecordPullRequestDryRun={() => {
-          void recordAutoImplementationPullRequestDryRun();
-        }}
-        onRecordPullRequestMergeDryRun={() => {
-          void recordAutoImplementationPullRequestMergeDryRun();
-        }}
-        onApplyPullRequestBodyUpdate={() => {
-          void applyAutoImplementationPullRequestBodyUpdate();
-        }}
-        onApplyPullRequestMerge={() => {
-          void applyAutoImplementationPullRequestMerge();
-        }}
-        onRunWorkerJob={() => {
-          void runAutoImplementationWorkerJob();
-        }}
-        onAdvanceWorkerStage={() => {
-          void advanceAutoImplementationWorkerStage();
-        }}
-        onRefreshRun={() => {
-          if (projections.session) {
-            void refreshAutoImplementationRuns(projections.session.sessionId);
-          }
-        }}
-      />
+        <AutoImplementationRunPanel
+          run={autoImplementationRunView}
+          isBusy={isBusy}
+          canCreateRun={canCreateAutoImplementationRun}
+          onCreateRun={() => {
+            void createAutoImplementationRun();
+          }}
+          onPlanWorkerJob={() => {
+            void planAutoImplementationWorkerJob();
+          }}
+          onRecordStageTick={() => {
+            void recordAutoImplementationStageTick();
+          }}
+          onStartStage={() => {
+            void startAutoImplementationStage();
+          }}
+          onPauseStage={() => {
+            void pauseAutoImplementationStage();
+          }}
+          onBlockStage={() => {
+            void blockAutoImplementationStage();
+          }}
+          onCompleteWorkerJob={() => {
+            void completeAutoImplementationWorkerJobFromLedger();
+          }}
+          workerLedgerImportDraft={workerLedgerImportDraft}
+          onWorkerLedgerImportDraftChange={setWorkerLedgerImportDraft}
+          onImportWorkerLedger={() => {
+            void importAutoImplementationWorkerLedgerFromDraft();
+          }}
+          onRecordGitHubIssueDryRun={() => {
+            void recordAutoImplementationGitHubIssueDryRun();
+          }}
+          onApplyGitHubIssueCreation={() => {
+            void applyAutoImplementationGitHubIssueCreation();
+          }}
+          onRecordPullRequestOpenDryRun={() => {
+            void recordAutoImplementationPullRequestOpenDryRun();
+          }}
+          onApplyPullRequestOpen={() => {
+            void applyAutoImplementationPullRequestOpen();
+          }}
+          onRecordPullRequestDryRun={() => {
+            void recordAutoImplementationPullRequestDryRun();
+          }}
+          onRecordPullRequestMergeDryRun={() => {
+            void recordAutoImplementationPullRequestMergeDryRun();
+          }}
+          onApplyPullRequestBodyUpdate={() => {
+            void applyAutoImplementationPullRequestBodyUpdate();
+          }}
+          onApplyPullRequestMerge={() => {
+            void applyAutoImplementationPullRequestMerge();
+          }}
+          onRunWorkerJob={() => {
+            void runAutoImplementationWorkerJob();
+          }}
+          onAdvanceWorkerStage={() => {
+            void advanceAutoImplementationWorkerStage();
+          }}
+          onRefreshRun={() => {
+            if (projections.session) {
+              void refreshAutoImplementationRuns(projections.session.sessionId);
+            }
+          }}
+        />
       ) : null}
 
       {hasImplementationContext ? (
-      <ImplementationStepLedgerPanel
-        ledger={implementationStepLedgerView}
-        isBusy={isBusy}
-        onRefreshLedger={() => {
-          if (projections.session) {
-            void refreshImplementationStepLedger(projections.session.sessionId);
-          }
-        }}
-      />
+        <ImplementationStepLedgerPanel
+          ledger={implementationStepLedgerView}
+          isBusy={isBusy}
+          onRefreshLedger={() => {
+            if (projections.session) {
+              void refreshImplementationStepLedger(projections.session.sessionId);
+            }
+          }}
+        />
       ) : null}
 
       <section className="panel runtime-panel">

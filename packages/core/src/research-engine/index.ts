@@ -4,12 +4,6 @@ import {
   localizedUserFacingDecisionQueueText,
   stripInternalResearchMetaText
 } from "@solo-superman/contracts";
-import {
-  evidenceGateConfigFromEnv
-} from "./evidenceGateConfig";
-
-export * from "./evidenceGateConfig";
-export { stripInternalResearchMetaText } from "@solo-superman/contracts";
 import type {
   DecisionEvidencePackId,
   DecisionEvidencePackProjection,
@@ -32,8 +26,11 @@ import type {
   ResearchTaskProjection,
   SessionId
 } from "@solo-superman/contracts";
+import { evidenceGateConfigFromEnv } from "./evidenceGateConfig";
 import { describesAnswerFormPolicy } from "../answer-form-policy";
 
+export * from "./evidenceGateConfig";
+export { stripInternalResearchMetaText } from "@solo-superman/contracts";
 export * from "./public-safe-summary";
 export * from "./background-research-runtime";
 
