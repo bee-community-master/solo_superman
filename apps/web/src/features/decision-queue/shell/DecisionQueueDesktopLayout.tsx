@@ -4,8 +4,27 @@ import { LanguageSwitcher } from "../../../shared/i18n/app-language";
 import { DECISION_QUEUE_PAGE_ORDER, useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
+export type DecisionQueueDesktopLayoutController = Pick<
+  DecisionQueueShellController,
+  | "activePage"
+  | "activePageMeta"
+  | "blockedQueueCount"
+  | "confidence"
+  | "connect"
+  | "connectionLabel"
+  | "connectionState"
+  | "connectionTone"
+  | "isBusy"
+  | "navItems"
+  | "pageMeta"
+  | "projections"
+  | "setActivePage"
+  | "totalQueueCount"
+  | "workflowError"
+>;
+
 interface DecisionQueueDesktopLayoutProps {
-  readonly controller: DecisionQueueShellController;
+  readonly controller: DecisionQueueDesktopLayoutController;
   readonly children: ReactNode;
   readonly rightRail: ReactNode;
 }
@@ -51,6 +70,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
 
             return (
               <button
+                aria-label={`${meta.label}${isActive ? `, ${copy.layout.currentWorkflowStep}` : ""}`}
                 aria-current={isActive ? "page" : undefined}
                 className={`phase-pill ${isActive ? "active" : ""}`}
                 key={pageId}
@@ -58,7 +78,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
                 type="button"
               >
                 <span className="phase-dot" />
-                {meta.shortLabel}
+                <span className="phase-label">{meta.shortLabel}</span>
                 {index < DECISION_QUEUE_PAGE_ORDER.length - 1 ? <span className="phase-chevron">›</span> : null}
               </button>
             );

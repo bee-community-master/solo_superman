@@ -131,6 +131,20 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             ) : null}
           </div>
           <div className="session-action-column">
+            <button type="submit" disabled={!canStart || isBusy}>
+              {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
+            </button>
+            <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
+              <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
+              <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
+              {initialQueueStartBlockerMessages.length ? (
+                <ul>
+                  {initialQueueStartBlockerMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
             <fieldset className="mode-fieldset">
               <legend>{copy.questions.initialResearchAutomationPermission}</legend>
               {copy.questions.initialResearchAutomationPermissionOptions.map((option) => (
@@ -196,8 +210,13 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                     {copy.questions.codexLoginCommandLabel}: <code>{codexAccount?.loginCommand ?? "codex auth login"}</code>
                   </p>
                 )}
-                {codexStatusReason ? <p className="research-recovery">{codexStatusReason}</p> : null}
-                {codexLoginStart?.message ? <p className="research-recovery">{codexLoginStart.message}</p> : null}
+                {codexStatusReason || codexLoginStart?.message ? (
+                  <details className="runtime-diagnostics">
+                    <summary>{copy.layout.diagnosticDetails}</summary>
+                    {codexStatusReason ? <p>{codexStatusReason}</p> : null}
+                    {codexLoginStart?.message ? <p>{codexLoginStart.message}</p> : null}
+                  </details>
+                ) : null}
               </div>
               <div className="card-actions panel-actions">
                 {codexAccount?.status === "authenticated" ? null : (
@@ -210,20 +229,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                 </button>
               </div>
             </section>
-            <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
-              <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
-              <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
-              {initialQueueStartBlockerMessages.length ? (
-                <ul>
-                  {initialQueueStartBlockerMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-            <button type="submit" disabled={!canStart}>
-              {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
-            </button>
           </div>
         </div>
       </form>

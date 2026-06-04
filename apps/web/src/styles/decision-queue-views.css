@@ -162,6 +162,24 @@
   padding: 12px;
 }
 
+.runtime-diagnostics {
+  border: 1px dashed #d8ece8;
+  border-radius: 8px;
+  background: #fbfdfb;
+  padding: 8px 10px;
+}
+
+.runtime-diagnostics summary {
+  cursor: pointer;
+  color: var(--solo-muted);
+  font-weight: 750;
+}
+
+.runtime-diagnostics p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .start-guide h3 {
   margin: 0;
 }

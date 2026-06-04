@@ -281,37 +281,37 @@ const EN_COPY = {
   pageMeta: {
     onboarding: {
       label: "Onboarding",
-      shortLabel: "O",
+      shortLabel: "Onboard",
       title: "Onboarding",
       description: "Sign in to ChatGPT and Codex, then set the goal before the first question."
     },
     questions: {
       label: "Questions",
-      shortLabel: "Q",
+      shortLabel: "Questions",
       title: "Questions",
       description: "Answer active questions, review upcoming questions, and keep known risks visible."
     },
     research: {
       label: "Research",
-      shortLabel: "R",
+      shortLabel: "Research",
       title: "Research review",
       description: "Manage approved public research and manually imported evidence."
     },
     planning: {
       label: "Planning",
-      shortLabel: "P",
+      shortLabel: "Planning",
       title: "Planning readiness",
       description: "Review the product spec, readiness score, Founder Brief, and handoff check."
     },
     implementation: {
       label: "Implementation",
-      shortLabel: "I",
+      shortLabel: "Build",
       title: "Implementation activity",
       description: "Track local activity and the implementation log in one flow."
     },
     permissions: {
       label: "Permissions",
-      shortLabel: "A",
+      shortLabel: "Access",
       title: "Delegation and permissions",
       description: "Review external AI workspace access and service-page permissions separately."
     }
@@ -348,6 +348,7 @@ const EN_COPY = {
   layout: {
     localQueueFallback: "Local planning workspace",
     workflowSectionsAria: "Desktop workflow sections",
+    currentWorkflowStep: "current step",
     leftRailAria: "Workflow navigation",
     workflowSteps: "Workspace steps",
     progressAria: "Live queue progress",
@@ -356,6 +357,8 @@ const EN_COPY = {
     pendingQuestions: "Pending questions",
     blockedQuestions: "Blocked questions",
     reconnectSidecar: "Reconnect local service",
+    localServiceConnected: "Local service connected",
+    diagnosticDetails: "Diagnostic details",
     sidecarUnavailable: "Local service unavailable",
     sidecarUnavailableMessage: "The local service is not connected.",
     sidecarUnavailableRecovery: "The local service is not connected. Start Solo Superman with `pnpm start:local`, then reconnect and try Codex login again.",
@@ -946,6 +949,8 @@ const EN_COPY = {
     runtimeEvidence: "Execution records",
     adapterPrefix: "Tool",
     effectSuffix: "item(s)",
+    pendingBackgroundTasks: (count: number) => `${count} background task(s) pending.`,
+    noBackgroundTasks: "No background tasks are pending.",
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
     pending: "pending",
@@ -1140,7 +1145,7 @@ const EN_COPY = {
       liveReady: "Live local Codex execution is available; run only after the task scope and authority are planned, then use result import if the output is blocked.",
       fixture: "Fixture runtime can simulate local Codex execution; production work still needs live local execution or imported task-result evidence.",
       codexLogin: "Run Codex login, refresh runtime status, or complete the scoped task manually and import its result evidence.",
-      enableLiveTurns: "Set SOLO_CODEX_SDK_LIVE_TURNS=1 and restart the local sidecar to attempt live local Codex execution, or complete the scoped task manually and import its result evidence.",
+      enableLiveTurns: "Enable automatic local Codex execution in local settings, or complete the scoped task manually and import its result evidence.",
       resolveBlocker: "Resolve the Codex runtime blocker, then rerun the local Codex task or import completed task-result JSON."
     },
     workerPlanExecutionMode: "Execution mode",
@@ -1752,37 +1757,37 @@ const JA_COPY: typeof EN_COPY = {
   pageMeta: {
     onboarding: {
       label: "オンボーディング",
-      shortLabel: "O",
+      shortLabel: "開始",
       title: "オンボーディング",
       description: "ChatGPTとCodexにログインし、最初の質問の前に目標を設定します。"
     },
     questions: {
       label: "質問",
-      shortLabel: "Q",
+      shortLabel: "質問",
       title: "質問",
       description: "現在の質問、次の質問、既知のリスクを一つの画面で整理します。"
     },
     research: {
       label: "リサーチ",
-      shortLabel: "R",
+      shortLabel: "調査",
       title: "リサーチ確認",
       description: "承認済みの公開リサーチと手動で追加した根拠を管理します。"
     },
     planning: {
       label: "計画",
-      shortLabel: "P",
+      shortLabel: "計画",
       title: "計画の準備状況",
       description: "プロダクト仕様、準備スコア、Founder Brief、引き継ぎ確認を見直します。"
     },
     implementation: {
       label: "実装",
-      shortLabel: "I",
+      shortLabel: "実装",
       title: "実装の動き",
       description: "ローカルでの動きと実装ログを一つの流れで追跡します。"
     },
     permissions: {
       label: "権限",
-      shortLabel: "A",
+      shortLabel: "権限",
       title: "委任と権限",
       description: "外部AIワークスペースとサービスページの利用権限を分けて確認します。"
     }
@@ -1819,6 +1824,7 @@ const JA_COPY: typeof EN_COPY = {
   layout: {
     localQueueFallback: "ローカル計画ワークスペース",
     workflowSectionsAria: "デスクトップのワークフロー区分",
+    currentWorkflowStep: "現在のステップ",
     leftRailAria: "ワークフローナビゲーション",
     workflowSteps: "作業ステップ",
     progressAria: "ライブキュー進捗",
@@ -1827,6 +1833,8 @@ const JA_COPY: typeof EN_COPY = {
     pendingQuestions: "待機中の質問",
     blockedQuestions: "ブロック中の質問",
     reconnectSidecar: "ローカルサービスに再接続",
+    localServiceConnected: "ローカルサービス接続済み",
+    diagnosticDetails: "診断詳細",
     sidecarUnavailable: "ローカルサービスを利用できません",
     sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
     sidecarUnavailableRecovery: "ローカルサービスに接続されていません。`pnpm start:local`でSolo Supermanを起動し、再接続してからCodexログインをもう一度開いてください。",
@@ -2407,6 +2415,8 @@ const JA_COPY: typeof EN_COPY = {
     runtimeEvidence: "実行記録",
     adapterPrefix: "ツール",
     effectSuffix: "件",
+    pendingBackgroundTasks: (count: number) => `バックグラウンド作業が${count}件待機中です。`,
+    noBackgroundTasks: "待機中のバックグラウンド作業はありません。",
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
     pending: "保留中",
@@ -2592,7 +2602,7 @@ const JA_COPY: typeof EN_COPY = {
       liveReady: "ライブのローカルCodex実行を利用できます。作業範囲と権限を確認してから実行し、出力が止まった場合は結果取り込みで補完してください。",
       fixture: "Fixture実行環境はローカルCodex作業をシミュレートできます。実作業にはライブ実行または取り込んだ作業結果の根拠が必要です。",
       codexLogin: "Codexログインを完了して実行環境を更新するか、範囲を決めた作業を手動で完了して結果を取り込んでください。",
-      enableLiveTurns: "SOLO_CODEX_SDK_LIVE_TURNS=1を設定してlocal sidecarを再起動するか、範囲を決めた作業を手動で完了して結果を取り込んでください。",
+      enableLiveTurns: "ローカル設定でCodexの自動実行を有効にするか、範囲を決めた作業を手動で完了して結果を取り込んでください。",
       resolveBlocker: "Codex実行環境の問題を解消してローカルCodex作業を再実行するか、完了済み作業結果JSONを取り込んでください。"
     },
     workerPlanExecutionMode: "実行モード",
@@ -3224,37 +3234,37 @@ const KO_COPY: typeof EN_COPY = {
   pageMeta: {
     onboarding: {
       label: "온보딩",
-      shortLabel: "O",
+      shortLabel: "시작",
       title: "온보딩",
       description: "첫 질문을 만들기 전에 ChatGPT와 Codex에 로그인하고 목표를 설정합니다."
     },
     questions: {
       label: "질문",
-      shortLabel: "Q",
+      shortLabel: "질문",
       title: "질문",
       description: "현재 질문, 다음 질문, 나중에 확인할 항목을 한곳에서 정리합니다."
     },
     research: {
       label: "리서치",
-      shortLabel: "R",
+      shortLabel: "리서치",
       title: "리서치 검토",
       description: "승인된 공개 리서치와 직접 추가한 근거를 관리합니다."
     },
     planning: {
       label: "계획",
-      shortLabel: "P",
+      shortLabel: "계획",
       title: "계획 준비 상태",
       description: "제품 설명서, 준비 점수, Founder Brief, 인계 확인을 검토합니다."
     },
     implementation: {
       label: "구현",
-      shortLabel: "I",
+      shortLabel: "구현",
       title: "구현 활동",
       description: "로컬 실행 상태와 구현 로그를 하나의 흐름에서 추적합니다."
     },
     permissions: {
       label: "권한",
-      shortLabel: "A",
+      shortLabel: "권한",
       title: "위임과 권한",
       description: "외부 AI 작업공간 접근과 서비스 페이지 사용 권한을 나누어 확인합니다."
     }
@@ -3291,6 +3301,7 @@ const KO_COPY: typeof EN_COPY = {
   layout: {
     localQueueFallback: "로컬 계획 작업공간",
     workflowSectionsAria: "데스크톱 워크플로 섹션",
+    currentWorkflowStep: "현재 단계",
     leftRailAria: "워크플로 내비게이션",
     workflowSteps: "작업 단계",
     progressAria: "실시간 큐 진행률",
@@ -3299,6 +3310,8 @@ const KO_COPY: typeof EN_COPY = {
     pendingQuestions: "대기 중인 질문",
     blockedQuestions: "차단된 질문",
     reconnectSidecar: "로컬 서비스 다시 연결",
+    localServiceConnected: "로컬 서비스 연결됨",
+    diagnosticDetails: "진단 세부 정보",
     sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
     sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
     sidecarUnavailableRecovery: "로컬 서비스가 연결되어 있지 않습니다. `pnpm start:local`로 Solo Superman을 실행한 뒤 다시 연결하고 Codex 로그인을 다시 열어주세요.",
@@ -3877,6 +3890,8 @@ const KO_COPY: typeof EN_COPY = {
     runtimeEvidence: "실행 기록",
     adapterPrefix: "도구",
     effectSuffix: "개",
+    pendingBackgroundTasks: (count: number) => `백그라운드 작업 ${count}개가 대기 중입니다.`,
+    noBackgroundTasks: "대기 중인 백그라운드 작업은 없습니다.",
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "대기 중",
@@ -4062,7 +4077,7 @@ const KO_COPY: typeof EN_COPY = {
       liveReady: "실시간 로컬 Codex 실행을 사용할 수 있습니다. 작업 범위와 권한을 확인한 뒤 실행하고, 출력이 멈추면 결과 가져오기로 보완하세요.",
       fixture: "시뮬레이션 실행 환경은 로컬 Codex 작업을 흉내낼 수 있습니다. 실제 작업에는 실시간 로컬 실행 또는 가져온 작업 결과 근거가 필요합니다.",
       codexLogin: "Codex 로그인을 완료하고 실행 환경 상태를 새로고침하거나, 범위가 정해진 작업을 수동으로 완료한 뒤 결과를 가져오세요.",
-      enableLiveTurns: "SOLO_CODEX_SDK_LIVE_TURNS=1을 설정하고 local sidecar를 재시작하거나, 범위가 정해진 작업을 수동으로 완료한 뒤 결과를 가져오세요.",
+      enableLiveTurns: "로컬 설정에서 Codex 자동 실행을 켜거나, 범위가 정해진 작업을 수동으로 완료한 뒤 결과를 가져오세요.",
       resolveBlocker: "Codex 실행 환경 문제를 해소한 뒤 로컬 Codex 작업을 다시 실행하거나 완료된 작업 결과 JSON을 가져오세요."
     },
     workerPlanExecutionMode: "실행 모드",

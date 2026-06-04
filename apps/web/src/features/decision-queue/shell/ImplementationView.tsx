@@ -87,7 +87,11 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         ]
       ]
     : [];
+  const pendingSummaryLabel = pendingSummary.totalPending
+    ? copy.implementation.pendingBackgroundTasks(pendingSummary.totalPending)
+    : copy.implementation.noBackgroundTasks;
   const hasActiveSession = Boolean(projections.session);
+  const hasImplementationContext = hasActiveSession || autoImplementationRunView.hasRun;
   const hasCompletionSource =
     confidence?.completionCandidate.status === "candidate" || projections.founderBrief?.exportReady === true;
   const implementationStartSteps = [
@@ -211,106 +215,112 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             )}
           </section>
         ) : null}
-        <div className="card-actions panel-actions">
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
-            {copy.planning.scoreCompleteness}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
-            {copy.handoff.planningActionLabels.prepareFounderBrief}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
-            {copy.handoff.runGate}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContext()}>
-            {copy.handoff.planningActionLabels.prepareImplementationContext}
-          </button>
-          <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContextAndCreateRun()}>
-            {copy.autoImplementation.prepareContextAndCreate}
-          </button>
-          <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
-            {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
-          </button>
-        </div>
+        {hasImplementationContext ? (
+          <div className="card-actions panel-actions">
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void scoreCompleteness()}>
+              {copy.planning.scoreCompleteness}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareFounderBrief()}>
+              {copy.handoff.planningActionLabels.prepareFounderBrief}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void runPlanningHandoffGate()}>
+              {copy.handoff.runGate}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContext()}>
+              {copy.handoff.planningActionLabels.prepareImplementationContext}
+            </button>
+            <button type="button" disabled={isBusy || !hasActiveSession} onClick={() => void prepareImplementationContextAndCreateRun()}>
+              {copy.autoImplementation.prepareContextAndCreate}
+            </button>
+            <button type="button" disabled={isBusy || !canCreateAutoImplementationRun} onClick={() => void createAutoImplementationRun()}>
+              {autoImplementationRunView.hasRun ? copy.autoImplementation.reprepare : copy.autoImplementation.create}
+            </button>
+          </div>
+        ) : null}
       </section>
 
-      <ReleaseReadinessPanel />
+      {hasImplementationContext ? <ReleaseReadinessPanel /> : null}
 
-      <AutoImplementationRunPanel
-        run={autoImplementationRunView}
-        isBusy={isBusy}
-        canCreateRun={canCreateAutoImplementationRun}
-        onCreateRun={() => {
-          void createAutoImplementationRun();
-        }}
-        onPlanWorkerJob={() => {
-          void planAutoImplementationWorkerJob();
-        }}
-        onRecordStageTick={() => {
-          void recordAutoImplementationStageTick();
-        }}
-        onStartStage={() => {
-          void startAutoImplementationStage();
-        }}
-        onPauseStage={() => {
-          void pauseAutoImplementationStage();
-        }}
-        onBlockStage={() => {
-          void blockAutoImplementationStage();
-        }}
-        onCompleteWorkerJob={() => {
-          void completeAutoImplementationWorkerJobFromLedger();
-        }}
-        workerLedgerImportDraft={workerLedgerImportDraft}
-        onWorkerLedgerImportDraftChange={setWorkerLedgerImportDraft}
-        onImportWorkerLedger={() => {
-          void importAutoImplementationWorkerLedgerFromDraft();
-        }}
-        onRecordGitHubIssueDryRun={() => {
-          void recordAutoImplementationGitHubIssueDryRun();
-        }}
-        onApplyGitHubIssueCreation={() => {
-          void applyAutoImplementationGitHubIssueCreation();
-        }}
-        onRecordPullRequestOpenDryRun={() => {
-          void recordAutoImplementationPullRequestOpenDryRun();
-        }}
-        onApplyPullRequestOpen={() => {
-          void applyAutoImplementationPullRequestOpen();
-        }}
-        onRecordPullRequestDryRun={() => {
-          void recordAutoImplementationPullRequestDryRun();
-        }}
-        onRecordPullRequestMergeDryRun={() => {
-          void recordAutoImplementationPullRequestMergeDryRun();
-        }}
-        onApplyPullRequestBodyUpdate={() => {
-          void applyAutoImplementationPullRequestBodyUpdate();
-        }}
-        onApplyPullRequestMerge={() => {
-          void applyAutoImplementationPullRequestMerge();
-        }}
-        onRunWorkerJob={() => {
-          void runAutoImplementationWorkerJob();
-        }}
-        onAdvanceWorkerStage={() => {
-          void advanceAutoImplementationWorkerStage();
-        }}
-        onRefreshRun={() => {
-          if (projections.session) {
-            void refreshAutoImplementationRuns(projections.session.sessionId);
-          }
-        }}
-      />
+      {hasImplementationContext ? (
+        <AutoImplementationRunPanel
+          run={autoImplementationRunView}
+          isBusy={isBusy}
+          canCreateRun={canCreateAutoImplementationRun}
+          onCreateRun={() => {
+            void createAutoImplementationRun();
+          }}
+          onPlanWorkerJob={() => {
+            void planAutoImplementationWorkerJob();
+          }}
+          onRecordStageTick={() => {
+            void recordAutoImplementationStageTick();
+          }}
+          onStartStage={() => {
+            void startAutoImplementationStage();
+          }}
+          onPauseStage={() => {
+            void pauseAutoImplementationStage();
+          }}
+          onBlockStage={() => {
+            void blockAutoImplementationStage();
+          }}
+          onCompleteWorkerJob={() => {
+            void completeAutoImplementationWorkerJobFromLedger();
+          }}
+          workerLedgerImportDraft={workerLedgerImportDraft}
+          onWorkerLedgerImportDraftChange={setWorkerLedgerImportDraft}
+          onImportWorkerLedger={() => {
+            void importAutoImplementationWorkerLedgerFromDraft();
+          }}
+          onRecordGitHubIssueDryRun={() => {
+            void recordAutoImplementationGitHubIssueDryRun();
+          }}
+          onApplyGitHubIssueCreation={() => {
+            void applyAutoImplementationGitHubIssueCreation();
+          }}
+          onRecordPullRequestOpenDryRun={() => {
+            void recordAutoImplementationPullRequestOpenDryRun();
+          }}
+          onApplyPullRequestOpen={() => {
+            void applyAutoImplementationPullRequestOpen();
+          }}
+          onRecordPullRequestDryRun={() => {
+            void recordAutoImplementationPullRequestDryRun();
+          }}
+          onRecordPullRequestMergeDryRun={() => {
+            void recordAutoImplementationPullRequestMergeDryRun();
+          }}
+          onApplyPullRequestBodyUpdate={() => {
+            void applyAutoImplementationPullRequestBodyUpdate();
+          }}
+          onApplyPullRequestMerge={() => {
+            void applyAutoImplementationPullRequestMerge();
+          }}
+          onRunWorkerJob={() => {
+            void runAutoImplementationWorkerJob();
+          }}
+          onAdvanceWorkerStage={() => {
+            void advanceAutoImplementationWorkerStage();
+          }}
+          onRefreshRun={() => {
+            if (projections.session) {
+              void refreshAutoImplementationRuns(projections.session.sessionId);
+            }
+          }}
+        />
+      ) : null}
 
-      <ImplementationStepLedgerPanel
-        ledger={implementationStepLedgerView}
-        isBusy={isBusy}
-        onRefreshLedger={() => {
-          if (projections.session) {
-            void refreshImplementationStepLedger(projections.session.sessionId);
-          }
-        }}
-      />
+      {hasImplementationContext ? (
+        <ImplementationStepLedgerPanel
+          ledger={implementationStepLedgerView}
+          isBusy={isBusy}
+          onRefreshLedger={() => {
+            if (projections.session) {
+              void refreshImplementationStepLedger(projections.session.sessionId);
+            }
+          }}
+        />
+      ) : null}
 
       <section className="panel runtime-panel">
         <div className="panel-heading">
@@ -322,7 +332,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             {copy.implementation.refreshRuntimeStatus}
           </button>
         </div>
-        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummary.visibleLabel}` : pendingSummary.visibleLabel}</p>
+        <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummaryLabel}` : pendingSummaryLabel}</p>
         {runtimeStatus ? (
           <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
             {runtimeEvidenceItems.map(([label, value]) => (
@@ -333,7 +343,12 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             ))}
           </dl>
         ) : null}
-        {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
+        {runtimeStatus?.reason ? (
+          <details className="runtime-diagnostics">
+            <summary>{copy.layout.diagnosticDetails}</summary>
+            <p>{runtimeStatus.reason}</p>
+          </details>
+        ) : null}
         {statuses.length ? (
           <ul className="effect-list">
             {statuses.map((status) => (
