@@ -19,7 +19,7 @@ import {
 } from "./smoke-helpers";
 
 export const LIVE_PREVIEW_TURN_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_PREVIEW_TURN" as const;
-export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS" as const;
+export const LIVE_TURNS_ENV = "SOLO_CODEX_SDK_LIVE_TURNS" as const;
 export const RUNTIME_PREVIEW_TURN_SMOKE = "codex_runtime_preview_turn" as const;
 
 const FIXTURE_NOW = "2026-05-23T00:00:00.000Z";
@@ -274,8 +274,8 @@ function blockersFromPreviewResult(input: {
     blockers.push(`artifact status must be preview_ready; received ${JSON.stringify(input.artifact.status)}`);
   }
 
-  if (input.mode === "live" && input.artifact.source !== "codex_app_server") {
-    blockers.push(`live smoke artifact source must be codex_app_server; received ${JSON.stringify(input.artifact.source)}`);
+  if (input.mode === "live" && input.artifact.source !== "codex_sdk") {
+    blockers.push(`live smoke artifact source must be codex_sdk; received ${JSON.stringify(input.artifact.source)}`);
   }
 
   if (input.mode === "fixture" && input.artifact.source !== "protocol_fixture") {

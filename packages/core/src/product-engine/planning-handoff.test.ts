@@ -407,7 +407,7 @@ function readyStateWithPhase15bHint(hints: Phase15bUpgradeHints = phase15bHintsF
           },
           sourceRefs: ["research_run_phase15b_handoff"],
           contextHash: "ctx_phase15b_handoff",
-          runtimeAdapterVersion: "codex-app-server-preview-v1",
+          runtimeAdapterVersion: "codex-sdk-runtime-v1",
           blockedAction: {
             actionType: "shell_command",
             reason: "Phase 1.5B preserves readiness only."
@@ -1828,7 +1828,7 @@ describe("Phase 2 Planning Handoff ProductEngine gate", () => {
               },
               sourceRefs: [SPEC_VERSION_REF],
               contextHash: "ctx_planning_note",
-              runtimeAdapterVersion: "codex-app-server-preview-v1",
+              runtimeAdapterVersion: "codex-sdk-runtime-v1",
               createdAt: "2026-05-06T00:09:00.000Z",
               schemaVersion: CONTRACT_SCHEMA_VERSION
             }

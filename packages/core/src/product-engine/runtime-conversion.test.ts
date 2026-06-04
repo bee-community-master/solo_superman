@@ -101,7 +101,7 @@ function runtimeConversionState(
           },
           sourceRefs: ["spec_current"],
           contextHash: "ctx_runtime_conversion",
-          runtimeAdapterVersion: "codex-app-server-preview-v1",
+          runtimeAdapterVersion: "codex-sdk-runtime-v1",
           createdAt: "2026-05-05T00:00:00.000Z",
           schemaVersion: CONTRACT_SCHEMA_VERSION
         }

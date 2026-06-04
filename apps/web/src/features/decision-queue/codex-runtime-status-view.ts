@@ -17,7 +17,8 @@ export interface CodexRuntimeEvidenceView {
   readonly accountLabel: string;
   readonly checkedAtLabel: string | null;
   readonly adapterVersionLabel: string | null;
-  readonly generatedSchemaVersionLabel: string | null;
+  readonly sdkPackageVersionLabel: string | null;
+  readonly codexCliVersionLabel: string | null;
   readonly transportLabel: string | null;
   readonly liveTurnsState: CodexRuntimeLiveTurnState;
   readonly manualHandoffState: CodexRuntimeAvailabilityState;
@@ -49,7 +50,8 @@ export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | 
     accountLabel: codexRuntimeAccountLabel(runtimeStatus),
     checkedAtLabel: runtimeStatus?.checkedAt ?? null,
     adapterVersionLabel: runtimeStatus?.adapterVersion ?? null,
-    generatedSchemaVersionLabel: runtimeStatus?.generatedSchemaVersion ?? null,
+    sdkPackageVersionLabel: runtimeStatus?.sdkPackageVersion ?? null,
+    codexCliVersionLabel: runtimeStatus?.codexCliVersion ?? null,
     transportLabel: runtimeStatus?.transport ?? null,
     liveTurnsState: runtimeStatus ? (runtimeStatus.liveTurnExecutionEnabled ? "enabled" : "disabled") : "unknown",
     manualHandoffState: runtimeStatus

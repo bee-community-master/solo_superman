@@ -72,7 +72,8 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     ? [
         [copy.implementation.runtimeCheckedAt, runtimeEvidence.checkedAtLabel],
         [copy.implementation.runtimeAdapterVersion, runtimeEvidence.adapterVersionLabel],
-        [copy.implementation.runtimeGeneratedSchemaVersion, runtimeEvidence.generatedSchemaVersionLabel],
+        [copy.implementation.runtimeSdkPackageVersion, runtimeEvidence.sdkPackageVersionLabel],
+        [copy.implementation.runtimeCodexCliVersion, runtimeEvidence.codexCliVersionLabel],
         [copy.implementation.runtimeTransport, runtimeEvidence.transportLabel],
         [copy.implementation.runtimeExecutionMode, runtimeExecutionModeLabel],
         [copy.implementation.runtimeAccount, runtimeAccountLabel],

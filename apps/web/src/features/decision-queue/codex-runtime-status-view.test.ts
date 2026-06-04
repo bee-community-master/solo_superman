@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
+import {
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
+  type CodexRuntimeStatusDto
+} from "@solo-superman/contracts";
 import { codexRuntimeEvidenceView } from "./codex-runtime-status-view";
+
+const FIXTURE_CODEX_CLI_VERSION = "0.137.0" as const;
 
 function codexRuntimeStatus(overrides: Partial<CodexRuntimeStatusDto> = {}): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-app-server-preview-v1",
-    generatedSchemaVersion: "codex-cli-0.128.0",
-    transport: "stdio",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: FIXTURE_CODEX_CLI_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: "2026-05-23T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,
@@ -36,7 +44,8 @@ describe("codexRuntimeEvidenceView", () => {
       accountLabel: "unknown",
       checkedAtLabel: null,
       adapterVersionLabel: null,
-      generatedSchemaVersionLabel: null,
+      sdkPackageVersionLabel: null,
+      codexCliVersionLabel: null,
       transportLabel: null,
       liveTurnsState: "unknown",
       manualHandoffState: "unknown",
@@ -55,9 +64,10 @@ describe("codexRuntimeEvidenceView", () => {
       accountPlanType: "plus",
       accountLabel: "authenticated (chatgpt / plus)",
       checkedAtLabel: "2026-05-23T00:00:00.000Z",
-      adapterVersionLabel: "codex-app-server-preview-v1",
-      generatedSchemaVersionLabel: "codex-cli-0.128.0",
-      transportLabel: "stdio",
+      adapterVersionLabel: CODEX_RUNTIME_ADAPTER_VERSION,
+      sdkPackageVersionLabel: CODEX_SDK_PACKAGE_VERSION,
+      codexCliVersionLabel: FIXTURE_CODEX_CLI_VERSION,
+      transportLabel: CODEX_RUNTIME_TRANSPORT,
       liveTurnsState: "disabled",
       manualHandoffState: "available"
     });
@@ -68,13 +78,13 @@ describe("codexRuntimeEvidenceView", () => {
       status: "available",
       executionMode: "live",
       liveTurnExecutionEnabled: true,
-      reason: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+      reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
     }))).toMatchObject({
       statusLabel: "available",
       executionModeLabel: "live",
       liveTurnsState: "enabled",
       manualHandoffState: "available",
-      reasonLabel: "Live Codex app-server turn execution is enabled for preview-only artifacts."
+      reasonLabel: "Live Codex SDK turn execution is enabled for preview-only artifacts."
     });
   });
 });

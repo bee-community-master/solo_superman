@@ -13,7 +13,7 @@
 | Tauri/native paths removed | Native app-host code path는 역사적 맥락이며 현재 architecture surface가 아닙니다. | Tauri/native shell을 future default로 되살리기. |
 | Code-backed reference contract | Contract value는 source와 verifier에 의해 뒷받침되어야 합니다. | Copying contract values into prose without verifier coverage. |
 | Local embedded libSQL + Drizzle | Local-first persistence와 deterministic test fixtures를 지원합니다. | Browser-only DB rewrite. |
-| Codex app-server preview first | Default local path에서 OpenAI API key나 ChatGPT web session을 요구하지 않고, backend question/research preview는 local Codex CLI login을 확인합니다. | Asking every user for an API key or ChatGPT web credential during install. |
+| Codex SDK preview first | Default local path에서 OpenAI API key나 ChatGPT web session을 요구하지 않고, backend question/research preview는 local Codex CLI login을 확인합니다. | Asking every user for an API key or ChatGPT web credential during install. |
 | ExecutionAuthorityRecord gate | File, shell, browser action에는 preview, approval, rollback, evidence가 필요합니다. | Blanket approval or silent auto-apply. |
 | ChatGPT browser delegation is separate and per-run | 사용자가 browser session을 직접 보고 소유하며 각 run을 승인합니다. 이 path는 default Codex CLI preview login과 혼동하면 안 됩니다. | Credential custody, account sharing/resale, or stable backend treatment of ChatGPT web UI. |
 | README remains short | End user에게는 install과 first run이 필요하지 implementation history가 필요하지 않습니다. | Using the root README as a planning ledger. |

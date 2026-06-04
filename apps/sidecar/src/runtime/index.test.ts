@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   BLOCKED_ACTION_TYPES,
@@ -12,8 +13,8 @@ import {
 import {
   assertCodexPreviewOutputMatchesInput,
   assertCodexWorkerExecutionOutputMatchesInput,
-  codexAppServerSpawnPlan,
-  codexAccountStatusFromAccountReadResponse,
+  codexCliStatusPlan,
+  codexAccountStatusFromLoginStatusOutput,
   codexWslShellCommand,
   createCodexRuntimeAdapter,
   codexWorkerProtocolSmokeOutputTemplate,
@@ -36,6 +37,23 @@ function codexRuntimeAccount(
     loginCommand: "codex auth login",
     loginStatusCommand: "codex login status",
     ...overrides
+  };
+}
+
+function quotedWindowsCommandPath(command: string) {
+  const match = /^"([^"]+)"/u.exec(command);
+
+  if (!match?.[1]) {
+    throw new Error(`Expected a Windows command path quoted at the start of: ${command}`);
+  }
+
+  return match[1];
+}
+
+function readWslLauncherFiles(launcherPath: string) {
+  return {
+    cmd: readFileSync(launcherPath, "utf8"),
+    shellScript: readFileSync(launcherPath.replace(/\.cmd$/u, ".sh"), "utf8")
   };
 }
 
@@ -407,20 +425,21 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         loginCommand: "codex auth login",
         loginStatusCommand: "codex login status"
       },
-      adapterVersion: "codex-app-server-preview-v1",
-      generatedSchemaVersion: "codex-cli-0.128.0",
+      adapterVersion: "codex-sdk-runtime-v1",
+      sdkPackageVersion: "0.137.0",
+      codexCliVersion: "0.137.0",
       manualHandoffAvailable: true,
       liveTurnExecutionEnabled: false,
       executionMode: "fixture"
     });
-    expect(adapter.buildStdioSpawnPlan()).toMatchObject({
+    expect(adapter.buildCliStatusPlan()).toMatchObject({
       command: "codex",
-      args: ["app-server", "--listen", "stdio://"],
-      transport: "stdio"
+      args: ["login", "status"],
+      transport: "codex-sdk-jsonl"
     });
   });
 
-  it("builds a WSL-backed Codex app-server plan when Windows mode requests WSL", () => {
+  it("builds a WSL-backed Codex SDK plan when Windows mode requests WSL", () => {
     const adapter = createCodexRuntimeAdapter({
       fixtureMode: true,
       env: {
@@ -428,7 +447,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       }
     });
 
-    expect(adapter.buildStdioSpawnPlan()).toMatchObject({
+    expect(adapter.buildCliStatusPlan()).toMatchObject({
       command: "wsl.exe",
       args: [
         "-d",
@@ -436,19 +455,30 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         "--",
         "bash",
         "-lc",
-        expect.stringContaining("'codex' 'app-server' '--listen' 'stdio://'")
+        expect.stringContaining("'codex' 'login' 'status'")
       ],
-      transport: "stdio"
+      transport: "codex-sdk-jsonl"
     });
-    const shellCommand = codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5];
-    expect(codexAppServerSpawnPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain("bash");
+    const shellCommand = codexCliStatusPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[5];
+    expect(codexCliStatusPlan({ SOLO_CODEX_WINDOWS_MODE: "wsl" }).args[3]).toContain("bash");
     expect(shellCommand).toContain("nvm use --silent 22");
-    expect(shellCommand).toContain("getent passwd \\$(id -u)");
-    expect(shellCommand).toContain("then . \"\\$NVM_DIR/nvm.sh\"");
+    expect(shellCommand).toContain("getent passwd $(id -u)");
+    expect(shellCommand).toContain("then . \"$NVM_DIR/nvm.sh\"");
     expect(shellCommand).toContain("/mnt/?/*|/mnt/??/*");
     expect(shellCommand).toContain("could not find the Linux Codex CLI inside WSL");
     expect(shellCommand).not.toContain("then;");
-    expect(shellCommand).toContain("\\$HOME");
+    expect(shellCommand).toContain("$HOME");
+    expect(shellCommand).not.toContain("\\$HOME");
+
+    const sdkOptions = adapter.buildSdkClientOptions();
+    expect(sdkOptions.codexPathOverride).toMatch(/codex-wsl-[a-f0-9]+\.cmd$/u);
+    const launcher = readWslLauncherFiles(String(sdkOptions.codexPathOverride));
+    expect(launcher.cmd).toContain("@echo off");
+    expect(launcher.cmd).toContain("wslpath -a");
+    expect(launcher.cmd).toContain("wsl.exe -d \"Ubuntu\" -- bash \"%SOLO_CODEX_WSL_LAUNCHER%\" %*");
+    expect(launcher.shellScript).toContain("exec codex \"$@\"");
+    expect(launcher.shellScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
+    expect(launcher.shellScript).not.toContain("\\$HOME");
   });
 
   it("pins Windows WSL Codex commands to the configured distro and Node major", () => {
@@ -458,7 +488,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR: "24"
     };
 
-    expect(codexAppServerSpawnPlan(env).args).toEqual([
+    expect(codexCliStatusPlan(env).args).toEqual([
       "-d",
       "Ubuntu-24.04",
       "--",
@@ -467,11 +497,11 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       expect.stringContaining("nvm use --silent 24")
     ]);
     expect(codexWslShellCommand(["auth", "login"], env)).toContain(
-      "if [ -z \"\\$NVM_DIR\" ]; then NVM_DIR=\"\\$HOME/.nvm\"; fi"
+      "if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi"
     );
-    expect(windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", env)).toContain(
-      "wsl.exe -d Ubuntu-24.04 -- bash -lc"
-    );
+    const loginShellCommand = windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", env);
+    expect(loginShellCommand).toMatch(/^".*codex-wsl-[a-f0-9]+\.cmd" auth login$/u);
+    expect(readWslLauncherFiles(quotedWindowsCommandPath(loginShellCommand)).cmd).toContain("Ubuntu-24.04");
   });
 
   it("starts Codex auth login through the injected background-terminal launcher", async () => {
@@ -533,11 +563,13 @@ describe("PR-07 Codex runtime adapter contracts", () => {
   it("uses WSL for Windows Codex login by default", () => {
     const command = windowsCodexLoginShellCommand("C:\\Users\\Founder Name\\solo_superman", {});
 
-    expect(command).toContain("wsl.exe -d Ubuntu -- bash -lc");
-    expect(command).toContain("'codex' 'auth' 'login'");
-    expect(command).toContain("if [ -z \\\"\\$NVM_DIR\\\" ]; then NVM_DIR=\\\"\\$HOME/.nvm\\\"; fi");
-    expect(command).toContain("could not find the Linux Codex CLI inside WSL");
-    expect(command).toContain("nvm use --silent 22");
+    expect(command).toMatch(/^".*codex-wsl-[a-f0-9]+\.cmd" auth login$/u);
+    const launcher = readWslLauncherFiles(quotedWindowsCommandPath(command));
+    expect(launcher.cmd).toContain("wsl.exe -d \"Ubuntu\"");
+    expect(launcher.cmd).toContain("wslpath -a");
+    expect(launcher.shellScript).toContain("if [ -z \"$NVM_DIR\" ]; then NVM_DIR=\"$HOME/.nvm\"; fi");
+    expect(launcher.shellScript).toContain("could not find the Linux Codex CLI inside WSL");
+    expect(launcher.shellScript).toContain("nvm use --silent 22");
     expect(command).not.toContain("cd /d");
     expect(codexWslShellCommand(["auth", "login"])).toContain("'codex' 'auth' 'login'");
   });
@@ -570,7 +602,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
         sourceRefs: ["spec_current"],
         targetObject: "SpecVersion"
       })
-    ).rejects.toThrow("Live Codex app-server turn execution is not enabled");
+    ).rejects.toThrow("Live Codex SDK turn execution is not enabled");
   });
 
   it("reports and runs preview-only live turns when the env gate and Codex login are available", async () => {
@@ -585,7 +617,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
       env: {
-        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1"
+        SOLO_CODEX_SDK_LIVE_TURNS: "1"
       },
       accountReader: async () => codexRuntimeAccount({
         status: "authenticated",
@@ -621,7 +653,7 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     const adapter = createCodexRuntimeAdapter({
       now: () => "2026-05-05T00:00:00.000Z",
       env: {
-        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1"
+        SOLO_CODEX_SDK_LIVE_TURNS: "1"
       },
       accountReader: async () => codexRuntimeAccount({
         requiresOpenaiAuth: true
@@ -651,85 +683,55 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     ).rejects.toThrow("Codex CLI login is required");
   });
 
-  it("maps Codex app-server account/read into a credential-free auth status", () => {
-    expect(
-      codexAccountStatusFromAccountReadResponse({
-        account: {
-          type: "chatgpt",
-          email: "founder@example.com",
-          planType: "pro"
-        },
-        requiresOpenaiAuth: true
-      })
-    ).toMatchObject({
+  it("maps Codex CLI login status output into a credential-free auth status", () => {
+    expect(codexAccountStatusFromLoginStatusOutput("Logged in with ChatGPT")).toMatchObject({
       status: "authenticated",
       accountType: "chatgpt",
-      email: "founder@example.com",
-      planType: "pro",
       loginCommand: "codex auth login",
       loginStatusCommand: "codex login status"
     });
-    expect(codexAccountStatusFromAccountReadResponse({ account: null, requiresOpenaiAuth: true })).toMatchObject({
-      status: "missing",
-      requiresOpenaiAuth: true
+
+    expect(codexAccountStatusFromLoginStatusOutput("Authenticated with API key")).toMatchObject({
+      status: "authenticated",
+      accountType: "apiKey",
+      requiresOpenaiAuth: false
+    });
+
+    expect(codexAccountStatusFromLoginStatusOutput("Using Amazon Bedrock profile")).toMatchObject({
+      status: "authenticated",
+      accountType: "amazonBedrock",
+      requiresOpenaiAuth: false
     });
   });
 
-  it("builds typed stdio requests for a preview-only Codex turn", () => {
+  it("builds deterministic SDK options for a preview-only Codex turn", () => {
     const adapter = createCodexRuntimeAdapter({
       fixtureMode: true,
       env: {}
     });
-    const requests = adapter.buildPreviewTurnRequests(
+    const turnOptions = adapter.buildPreviewTurnOptions(
       {
         turnPurpose: "spec_update_preview",
-        contextHash: "ctx_stdio",
+        contextHash: "ctx_sdk",
         prompt: "Preview a spec update.",
         sourceRefs: ["spec_current"],
         targetObject: "SpecVersion"
       },
       {
-        requestIdPrefix: "preview-1",
         cwd: "/tmp/solo-superman"
       }
     );
-    const turnStartRequest = requests.buildTurnStartRequest("thread_1");
 
-    expect(requests.initializeRequest).toMatchObject({
-      method: "initialize",
-      id: "preview-1:initialize",
-      params: {
-        capabilities: {
-          experimentalApi: true
-        }
-      }
+    expect(turnOptions.threadOptions).toMatchObject({
+      approvalPolicy: "never",
+      sandboxMode: "read-only",
+      workingDirectory: "/tmp/solo-superman",
+      modelReasoningEffort: "low",
+      networkAccessEnabled: false,
+      webSearchMode: "disabled"
     });
-    expect(requests.threadStartRequest).toMatchObject({
-      method: "thread/start",
-      params: {
-        approvalPolicy: "never",
-        sandbox: "read-only",
-        ephemeral: true
-      }
-    });
-    expect(turnStartRequest).toMatchObject({
-      method: "turn/start",
-      id: "preview-1:turn-start",
-      params: {
-        threadId: "thread_1",
-        approvalPolicy: "never",
-        sandboxPolicy: {
-          type: "readOnly",
-          networkAccess: false
-        },
-        effort: "low"
-      }
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("turnPurpose: spec_update_preview")
-    });
-    expect(turnStartRequest.params.outputSchema).toMatchObject({
+    expect(turnOptions.prompt).toContain("turnPurpose: spec_update_preview");
+    expect(turnOptions.outputSchema).toMatchObject({
       type: "object",
       required: expect.arrayContaining(["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy"]),
       properties: {
@@ -747,24 +749,21 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       }
     });
 
-    const specPreviewTurnStartRequest = requests.buildTurnStartRequest("thread_1");
-    const blockedRequests = adapter.buildPreviewTurnRequests(
+    const blockedTurnOptions = adapter.buildPreviewTurnOptions(
       {
         turnPurpose: "implementation_plan_preview",
-        contextHash: "ctx_blocked_stdio",
+        contextHash: "ctx_blocked_sdk",
         prompt: "Preview a future shell command.",
         sourceRefs: ["runtime_artifact_1"],
         targetObject: "blocked_action",
         requestedActionType: "shell_command"
       },
       {
-        requestIdPrefix: "preview-blocked",
         cwd: "/tmp/solo-superman"
       }
-    ).buildTurnStartRequest("thread_1");
+    );
 
-    expect(specPreviewTurnStartRequest.params.outputSchema).toBeDefined();
-    expect(blockedRequests.params.outputSchema).toMatchObject({
+    expect(blockedTurnOptions.outputSchema).toMatchObject({
       properties: {
         payload: {
           required: expect.arrayContaining(["blockedAction", "phase15bUpgradeHints"]),
@@ -805,136 +804,47 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
   });
 
-  it("builds bounded workspace-write stdio requests for local worker execution", () => {
+  it("builds bounded workspace-write SDK options for local worker execution", () => {
     const adapter = createCodexRuntimeAdapter({
       fixtureMode: true,
       env: {}
     });
-    const requests = adapter.buildWorkerTurnRequests(
+    const turnOptions = adapter.buildWorkerTurnOptions(
       codexWorkerInputFixture(),
       {
-        requestIdPrefix: "worker-1",
         cwd: "/tmp/solo-superman/worker-job-demo"
       }
     );
-    const turnStartRequest = requests.buildTurnStartRequest("thread_worker_1");
 
-    expect(requests.threadStartRequest).toMatchObject({
-      method: "thread/start",
-      params: {
-        approvalPolicy: "never",
-        sandbox: "workspace-write",
-        serviceName: "solo-superman-auto-worker",
-        ephemeral: true
-      }
+    expect(turnOptions.threadOptions).toMatchObject({
+      approvalPolicy: "never",
+      sandboxMode: "workspace-write",
+      workingDirectory: "/tmp/solo-superman/worker-job-demo",
+      modelReasoningEffort: "medium",
+      networkAccessEnabled: false,
+      webSearchMode: "disabled",
+      skipGitRepoCheck: true,
+      additionalDirectories: ["/tmp/solo-superman/worker-job-demo"]
     });
-    expect(turnStartRequest).toMatchObject({
-      method: "turn/start",
-      id: "worker-1:turn-start",
-      params: {
-        threadId: "thread_worker_1",
-        approvalPolicy: "never",
-        sandboxPolicy: {
-          type: "workspaceWrite",
-          writableRoots: ["/tmp/solo-superman/worker-job-demo"],
-          networkAccess: false,
-          excludeTmpdirEnvVar: true,
-          excludeSlashTmp: true
-        },
-        effort: "medium"
-      }
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("executionAuthorityRef: exec_auth_auto_worker_initial_pr")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining(`ledgerStepDoc: ${JSON.stringify(codexWorkerInputFixture().ledgerStepDoc)}`)
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("Every ledgerTransitions item MUST copy ledgerTrackerDoc as trackerDoc")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining(
-        "Completion requires separate CodeReviewRecord transitions for two consecutive no-finding passes in both feature and repository reviewScope."
-      )
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining(
-        "Completion requires separate CleanCodeReviewRecord transitions for two consecutive no-finding passes in both changed_code and repository reviewScope"
-      )
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("restart that scope's two-pass no-finding streak after the fix")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("passedTestCount of at least 1")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining('"passedTestCount": 1')
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("ledgerTransitionTemplate:")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("__REPLACE_WITH_COMMIT_SHA__")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("git -c user.name=solo-superman-worker")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("Bounded smoke/bootstrap fast path")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("generated-product/product-slice.json as the authoritative product data model")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("generated-product/src/product-slice.mjs")
-    });
-    expect(turnStartRequest.params.input[0]).toMatchObject({
-      type: "text",
-      text: expect.stringContaining("__COPY_LEDGER_TRACKER_DOC_EXACTLY__")
-    });
-    expect(turnStartRequest.params.outputSchema).toMatchObject({
-      type: "object",
-      required: expect.arrayContaining([
-        "schemaVersion",
-        "jobId",
-        "status",
-        "ledgerTransitions",
-        "evidenceRefs",
-        "blockedReason",
-        "missingEvidence",
-        "nextRequiredAction"
-      ]),
+    expect(turnOptions.prompt).toContain("executionAuthorityRef: exec_auth_auto_worker_initial_pr");
+    expect(turnOptions.prompt).toContain(`ledgerStepDoc: ${JSON.stringify(codexWorkerInputFixture().ledgerStepDoc)}`);
+    expect(turnOptions.prompt).toContain("Every ledgerTransitions item MUST copy ledgerTrackerDoc as trackerDoc");
+    expect(turnOptions.prompt).toContain(
+      "Completion requires separate CodeReviewRecord transitions for two consecutive no-finding passes in both feature and repository reviewScope."
+    );
+    expect(turnOptions.prompt).toContain(
+      "Completion requires separate CleanCodeReviewRecord transitions for two consecutive no-finding passes in both changed_code and repository reviewScope"
+    );
+    expect(turnOptions.prompt).toContain("restart that scope's two-pass no-finding streak after the fix");
+    expect(turnOptions.prompt).toContain("Completion requires MissingTestAuditRecord and TestEvidenceRecord evidence");
+    expect(turnOptions.prompt).toContain("passedTestCount of at least 1");
+    expect(turnOptions.prompt).toContain('"passedTestCount": 1');
+    expect(turnOptions.prompt).toContain("ledgerTransitionTemplate:");
+    expect(turnOptions.outputSchema).toMatchObject({
+      required: expect.arrayContaining(["schemaVersion", "jobId", "status", "ledgerTransitions"]),
       properties: {
-        status: {
-          enum: ["completed", "blocked"]
-        },
-        blockedReason: {
-          anyOf: [{ type: "string", minLength: 1 }, { type: "null" }]
-        },
         ledgerTransitions: {
           items: {
-            type: "object",
-            additionalProperties: false,
             required: expect.arrayContaining([
               "trackerDoc",
               "stepDoc",
@@ -953,6 +863,24 @@ describe("PR-07 Codex runtime adapter contracts", () => {
     });
   });
 
+  it("converts Windows working directories for WSL-backed SDK worker execution", () => {
+    const adapter = createCodexRuntimeAdapter({
+      fixtureMode: true,
+      env: {
+        SOLO_CODEX_WINDOWS_MODE: "wsl"
+      }
+    });
+    const turnOptions = adapter.buildWorkerTurnOptions(codexWorkerInputFixture(), {
+      cwd: "C:\\Users\\founder\\solo_superman"
+    });
+
+    expect(turnOptions.threadOptions).toMatchObject({
+      workingDirectory: "/mnt/c/Users/founder/solo_superman",
+      additionalDirectories: ["/mnt/c/Users/founder/solo_superman"]
+    });
+    expect(turnOptions.prompt).toContain("workingDirectory: C:\\Users\\founder\\solo_superman");
+  });
+
   it("keeps worker-job smoke prompts bounded to a live protocol ledger envelope", () => {
     const adapter = createCodexRuntimeAdapter({
       fixtureMode: true,
@@ -964,28 +892,15 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       workingDirectory: "/tmp/solo-superman/worker-job-smoke-demo",
       sourceRefs: ["worker-job-smoke-planning-handoff"]
     };
-    const request = adapter.buildWorkerTurnRequests(smokeInput).buildTurnStartRequest("thread_worker_smoke");
-    const inputItem = request.params.input[0];
+    const turnOptions = adapter.buildWorkerTurnOptions(smokeInput);
+    const prompt = turnOptions.prompt;
 
-    if (!inputItem || inputItem.type !== "text") {
-      throw new Error("Expected worker smoke turn input to be text.");
-    }
-
-    const prompt = inputItem.text;
-
-    expect(adapter.buildWorkerTurnRequests(smokeInput).threadStartRequest.params).toMatchObject({
-      sandbox: "read-only",
-      baseInstructions: expect.stringContaining("do not perform implementation work or create ledger evidence"),
-      developerInstructions: expect.stringContaining("Return only the acknowledgement JSON object")
+    expect(turnOptions.threadOptions).toMatchObject({
+      sandboxMode: "read-only",
+      modelReasoningEffort: "low",
+      networkAccessEnabled: false
     });
-    expect(request.params).toMatchObject({
-      effort: "low",
-      sandboxPolicy: {
-        type: "readOnly",
-        networkAccess: false
-      }
-    });
-    expect(request.params.outputSchema).toMatchObject({
+    expect(turnOptions.outputSchema).toMatchObject({
       required: ["schemaVersion", "jobId", "status", "summary"],
       properties: {
         status: { type: "string", const: "acknowledged" }

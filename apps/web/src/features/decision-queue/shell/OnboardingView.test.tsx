@@ -1,18 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
+import {
+  CODEX_RUNTIME_ADAPTER_VERSION,
+  CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
+  type CodexRuntimeStatusDto
+} from "@solo-superman/contracts";
 import { renderEnglishMarkup } from "../test-rendering";
 import { OnboardingView } from "./OnboardingView";
 import { DEFAULT_IDEA, DEFAULT_INTAKE, emptyProjectionState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
+
+const FIXTURE_CODEX_CLI_VERSION = "0.137.0" as const;
 
 function codexRuntimeStatus(
   account: Partial<CodexRuntimeStatusDto["account"]> = {}
 ): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
-    adapterVersion: "codex-app-server-preview-v1",
-    generatedSchemaVersion: "codex-cli-0.128.0",
-    transport: "stdio",
+    adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: FIXTURE_CODEX_CLI_VERSION,
+    transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: "2026-05-17T00:00:00.000Z",
     manualHandoffAvailable: true,
     liveTurnExecutionEnabled: false,

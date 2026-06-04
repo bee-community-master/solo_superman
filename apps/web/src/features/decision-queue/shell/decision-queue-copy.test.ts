@@ -191,8 +191,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeAdapterVersion).toBe("Runtime adapter");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeEvidenceDetails).toBe("Runtime evidence details");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeExecutionMode).toBe("Execution mode");
+    expect(DECISION_QUEUE_COPY.en.implementation.runtimeCodexCliVersion).toBe("Codex CLI version");
     expect(DECISION_QUEUE_COPY.en.implementation.runtimeLiveTurnStates.disabled).toBe("disabled");
-    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeGeneratedSchemaVersion).toBe("生成スキーマバージョン");
+    expect(DECISION_QUEUE_COPY.ja.implementation.runtimeSdkPackageVersion).toBe("SDKパッケージバージョン");
     expect(DECISION_QUEUE_COPY.ja.implementation.runtimeManualHandoffStates.available).toBe("利用可能");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeTransport).toBe("연결 방식");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeManualHandoff).toBe("수동 대체 경로");
@@ -239,7 +240,10 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.permissions.artifactControlTitle).toContain("資料コントロール");
     expect(DECISION_QUEUE_COPY.ko.permissions.artifactControlTitle).toContain("자료 제어");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeAdapterVersion).toBe("Codex runtime adapter");
-    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeGeneratedSchemaVersion).toBe("生成スキーマバージョン");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeCodexCliVersion).toBe("Codex CLI version");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerRuntimeSdkPackageVersion).toBe(
+      "SDKパッケージバージョン"
+    );
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerRuntimeTransport).toBe("연결 방식");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeStatusLabels.unavailable).toBe("사용 불가");
     expect(DECISION_QUEUE_COPY.ko.implementation.runtimeExecutionModeLabels.manual_handoff).toBe("수동 대체 경로");

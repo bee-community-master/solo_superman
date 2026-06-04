@@ -10,8 +10,8 @@ import { commandLabel, spawnManagedProcess } from "./local-processes.mjs";
 import { assertSmokePortsAvailable, cleanupManagedSmoke, createDiagnosticLogger, diagnosticEnvSnapshot, redactConfigSecrets } from "./local-smoke.mjs";
 import { formatHttpOrigin } from "./local-url.mjs";
 
-export const LIVE_RUNTIME_VERIFY_ENV = "SOLO_VERIFY_CODEX_LIVE_RUNTIME";
-export const LIVE_TURNS_ENV = "SOLO_CODEX_APP_SERVER_LIVE_TURNS";
+export const LIVE_RUNTIME_VERIFY_ENV = "SOLO_VERIFY_CODEX_SDK_LIVE_RUNTIME";
+export const LIVE_TURNS_ENV = "SOLO_CODEX_SDK_LIVE_TURNS";
 export const LIVE_RUNTIME_STATUS_PATH = "/api/v1/runtime/status";
 
 const DEFAULT_SIDECAR_HOST = "127.0.0.1";
@@ -211,7 +211,8 @@ function publicRuntimeStatus(status) {
     manualHandoffAvailable: status.manualHandoffAvailable,
     checkedAt: status.checkedAt,
     adapterVersion: status.adapterVersion,
-    generatedSchemaVersion: status.generatedSchemaVersion,
+    sdkPackageVersion: status.sdkPackageVersion,
+    codexCliVersion: status.codexCliVersion,
     transport: status.transport,
     accountStatus: status.account?.status ?? null,
     accountType: status.account?.accountType ?? null,

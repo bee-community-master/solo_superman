@@ -48,7 +48,7 @@ ProductEngine/application command boundary는 application command, route handler
 
 ## 현재 런타임 경계
 
-- Codex app-server는 structured prompt/output contract를 위한 preferred preview runtime이며 ChatGPT web-session custody가 아니라 local Codex CLI login path를 사용합니다.
+- Codex SDK는 structured prompt/output contract를 위한 preferred preview runtime이며 ChatGPT web-session custody가 아니라 local Codex CLI login path를 사용합니다.
 - ChatGPT Pro browser delegation은 별도의 per-run, user-visible local browser delegation path입니다. API도 stable backend service도 아니며 default backend question/research preview에 필요하지 않습니다.
 - `file_diff`, `shell_command`, `browser_action`은 각각 별도 action class로, preflight, approval, rollback, evidence requirement를 분리합니다.
 - Tauri/native shell source, dependency, script path는 제거되었습니다. 그 native app-host history는 `decisions_KO.md`에만 기록되며 Windows `.cmd` Desktop runner와 별개입니다.

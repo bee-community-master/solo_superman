@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CODEX_APP_SERVER_GENERATED_VERSION,
+  CODEX_SDK_PACKAGE_VERSION,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
   canCreateAutoImplementationGitHubIssues,
@@ -111,7 +111,8 @@ function unavailableRuntimeStatus(message: string): CodexRuntimeStatusDto {
   return {
     status: "unavailable",
     adapterVersion: CODEX_RUNTIME_ADAPTER_VERSION,
-    generatedSchemaVersion: CODEX_APP_SERVER_GENERATED_VERSION,
+    sdkPackageVersion: CODEX_SDK_PACKAGE_VERSION,
+    codexCliVersion: null,
     transport: CODEX_RUNTIME_TRANSPORT,
     checkedAt: new Date().toISOString(),
     manualHandoffAvailable: true,

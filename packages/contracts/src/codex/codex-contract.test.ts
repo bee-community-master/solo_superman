@@ -1,34 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CodexAppServerInitializeParams } from "./app-server-protocol";
 import {
   BLOCKED_ACTION_TYPES,
-  CODEX_APP_SERVER_GENERATED_VERSION,
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KINDS,
   type CodexRuntimeAccountDto,
   type CodexRuntimeLoginStartDto,
   CODEX_RUNTIME_ADAPTER_VERSION,
   CODEX_RUNTIME_TRANSPORT,
+  CODEX_SDK_PACKAGE_VERSION,
   CODEX_TURN_PURPOSES
 } from "./reexports";
 
-describe("PR-07 codex-contract generated schema and internal taxonomy", () => {
-  it("pins the installed Codex app-server schema version and generated protocol files", () => {
-    const generatedProtocolSample: CodexAppServerInitializeParams = {
-      clientInfo: {
-        name: "solo-superman",
-        title: "Solo Superman",
-        version: "0.1.0"
-      },
-      capabilities: {
-        experimentalApi: false
-      }
-    };
-
-    expect(CODEX_RUNTIME_ADAPTER_VERSION).toBe("codex-app-server-preview-v1");
-    expect(CODEX_RUNTIME_TRANSPORT).toBe("stdio");
-    expect(CODEX_APP_SERVER_GENERATED_VERSION).toBe("codex-cli-0.128.0");
-    expect(generatedProtocolSample.clientInfo.name).toBe("solo-superman");
+describe("Codex SDK contract and internal taxonomy", () => {
+  it("pins the installed Codex SDK runtime metadata", () => {
+    expect(CODEX_RUNTIME_ADAPTER_VERSION).toBe("codex-sdk-runtime-v1");
+    expect(CODEX_RUNTIME_TRANSPORT).toBe("codex-sdk-jsonl");
+    expect(CODEX_SDK_PACKAGE_VERSION).toBe("0.137.0");
   });
 
   it("keeps the internal Codex prompt/output taxonomy closed", () => {

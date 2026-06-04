@@ -132,7 +132,7 @@ describe("auto implementation pipeline smoke", () => {
     const env = credentialFreePipelineSmokeEnv({
       SOLO_VERIFY_CODEX_LIVE_PREVIEW_TURN: "1",
       SOLO_VERIFY_CODEX_LIVE_WORKER_JOB: "1",
-      SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1",
+      SOLO_CODEX_SDK_LIVE_TURNS: "1",
       KEEP_ME: "yes"
     });
 

@@ -285,8 +285,10 @@ describe("support diagnostics bundle", () => {
       env: {
         CI: "true",
         SOLO_CODEX_WINDOWS_MODE: "wsl",
-        SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1",
-        SOLO_VERIFY_CODEX_LIVE_RUNTIME: "1",
+        SOLO_CODEX_SDK_LIVE_TURNS: "1",
+        SOLO_CODEX_SDK_LIVE_TURN_TIMEOUT_MS: "9000",
+        SOLO_VERIFY_CODEX_SDK_LIVE_RUNTIME: "1",
+        SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR: "22",
         SOLO_LOCAL_CAPABILITY_TOKEN: "secret-token",
         OPENAI_API_KEY: "sk-secret"
       },
@@ -301,8 +303,10 @@ describe("support diagnostics bundle", () => {
     expect(bundle.env).toEqual({
       CI: "true",
       SOLO_CODEX_WINDOWS_MODE: "wsl",
-      SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1",
-      SOLO_VERIFY_CODEX_LIVE_RUNTIME: "1"
+      SOLO_CODEX_SDK_LIVE_TURNS: "1",
+      SOLO_CODEX_SDK_LIVE_TURN_TIMEOUT_MS: "9000",
+      SOLO_VERIFY_CODEX_SDK_LIVE_RUNTIME: "1",
+      SOLO_SUPERMAN_CODEX_WSL_NODE_MAJOR: "22"
     });
     expect(bundle.package.scripts.supportBundle).toBe("node scripts/support-bundle.mjs");
     expect(bundle.package.scripts.verifyCodexLiveRuntime).toBe("node scripts/verify-codex-live-runtime.mjs");

@@ -2313,7 +2313,7 @@ describe("PR-02 sidecar health shell", () => {
     };
     let seenPrompt = "";
     const codexRuntimeAdapter = createCodexRuntimeAdapter({
-      env: { SOLO_CODEX_APP_SERVER_LIVE_TURNS: "1" },
+      env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
       accountReader: async () => ({
         status: "authenticated",
         loginCommand: "codex auth login",
@@ -8113,9 +8113,10 @@ describe("PR-02 sidecar health shell", () => {
       expect(status.status).toBe(200);
       expect(statusBody.data).toMatchObject({
         status: "available",
-        adapterVersion: "codex-app-server-preview-v1",
-        generatedSchemaVersion: "codex-cli-0.128.0",
-        transport: "stdio",
+        adapterVersion: "codex-sdk-runtime-v1",
+        sdkPackageVersion: "0.137.0",
+        codexCliVersion: "0.137.0",
+        transport: "codex-sdk-jsonl",
         manualHandoffAvailable: true,
         liveTurnExecutionEnabled: false,
         executionMode: "fixture"
@@ -8688,7 +8689,7 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({
             effectType: "codex_runtime_preview_effect",
             maxAttempts: 1,
-            idempotencyKey: `codex:${sessionId}:implementation_plan_preview:ctx_fixture_plan:codex-app-server-preview-v1`
+            idempotencyKey: `codex:${sessionId}:implementation_plan_preview:ctx_fixture_plan:codex-sdk-runtime-v1`
           })
         ]
       });
@@ -9033,7 +9034,7 @@ describe("PR-02 sidecar health shell", () => {
     const unavailableAdapter = {
       ...fixtureCodexRuntimeAdapter,
       async createPreview() {
-        throw new CodexRuntimeUnavailableError("Synthetic Codex app-server unavailable.");
+        throw new CodexRuntimeUnavailableError("Synthetic Codex SDK unavailable.");
       }
     };
 
