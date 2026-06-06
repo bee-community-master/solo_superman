@@ -651,9 +651,14 @@ describe("web_search_readonly background research adapter", () => {
       updatedAt: "2026-05-05T00:01:00.000Z"
     });
 
-    await expect(adapter.pollResult({ researchRun: runningRun, disclosurePayload })).rejects.toMatchObject({
-      code: "no_public_results"
-    });
+    const result = await adapter.pollResult({ researchRun: runningRun, disclosurePayload });
+
+    expect(result.sourceTitle).toBeUndefined();
+    expect(result.sourceUrl).toBeUndefined();
+    expect(result.sourceRefs).toEqual(["queue_item_web"]);
+    expect(result.summary).toContain("usable finding 없음");
+    expect(result.summary).toContain("source_quality_insufficient");
+    expect(result.summary).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
   });
 
   it("rejects non-public-web or non-web adapter runs", async () => {

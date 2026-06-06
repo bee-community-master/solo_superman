@@ -5052,7 +5052,18 @@ export function createProductEngineCommandService(
         researchRun: run,
         disclosurePayload: await disclosurePayloadForRun(run)
       });
-    } catch {
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          type: "research-provider-diagnostic",
+          event: "poll-result-failed",
+          at: now,
+          projectId: run.projectId,
+          researchRunId: run.researchRunId,
+          adapterKind: run.provider.adapterKind,
+          message: error instanceof Error ? error.message : String(error)
+        })
+      );
       return markResearchRunProviderFailed(run, now);
     }
 
