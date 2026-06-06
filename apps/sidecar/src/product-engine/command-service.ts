@@ -220,6 +220,7 @@ import {
   webSearchReadOnlyResearchAdapterOptionsFromEnv,
   webSearchReadOnlyAdapterFailureMessage
 } from "./web-search-readonly-adapter";
+import { redactSensitiveDiagnosticText } from "./diagnostic-redaction";
 import { applyResearchGateEnvDefaultsFromProjectConfig, loadSoloProjectConfig } from "./project-config";
 import {
   DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME,
@@ -258,14 +259,7 @@ const RESEARCH_PROVIDER_DIAGNOSTIC_MAX_MESSAGE_LENGTH = 400;
 
 export function redactedResearchProviderDiagnosticMessage(error: unknown) {
   const rawMessage = error instanceof Error ? error.message : String(error);
-  const redacted = rawMessage
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{10,}/gu, "Bearer [REDACTED]")
-    .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/gu, "[REDACTED_GITHUB_TOKEN]")
-    .replace(/\bsk-[A-Za-z0-9_-]{16,}/gu, "sk-[REDACTED]")
-    .replace(/\b([A-Za-z0-9_-]*(?:api[_-]?key|authorization|password|secret|token)[A-Za-z0-9_-]*)\s*([:=])\s*[^\s&]+/giu, "$1$2[REDACTED]")
-    .replace(/([?&][^=&#\s]*(?:api[_-]?key|authorization|password|secret|token)[^=&#\s]*=)[^&#\s]+/giu, "$1[REDACTED]")
-    .replace(/(?:\/Users|\/var\/folders|\/tmp)\/[^\s)]+/gu, "[REDACTED_PATH]")
-    .replace(/[A-Z]:\\[^\s)]+/gu, "[REDACTED_PATH]")
+  const redacted = redactSensitiveDiagnosticText(rawMessage, { redactLocalPaths: true })
     .replace(/\s+/gu, " ")
     .trim();
 

@@ -11,6 +11,7 @@ import type {
   ShellCommandRunSummaryDto
 } from "@solo-superman/contracts";
 import { containsExecutionAuthoritySecretValueLeak } from "@solo-superman/contracts";
+import { redactSensitiveDiagnosticText } from "./diagnostic-redaction";
 
 export interface ShellCommandApplyInput {
   readonly record: ExecutionAuthorityRecord;
@@ -101,9 +102,6 @@ const CREDENTIAL_FILE_NAMES = new Set([
 ]);
 const CREDENTIAL_PATH_PART_PATTERN =
   /(?:^|[._-])(?:credential|secret|password|passwd|api[_-]?key|private[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token)(?:$|[._-])/u;
-const SECRET_ASSIGNMENT_KEY_PATTERN =
-  /(?:^|[^a-z0-9])(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|passwd|private[_-]?key)(?:$|[^a-z0-9])/iu;
-const SECRET_ASSIGNMENT_PATTERN = /([A-Za-z0-9_./:-]*[A-Za-z0-9_./-])(\s*[:=]\s*)\S+/gu;
 const DANGEROUS_SCRIPT_NAME_PATTERN =
   /(?:^|[:_-])(?:dev|start|serve|watch|deploy|delete|destroy|reset|clean|migrate|generate)(?:$|[:_-])/iu;
 const DANGEROUS_SCRIPT_BODY_PATTERN =
@@ -711,15 +709,7 @@ async function reviewAllowedCommand(input: {
 
 function redactedOutputSummary(text: string) {
   const normalized = text.replaceAll("\r\n", "\n");
-  const redacted = normalized
-    .replace(SECRET_ASSIGNMENT_PATTERN, (match, key: string, separator: string) =>
-      SECRET_ASSIGNMENT_KEY_PATTERN.test(key) ? `${key}${separator}[REDACTED]` : match
-    )
-    .replace(/\b(api[_-]?key|password|secret|token)\s*[:=]\s*\S+/giu, "$1=[REDACTED]")
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{10,}/gu, "Bearer [REDACTED]")
-    .replace(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/gu, "[REDACTED_GITHUB_TOKEN]")
-    .replace(/\bsk-[A-Za-z0-9_-]{16,}/gu, "sk-[REDACTED]")
-    .replace(/\bxox[baprs]-[A-Za-z0-9-]{10,}/gu, "xox[REDACTED]");
+  const redacted = redactSensitiveDiagnosticText(normalized);
   const lines = redacted.split("\n").slice(0, OUTPUT_SUMMARY_MAX_LINES);
   const lineLimited = lines.join("\n");
   const charLimited = lineLimited.length > OUTPUT_SUMMARY_MAX_CHARS
