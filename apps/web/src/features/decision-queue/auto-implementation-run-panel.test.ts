@@ -638,7 +638,8 @@ describe("AutoImplementationRunPanel view model", () => {
       codexCliVersionLabel: FIXTURE_CODEX_CLI_VERSION,
       transportLabel: CODEX_RUNTIME_TRANSPORT,
       liveTurnsState: "enabled",
-      manualHandoffState: "available"
+      manualHandoffState: "available",
+      reasonLabel: "Live Codex question and research preview execution is enabled."
     });
     expect(view.workerRuntimeReadiness?.nextActionKey).toBe("liveReady");
   });

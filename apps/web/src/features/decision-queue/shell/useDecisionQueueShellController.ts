@@ -87,6 +87,7 @@ import {
   type ProjectionState
 } from "./decision-queue-shell-model";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
+import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
@@ -225,6 +226,7 @@ export function autoImplementationWorkspaceCreateFailureMessage(
 
 export function useDecisionQueueShellController() {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const [connectionState, setConnectionState] = useState<ConnectionState>({ status: "connecting" });
   const [client, setClient] = useState<SidecarClient | null>(null);
   const [idea, setIdea] = useState(DEFAULT_IDEA);
@@ -576,9 +578,10 @@ export function useDecisionQueueShellController() {
     () => autoImplementationRunViewModel(
       projections.autoImplementationRuns,
       projections.implementationStepLedger,
-      runtimeStatus
+      runtimeStatus,
+      language
     ),
-    [projections.autoImplementationRuns, projections.implementationStepLedger, runtimeStatus]
+    [language, projections.autoImplementationRuns, projections.implementationStepLedger, runtimeStatus]
   );
   const autoImplementationCopy = copy.autoImplementation;
   const autoImplementationActionErrors = autoImplementationCopy.actionErrors;

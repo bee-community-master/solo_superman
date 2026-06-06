@@ -145,7 +145,7 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Codex status");
     expect(markup).toContain("Login required");
     expect(markup).toContain("codex auth login");
-    expect(markup).toContain("Live Codex preview 실행이 아직 켜져 있지 않습니다.");
+    expect(markup).toContain("Live Codex preview execution is not enabled yet.");
     expect(markup).not.toContain("Live Codex SDK turn execution is not enabled");
     expect(markup).toContain("Open Codex login");
     expect(markup).toContain("Refresh Codex login status");

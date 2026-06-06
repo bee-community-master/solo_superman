@@ -1,6 +1,7 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ReleaseReadinessPanel } from "../ReleaseReadinessPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
+import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -13,6 +14,7 @@ const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
 
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const {
     commandLog,
     autoImplementationRunView,
@@ -56,7 +58,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft
   } = controller;
-  const runtimeEvidence = codexRuntimeEvidenceView(runtimeStatus);
+  const runtimeEvidence = codexRuntimeEvidenceView(runtimeStatus, language);
   const runtimeStatusLabel = copy.implementation.runtimeStatusLabels[runtimeEvidence.status];
   const runtimeExecutionModeLabel =
     copy.implementation.runtimeExecutionModeLabels[runtimeEvidence.executionMode];

@@ -1,4 +1,5 @@
 import type { CodexRuntimeStatusDto } from "@solo-superman/contracts";
+import type { AppLanguage } from "../../shared/i18n/app-language";
 
 export type CodexRuntimeStatusState = CodexRuntimeStatusDto["status"] | "unknown";
 export type CodexRuntimeExecutionModeState = CodexRuntimeStatusDto["executionMode"] | "unknown";
@@ -36,30 +37,51 @@ export function codexRuntimeAccountLabel(runtimeStatus: CodexRuntimeStatusDto | 
   return details ? `${account.status} (${details})` : account.status;
 }
 
-export function userFacingCodexRuntimeReason(reason: string | null | undefined) {
+const CODEX_RUNTIME_REASON_LABELS = {
+  livePreviewEnabled: {
+    en: "Live Codex question and research preview execution is enabled.",
+    ja: "Live Codex の質問・リサーチ preview 実行が有効です。",
+    ko: "Live Codex 질문·리서치 preview 실행이 켜져 있습니다."
+  },
+  manualFallbackRequired: {
+    en: "Codex CLI login is confirmed, but live preview execution is off. Restart with SOLO_CODEX_SDK_LIVE_TURNS=1 or use manual handoff.",
+    ja: "Codex CLI ログインは確認済みですが、live preview 実行は無効です。SOLO_CODEX_SDK_LIVE_TURNS=1 で再起動するか、手動 handoff を使ってください。",
+    ko: "Codex CLI 로그인은 확인됐지만 live preview 실행은 꺼져 있습니다. SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하거나 수동 handoff를 사용하세요."
+  },
+  livePreviewDisabled: {
+    en: "Live Codex preview execution is not enabled yet. Use manual handoff or restart with SOLO_CODEX_SDK_LIVE_TURNS=1.",
+    ja: "Live Codex preview 実行はまだ有効ではありません。手動 handoff を使うか SOLO_CODEX_SDK_LIVE_TURNS=1 で再起動してください。",
+    ko: "Live Codex preview 실행이 아직 켜져 있지 않습니다. 수동 handoff로 진행하거나 SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하세요."
+  }
+} as const satisfies Record<string, Record<AppLanguage, string>>;
+
+export function userFacingCodexRuntimeReason(reason: string | null | undefined, language: AppLanguage = "ko") {
   if (!reason) {
     return null;
   }
 
   if (reason === "Live Codex SDK turn execution is enabled for preview-only artifacts.") {
-    return "Live Codex 질문·리서치 preview 실행이 켜져 있습니다.";
+    return CODEX_RUNTIME_REASON_LABELS.livePreviewEnabled[language];
   }
 
   if (
     reason ===
     "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then."
   ) {
-    return "Codex CLI 로그인은 확인됐지만 live preview 실행은 꺼져 있습니다. SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하거나 수동 handoff를 사용하세요.";
+    return CODEX_RUNTIME_REASON_LABELS.manualFallbackRequired[language];
   }
 
   if (reason.startsWith("Live Codex SDK turn execution is not enabled")) {
-    return "Live Codex preview 실행이 아직 켜져 있지 않습니다. 수동 handoff로 진행하거나 SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하세요.";
+    return CODEX_RUNTIME_REASON_LABELS.livePreviewDisabled[language];
   }
 
   return reason;
 }
 
-export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | null): CodexRuntimeEvidenceView {
+export function codexRuntimeEvidenceView(
+  runtimeStatus: CodexRuntimeStatusDto | null,
+  language: AppLanguage = "ko"
+): CodexRuntimeEvidenceView {
   const account = runtimeStatus?.account ?? null;
 
   return {
@@ -80,6 +102,6 @@ export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | 
     manualHandoffState: runtimeStatus
       ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
       : "unknown",
-    reasonLabel: userFacingCodexRuntimeReason(runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null)
+    reasonLabel: userFacingCodexRuntimeReason(runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null, language)
   };
 }

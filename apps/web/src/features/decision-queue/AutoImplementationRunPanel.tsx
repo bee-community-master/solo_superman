@@ -39,6 +39,7 @@ import {
   codexRuntimeEvidenceView,
   type CodexRuntimeEvidenceView
 } from "./codex-runtime-status-view";
+import type { AppLanguage } from "../../shared/i18n/app-language";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 
 type AutoImplementationWorkerRuntimeNextAction =
@@ -256,10 +257,11 @@ function codexWorkerRuntimeNextActionKey(
 }
 
 function autoImplementationWorkerRuntimeView(
-  runtimeStatus: CodexRuntimeStatusDto | null
+  runtimeStatus: CodexRuntimeStatusDto | null,
+  language: AppLanguage
 ): AutoImplementationWorkerRuntimeView {
   return {
-    ...codexRuntimeEvidenceView(runtimeStatus),
+    ...codexRuntimeEvidenceView(runtimeStatus, language),
     nextActionKey: codexWorkerRuntimeNextActionKey(runtimeStatus)
   };
 }
@@ -595,7 +597,8 @@ function autoImplementationIssueRowView(
 export function autoImplementationRunViewModel(
   projection: AutoImplementationRunProjection | null,
   implementationStepLedger: ImplementationStepLedgerProjection | null = null,
-  runtimeStatus: CodexRuntimeStatusDto | null = null
+  runtimeStatus: CodexRuntimeStatusDto | null = null,
+  language: AppLanguage = "en"
 ): AutoImplementationRunViewModel {
   const run = latestRun(projection);
 
@@ -794,7 +797,7 @@ export function autoImplementationRunViewModel(
     reviewLoopProgress: autoImplementationReviewLoopProgress(run),
     currentStageGates: autoImplementationCurrentStageGates(run),
     workerStageAdvanceBlockerLabel: workerStageAdvanceBlocker,
-    workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus),
+    workerRuntimeReadiness: autoImplementationWorkerRuntimeView(runtimeStatus, language),
     latestWorkerPlan,
     latestWorkerLedgerEvidence,
     canPlanWorkerJob: canPlanCurrentStageAutoImplementationWorkerJob(run),

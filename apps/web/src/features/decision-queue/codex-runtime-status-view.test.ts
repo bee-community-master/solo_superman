@@ -79,7 +79,7 @@ describe("codexRuntimeEvidenceView", () => {
       executionMode: "live",
       liveTurnExecutionEnabled: true,
       reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
-    }))).toMatchObject({
+    }), "ko")).toMatchObject({
       statusLabel: "available",
       executionModeLabel: "live",
       liveTurnsState: "enabled",
@@ -92,9 +92,28 @@ describe("codexRuntimeEvidenceView", () => {
     expect(codexRuntimeEvidenceView(codexRuntimeStatus({
       reason:
         "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then."
-    }))).toMatchObject({
+    }), "ko")).toMatchObject({
       reasonLabel:
         "Codex CLI 로그인은 확인됐지만 live preview 실행은 꺼져 있습니다. SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하거나 수동 handoff를 사용하세요."
     });
+  });
+
+  it("keeps runtime reasons localized to the active app language", () => {
+    const status = codexRuntimeStatus({
+      status: "available",
+      executionMode: "live",
+      liveTurnExecutionEnabled: true,
+      reason: "Live Codex SDK turn execution is enabled for preview-only artifacts."
+    });
+
+    expect(codexRuntimeEvidenceView(status, "en").reasonLabel).toBe(
+      "Live Codex question and research preview execution is enabled."
+    );
+    expect(codexRuntimeEvidenceView(status, "ja").reasonLabel).toBe(
+      "Live Codex の質問・リサーチ preview 実行が有効です。"
+    );
+    expect(codexRuntimeEvidenceView(status, "ko").reasonLabel).toBe(
+      "Live Codex 질문·리서치 preview 실행이 켜져 있습니다."
+    );
   });
 });
