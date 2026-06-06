@@ -32,7 +32,7 @@ const DEFAULT_PHASE15A_OPERATIONS = {
   staleOrFailureReasons: [],
   exitGate: {
     status: "blocked_for_1_5b" as const,
-    label: "Research review is not finished yet. Check the remaining items and recovery paths first.",
+    label: "Evidence checks are not finished yet. Check the remaining items and recovery paths first.",
     blockers: []
   }
 } as const;
@@ -517,7 +517,7 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("No ready public web runs");
     expect(markup).toContain("Ready public web batch plan");
-    expect(markup).toContain("Create or reactivate an active public web allowlist before starting the ready batch.");
+    expect(markup).toContain("Research tasks exist, but public web sources must be enabled before they can run.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
@@ -532,7 +532,7 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("No ready public web runs");
-    expect(markup).toContain("No planned public web tasks are ready within the active allowlist concurrency budget.");
+    expect(markup).toContain("No public web research task is executable within the current allowlist budget.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
@@ -554,6 +554,15 @@ describe("ResearchView", () => {
         },
         research: {
           ...research,
+          tasks: research.tasks.map((task) =>
+            task.researchTaskId === "research_task_reviewed"
+              ? {
+                  ...task,
+                  objective:
+                    "Find decision evidence for: pricing. Original ambiguity: paid intent is still unclear. Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready."
+                }
+              : task
+          ),
           reviewCards: [
             {
               cardId: "research_reviewed_card" as QueueItemId,
@@ -568,7 +577,10 @@ describe("ResearchView", () => {
                 "research_run_public_web_1",
                 "question:pricing-evidence"
               ],
-              additionalQuestions: ["Which proof narrows the pricing risk?"],
+              additionalQuestions: [
+                "Which proof narrows the pricing risk?",
+                "Which proof narrows the pricing risk?"
+              ],
               availableOutcomes: ["approved", "risk_accepted"],
               blocksPlanning: false,
               recoveryActions: []
@@ -579,7 +591,11 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("Research-generated follow-up questions");
+    expect(markup).toContain("Evidence raised a follow-up question");
+    expect(markup).not.toContain("Original ambiguity");
+    expect(markup).not.toContain("Collect current public evidence");
     expect(markup).toContain("Which proof narrows the pricing risk?");
+    expect(markup.split("Which proof narrows the pricing risk?")).toHaveLength(2);
     expect(markup).toContain('class="research-card-header"');
     expect(markup).toContain('class="research-status-badge"');
     expect(markup).toContain('class="research-card-facts"');
@@ -628,7 +644,10 @@ describe("ResearchView", () => {
                   summary: "Counter-evidence still needs a narrower skeptical pricing search."
                 }
               ],
-              additionalQuestions: ["Which source disproves pricing urgency?"],
+              additionalQuestions: [
+                "Which source disproves pricing urgency?",
+                "Which source disproves pricing urgency?"
+              ],
               balanceStatus: "missing_con_evidence",
               decisionBlocked: true,
               missingConEvidenceReason: "No credible counter-evidence source was retained.",
@@ -648,6 +667,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Supporting signals");
     expect(markup).toContain("Founders report willingness to pay");
     expect(markup).toContain("Counterpoints / risks");
+    expect(markup.split("Which source disproves pricing urgency?")).toHaveLength(2);
     expect(markup).toContain("No evidence items");
     expect(markup).toContain("Uncertainties");
     expect(markup).toContain("Counter-evidence still needs");

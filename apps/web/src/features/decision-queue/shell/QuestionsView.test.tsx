@@ -602,8 +602,8 @@ describe("QuestionsView", () => {
       ]
     });
 
-    expect(markup).toContain("Submit 2 drafted answers");
-    expect(markup).not.toContain("Submit 3 drafted answers");
+    expect(markup).toContain("Submit 2 saved answers");
+    expect(markup).not.toContain("Submit 3 saved answers");
   });
 
   it("renders question coaching context so founders know why a card is being asked", () => {
@@ -889,6 +889,7 @@ describe("QuestionsView", () => {
               whyItMatters:
                 "리서치 근거 요약:\n- 출처 단서: 공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.",
               additionalQuestions: [
+                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
                 "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
               ]
             }
@@ -899,6 +900,7 @@ describe("QuestionsView", () => {
 
     expect(markup).toContain("Research-generated questions");
     expect(markup).toContain("founders report urgency 같은 단서가 확인되었습니다.");
+    expect(markup.split("founders report urgency 같은 단서가 확인되었습니다.")).toHaveLength(4);
     expect(markup).toContain("한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.");
     expect(markup).not.toContain("What evidence would resolve");
     expect(markup).toContain('class="question-source-trace"');

@@ -105,8 +105,8 @@ export function Phase15aOperationsPanel({
       <p className="operations-summary">{operations.exitGate.label}</p>
       {operations.exitGate.blockers.length ? (
         <ul className="effect-list">
-          {operations.exitGate.blockers.map((blocker) => (
-            <li key={blocker}>{blocker}</li>
+          {operations.exitGate.blockers.map((blocker, index) => (
+            <li key={`${index}:${blocker}`}>{blocker}</li>
           ))}
         </ul>
       ) : null}

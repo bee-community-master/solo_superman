@@ -1000,9 +1000,21 @@ function mergeById<TItem, TId extends string>(items: readonly TItem[], nextItem:
   return [...withoutExisting, nextItem];
 }
 
+function researchCardDisplayTitle(objective: string) {
+  return compactDecisionTopic(objective)
+    .replace(/^Research review\s*:?\s*/iu, "")
+    .replace(/^Research failed\s*:?\s*/iu, "")
+    .replace(/^Quality gate review required\s*:?\s*/iu, "")
+    .replace(/^Evidence still insufficient\s*:?\s*/iu, "")
+    .replace(/^Evidence ready\s*:?\s*/iu, "")
+    .replace(/^Research stale\s*:?\s*/iu, "")
+    .trim() || "리서치 확인 항목";
+}
+
 function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProjection {
   const retainedSourceRef = task.sourceAnswerRef ?? task.sourceQueueItemId;
   const outcomeMetadata = derivePendingResearchReviewCardOutcomeMetadata();
+  const displayTitle = researchCardDisplayTitle(task.objective);
 
   return {
     cardId: `research_review_${task.researchTaskId}` as QueueItemId,
@@ -1010,8 +1022,8 @@ function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProj
     cardType: outcomeMetadata.cardType,
     title:
       task.routeOutcome === "missing_con_evidence"
-        ? `다른 관점 확인 필요: ${task.objective}`
-        : `Research review: ${task.objective}`,
+        ? `다른 관점 확인 필요: ${displayTitle}`
+        : `리서치 확인 필요: ${displayTitle}`,
     state: "pending_manual_result",
     impact: task.impact,
     ...(retainedSourceRef ? { retainedSourceRef } : {}),
@@ -1037,6 +1049,7 @@ function reviewCardForMatrix(
   const needsReview = pack.gateStatus === "needs_review";
   const stale = pack.gateStatus === "stale";
   const sourceRefs = retainedSourceRefs(result, pack);
+  const displayTitle = researchCardDisplayTitle(task.objective);
   const outcomeMetadata = deriveResearchReviewCardOutcomeMetadata({
     impact: task.impact,
     gateStatus: pack.gateStatus,
@@ -1050,14 +1063,14 @@ function reviewCardForMatrix(
     evidencePackId: pack.evidencePackId,
     cardType: outcomeMetadata.cardType,
     title: stale
-      ? `Research stale: ${task.objective}`
+      ? `최신성 확인 필요: ${displayTitle}`
       : needsReview
-        ? `Quality gate review required: ${task.objective}`
+        ? `근거 품질 검토 필요: ${displayTitle}`
         : terminalFailure
-      ? `Research failed: ${task.objective}`
+      ? `근거 부족: ${displayTitle}`
       : insufficient
-        ? `Evidence still insufficient: ${task.objective}`
-        : `Evidence ready: ${task.objective}`,
+        ? `추가 근거 필요: ${displayTitle}`
+        : `근거 확인됨: ${displayTitle}`,
     state: stale
       ? "stale"
       : needsReview

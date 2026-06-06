@@ -2552,13 +2552,40 @@ function readableEvidenceContextExcerpt(value: string) {
     .replace(/\bFind decision evidence for:\s*/giu, "")
     .replace(/\bFind evidence for:\s*/giu, "")
     .replace(/\bBroaden research for:\s*/giu, "더 넓게 확인: ")
-    .replace(/\bBroaden research beyond existing notes for:\s*/giu, "기존 리서치 메모를 넘어 더 넓게 확인: ");
+    .replace(/\bBroaden research beyond existing notes for:\s*/giu, "기존 리서치 메모를 넘어 더 넓게 확인: ")
+    .replace(/\bOriginal ambiguity\b[:：]?[^.。!?]{0,220}[.。!?]?/giu, "")
+    .replace(/\bUser answer to account for\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
+    .replace(/\bDecision this should inform\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
+    .replace(/\bAmbiguity dimension\b[:：]?[^.。!?]{0,120}[.。!?]?/giu, "")
+    .replace(/\bCollect current public evidence with source freshness, limitations?, and counterexamples? before treating the answer as implementation-ready\.?/giu, "")
+    .replace(/\bReturn source-linked findings?, limitations?, other perspectives?, and what still needs a human decision\.?/giu, "")
+    .replace(/\b판단 this should inform\b[:：]?[^.。!?]{0,260}[.。!?]?/giu, "")
+    .replace(/\bCollect 현재 공개 근거 with 출처 최신성, 한계, and 반례 before treating the answer as 구현 준비 완료\.?/giu, "")
+    .replace(/\bReturn 출처 연결 근거s?, 한계, 다른 관점, and what still needs a 사용자 판단\.?/giu, "")
+    .replace(/현재\s+가정을\s+약하게\s+만들거나[^.。!?]{0,180}[.。!?]?/gu, "")
+    .replace(/확인\s+가능한\s+사실과\s+사용자가\s+정해야\s+할\s+가정[^.。!?]{0,220}[.。!?]?/gu, "")
+    .replace(/공개\s+사용자\s+후기,\s*커뮤니티\s+글,\s*경쟁·대체재\s+페이지,\s*가격\/정책\s+자료,\s*관련\s+리포트에서[^.。!?]{0,260}[.。!?]?/gu, "")
+    .replace(/에\s+관한\s+공개\s+단서를\s+찾습니다\.?/gu, "");
   const compacted = ANSWER_EXCERPT_SENSITIVE_VALUE_PATTERNS.reduce(
     (current, pattern) => current.replace(pattern, ANSWER_EXCERPT_REDACTED_VALUE),
     userFacingValue.replace(/\s+/gu, " ").trim()
   );
 
   return compacted.length > 220 ? compacted.slice(0, 220).trimEnd() : compacted;
+}
+
+function researchObjectiveDisplayTitle(value: string) {
+  const excerpt = readableEvidenceContextExcerpt(value)
+    .replace(/^Research review\s*:?\s*/iu, "")
+    .replace(/^Research failed\s*:?\s*/iu, "")
+    .replace(/^Quality gate review required\s*:?\s*/iu, "")
+    .replace(/^Evidence still insufficient\s*:?\s*/iu, "")
+    .replace(/^Evidence ready\s*:?\s*/iu, "")
+    .replace(/^Research stale\s*:?\s*/iu, "")
+    .replace(/^기존 리서치 메모와 source trace를 기준으로\s*/iu, "기존 리서치 메모 기준으로 ")
+    .trim();
+
+  return excerpt || "리서치 확인 항목";
 }
 
 function structuredFindingSourceLabel(value: string) {
@@ -3139,7 +3166,7 @@ function researchObjectiveForFollowUpIssue(issue: AmbiguityIssueSnapshot) {
 
   return (
     issue.sourceRef?.startsWith("research:")
-      ? `기존 리서치 메모와 source trace를 기준으로 ${objective}`
+      ? `기존 리서치 메모 기준으로 ${objective}`
       : objective
   );
 }
@@ -3567,14 +3594,14 @@ function researchReviewQueueTitleForRouteOutcome(input: {
     : "";
 
   if (input.routeOutcome === "missing_con_evidence") {
-    return `다른 관점 확인 필요${countSuffix}: ${input.title}`;
+    return `다른 관점 확인 필요${countSuffix}: ${researchObjectiveDisplayTitle(input.title)}`;
   }
 
   if (input.routeOutcome === "conflict_review") {
-    return `상충 근거 검토 필요${countSuffix}: ${input.title}`;
+    return `상충 근거 검토 필요${countSuffix}: ${researchObjectiveDisplayTitle(input.title)}`;
   }
 
-  return `Research review${countSuffix}: ${input.title}`;
+  return `리서치 확인 필요${countSuffix}: ${researchObjectiveDisplayTitle(input.title)}`;
 }
 
 function queueProjectionWithResearchReviewItem(
@@ -3689,22 +3716,24 @@ function evidenceReviewQueueTitle(
   gateStatus?: "accepted" | "needs_review" | "research_insufficient" | "stale"
 ) {
   if (gateStatus === "stale") {
-    return `Research stale: ${task.objective}`;
+    return `최신성 확인 필요: ${researchObjectiveDisplayTitle(task.objective)}`;
   }
 
   if (gateStatus === "needs_review") {
-    return `Quality gate review required: ${task.objective}`;
+    return `근거 품질 검토 필요: ${researchObjectiveDisplayTitle(task.objective)}`;
   }
 
   if (gateStatus === "research_insufficient" && matrix.balanceStatus === "balanced") {
-    return `Evidence still insufficient: ${task.objective}`;
+    return `추가 근거 필요: ${researchObjectiveDisplayTitle(task.objective)}`;
   }
 
   if (matrix.balanceStatus === "balanced") {
-    return `Evidence ready: ${task.objective}`;
+    return `근거 확인됨: ${researchObjectiveDisplayTitle(task.objective)}`;
   }
 
-  return matrix.decisionBlocked ? `Decision blocked: ${task.objective}` : `Known risk: ${task.objective}`;
+  return matrix.decisionBlocked
+    ? `판단 보류 필요: ${researchObjectiveDisplayTitle(task.objective)}`
+    : `확인된 리스크: ${researchObjectiveDisplayTitle(task.objective)}`;
 }
 
 function evidenceReviewQueueState(

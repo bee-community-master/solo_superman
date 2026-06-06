@@ -73,7 +73,7 @@ describe("codexRuntimeEvidenceView", () => {
     });
   });
 
-  it("formats live runtime evidence without hiding runtime reasons", () => {
+  it("formats live runtime evidence without leaking internal runtime reasons", () => {
     expect(codexRuntimeEvidenceView(codexRuntimeStatus({
       status: "available",
       executionMode: "live",
@@ -84,7 +84,17 @@ describe("codexRuntimeEvidenceView", () => {
       executionModeLabel: "live",
       liveTurnsState: "enabled",
       manualHandoffState: "available",
-      reasonLabel: "Live Codex SDK turn execution is enabled for preview-only artifacts."
+      reasonLabel: "Live Codex 질문·리서치 preview 실행이 켜져 있습니다."
+    });
+  });
+
+  it("formats manual fallback runtime reasons for the user-facing UI", () => {
+    expect(codexRuntimeEvidenceView(codexRuntimeStatus({
+      reason:
+        "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then."
+    }))).toMatchObject({
+      reasonLabel:
+        "Codex CLI 로그인은 확인됐지만 live preview 실행은 꺼져 있습니다. SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하거나 수동 handoff를 사용하세요."
     });
   });
 });

@@ -36,6 +36,29 @@ export function codexRuntimeAccountLabel(runtimeStatus: CodexRuntimeStatusDto | 
   return details ? `${account.status} (${details})` : account.status;
 }
 
+export function userFacingCodexRuntimeReason(reason: string | null | undefined) {
+  if (!reason) {
+    return null;
+  }
+
+  if (reason === "Live Codex SDK turn execution is enabled for preview-only artifacts.") {
+    return "Live Codex 질문·리서치 preview 실행이 켜져 있습니다.";
+  }
+
+  if (
+    reason ===
+    "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then."
+  ) {
+    return "Codex CLI 로그인은 확인됐지만 live preview 실행은 꺼져 있습니다. SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하거나 수동 handoff를 사용하세요.";
+  }
+
+  if (reason.startsWith("Live Codex SDK turn execution is not enabled")) {
+    return "Live Codex preview 실행이 아직 켜져 있지 않습니다. 수동 handoff로 진행하거나 SOLO_CODEX_SDK_LIVE_TURNS=1로 재시작하세요.";
+  }
+
+  return reason;
+}
+
 export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | null): CodexRuntimeEvidenceView {
   const account = runtimeStatus?.account ?? null;
 
@@ -57,6 +80,6 @@ export function codexRuntimeEvidenceView(runtimeStatus: CodexRuntimeStatusDto | 
     manualHandoffState: runtimeStatus
       ? (runtimeStatus.manualHandoffAvailable ? "available" : "unavailable")
       : "unknown",
-    reasonLabel: runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null
+    reasonLabel: userFacingCodexRuntimeReason(runtimeStatus?.reason ?? runtimeStatus?.account.reason ?? null)
   };
 }

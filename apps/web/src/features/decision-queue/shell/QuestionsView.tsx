@@ -612,8 +612,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           <aside className="research-additional-questions" aria-label={copy.questions.researchAdditionalQuestions}>
                             <p>{copy.questions.researchAdditionalQuestions}</p>
                             <ul>
-                              {item.additionalQuestions.map((question) => (
-                                <li key={question}><GeneratedQuestionText language={language} text={question} /></li>
+                              {[...new Set(item.additionalQuestions)].map((question, index) => (
+                                <li key={`${item.queueItemId}:additional-question:${index}:${question}`}>
+                                  <GeneratedQuestionText language={language} text={question} />
+                                </li>
                               ))}
                             </ul>
                           </aside>

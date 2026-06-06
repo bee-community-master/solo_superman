@@ -294,7 +294,7 @@ const EN_COPY = {
     research: {
       label: "Research",
       shortLabel: "R",
-      title: "Research review",
+      title: "Evidence check",
       description: "Manage approved public research and manually imported evidence."
     },
     planning: {
@@ -431,8 +431,8 @@ const EN_COPY = {
       activateQuestionBatch: "Activate next question",
       changeProjectPurposeMode: "Change project purpose mode",
       changeBusinessCriticIntensity: "Change business critic intensity",
-      submitAnswer: "Submit answer",
-      submitDraftedAnswer: "Submit drafted answer",
+      submitAnswer: "Save answer",
+      submitDraftedAnswer: "Submit saved answers",
       loadNextQuestions: "Load next questions",
       carryAsKnownRisk: "Keep for later checking",
       importResearchResult: "Import research result",
@@ -623,9 +623,9 @@ const EN_COPY = {
     composedAnswerPreview: "Answer that will be submitted",
     composedAnswerPreviewHelp: "This combines selected options with your written reason.",
     answerAriaPrefix: "Answer",
-    submitAnswer: "Submit answer",
+    submitAnswer: "Save answer",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
+      count > 0 ? `Submit ${count} saved answer${count === 1 ? "" : "s"}` : "Submit saved answers",
     nextValidationActionAriaPrefix: "Next check for",
     additionalRiskDetails: "Keep as a later check instead of answering",
     additionalRiskHelp: "Use this separate action only when you want to stop answering this card now and carry it with a next validation step.",
@@ -770,8 +770,8 @@ const EN_COPY = {
         ? "1 planned read-only research task will start within the active allowlist budget."
         : `${count} planned read-only research tasks will start within the active allowlist budget.`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "Create or reactivate an active public web allowlist before starting the ready batch.",
-      no_ready_tasks: "No planned public web tasks are ready within the active allowlist concurrency budget."
+      missing_allowlist: "Research tasks exist, but public web sources must be enabled before they can run.",
+      no_ready_tasks: "No public web research task is executable within the current allowlist budget."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
@@ -880,11 +880,11 @@ const EN_COPY = {
       ready_for_review: "Ready for review",
       research_insufficient: "Needs more research",
       stale: "Out of date",
-      terminal_failure: "Research failed",
+      terminal_failure: "Run failed",
       resolved: "Resolved"
     } satisfies Record<ResearchReviewCardState, string>,
     reviewCardTypeLabels: {
-      research_review: "Research review",
+      research_review: "Evidence check",
       decision_approval: "Decision approval",
       risk_acceptance: "Risk acceptance",
       conflict_resolution: "Conflict resolution",
@@ -1384,7 +1384,7 @@ const EN_COPY = {
     tasks: "tasks",
     activeRuns: "active runs",
     recentActivity: "Recent activity",
-    researchNeedsReview: "Research review is not finished yet. Check remaining items and recovery paths first.",
+    researchNeedsReview: "Evidence checks are not finished yet. Check remaining items and recovery paths first.",
     pending: "pending",
     noActivity: "No activity yet.",
     radarAxes: {
@@ -1464,7 +1464,7 @@ const EN_COPY = {
       ready_for_review: "Ready for review",
       research_insufficient: "Needs more research",
       stale: "Out of date",
-      terminal_failure: "Research failed",
+      terminal_failure: "Run failed",
       resolved: "Resolved"
     },
     terminalReasonLabels: {
@@ -1538,7 +1538,7 @@ const EN_COPY = {
       `${runCount} run(s); ${attentionCount} need review or recovery; refresh ${refetchUrl}`,
     noRunStatus: "No research run status loaded.",
     qualityGatePending: "Quality check has not produced a visible result.",
-    exitGateBlocked: "Research review is not finished yet. Check the remaining items and recovery paths first.",
+    exitGateBlocked: "Evidence checks are not finished yet. Check the remaining items and recovery paths first.",
     exitGateReady: "Research results and recovery paths are ready. You can move to execution-readiness review."
   },
   phase15b: {
@@ -1899,8 +1899,8 @@ const JA_COPY: typeof EN_COPY = {
       activateQuestionBatch: "次の質問を有効化",
       changeProjectPurposeMode: "プロジェクト目的を変更",
       changeBusinessCriticIntensity: "事業レビュー強度を変更",
-      submitAnswer: "回答を送信",
-      submitDraftedAnswer: "下書き回答を送信",
+      submitAnswer: "回答を保存",
+      submitDraftedAnswer: "保存した回答を送信",
       loadNextQuestions: "次の質問を読み込み",
       carryAsKnownRisk: "後で確認する項目として残す",
       importResearchResult: "リサーチ結果を取り込み",
@@ -2088,9 +2088,9 @@ const JA_COPY: typeof EN_COPY = {
     composedAnswerPreview: "送信される回答",
     composedAnswerPreviewHelp: "選択した候補と入力した理由をまとめた内容です。",
     answerAriaPrefix: "回答",
-    submitAnswer: "回答を送信",
+    submitAnswer: "回答を保存",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
+      count > 0 ? `保存した回答 ${count}件を送信` : "保存した回答を送信",
     nextValidationActionAriaPrefix: "次の確認",
     additionalRiskDetails: "回答せず後で確認する項目として残す",
     additionalRiskHelp: "この別アクションは、今このカードに回答せず、次に確認する内容を残す場合だけ使います。",
@@ -2231,8 +2231,8 @@ const JA_COPY: typeof EN_COPY = {
         ? "読み取り専用リサーチタスク1件を active allowlist の予算内で開始します。"
         : `読み取り専用リサーチタスク${count}件を active allowlist の予算内で開始します。`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "準備済みバッチを開始する前に active public web allowlist を作成または再有効化してください。",
-      no_ready_tasks: "active allowlist の concurrency budget 内で開始できる planned public-web task はありません。"
+      missing_allowlist: "リサーチタスクはありますが、実行するには公開Webソースを有効にする必要があります。",
+      no_ready_tasks: "現在の allowlist 予算内で実行できる公開Webリサーチタスクはありません。"
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
@@ -3370,8 +3370,8 @@ const KO_COPY: typeof EN_COPY = {
       activateQuestionBatch: "다음 질문 활성화",
       changeProjectPurposeMode: "프로젝트 목적 변경",
       changeBusinessCriticIntensity: "사업 리뷰 강도 변경",
-      submitAnswer: "답변 제출",
-      submitDraftedAnswer: "작성한 답변 제출",
+      submitAnswer: "답변 저장",
+      submitDraftedAnswer: "저장한 답변 제출",
       loadNextQuestions: "다음 질문 불러오기",
       carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
       importResearchResult: "리서치 결과 가져오기",
@@ -3560,9 +3560,9 @@ const KO_COPY: typeof EN_COPY = {
     composedAnswerPreview: "제출될 답변",
     composedAnswerPreviewHelp: "선택한 항목과 직접 적은 이유를 합친 내용입니다.",
     answerAriaPrefix: "답변",
-    submitAnswer: "답변 제출",
+    submitAnswer: "답변 저장",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
+      count > 0 ? `저장한 답변 ${count}개 제출` : "저장한 답변 제출",
     nextValidationActionAriaPrefix: "다음 확인",
     additionalRiskDetails: "답하지 않고 나중에 확인할 항목으로 남기기",
     additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음에 확인할 내용을 남길 때만 사용하세요.",
@@ -3701,8 +3701,8 @@ const KO_COPY: typeof EN_COPY = {
     readyReadOnlyRunsPlanReady: (count: number) =>
       `읽기 전용 리서치 작업 ${count}개가 active allowlist 예산 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "준비된 배치를 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
-      no_ready_tasks: "active allowlist concurrency budget 안에서 시작할 수 있는 planned public-web task가 없습니다."
+      missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
+      no_ready_tasks: "현재 allowlist 예산 안에서 실행 가능한 공개 웹 리서치 작업이 없습니다."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "리서치 allowlist를 변경하려면 활성 프로젝트가 필요합니다.",

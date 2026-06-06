@@ -108,6 +108,10 @@ function planningBlockingCards(research: ResearchEvidenceProjection | null) {
   return research?.reviewCards.filter((card) => card.blocksPlanning) ?? [];
 }
 
+function uniqueLabels(labels: readonly string[]) {
+  return [...new Set(labels)];
+}
+
 function researchQualityGateLabels(input: Phase15aOperationsInput, copy: Phase15aOperationsCopy) {
   return [
     ...(input.research?.evidencePacks.map((pack) =>
@@ -148,7 +152,7 @@ export function phase15aOperationsViewModel(
       input.runs?.refetchUrl &&
       input.runs.recovery.sseEventNames.includes("projection.updated")
   );
-  const blockers = [
+  const blockers = uniqueLabels([
     ...(activeAllowlists.length === 0 ? [copy.blockers.noActiveAllowlist] : []),
     ...(!input.allowlists?.refetchUrl ? [copy.blockers.noAllowlistRefetch] : []),
     ...(!input.disclosures?.refetchUrl ? [copy.blockers.noDisclosureRefetch] : []),
@@ -158,7 +162,7 @@ export function phase15aOperationsViewModel(
       : []),
     ...(!qualityGateVisible ? [copy.blockers.noQualityGate] : []),
     ...planningBlockingCards(input.research).map((card) => copy.blockers.reviewCardRemaining(card.title))
-  ];
+  ]);
   const allowlistPolicyLabel = selectedAllowlist
     ? copy.allowlistPolicyLoaded(
         phase15aAllowlistStatusLabel(copy, selectedAllowlist.status),

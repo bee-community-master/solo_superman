@@ -3714,7 +3714,7 @@ describe("PR-04 ProductEngine reducer", () => {
         blocked: [
           expect.objectContaining({
             queueItemId: `research_review_${researchTaskId}`,
-            title: expect.stringContaining("Quality gate review required")
+            title: expect.stringContaining("근거 품질 검토 필요")
           })
         ]
       }
@@ -3810,7 +3810,7 @@ describe("PR-04 ProductEngine reducer", () => {
         blocked: [
           expect.objectContaining({
             queueItemId: `research_review_${researchTaskId}`,
-            title: expect.stringContaining("Evidence still insufficient")
+            title: expect.stringContaining("추가 근거 필요")
           })
         ]
       }
@@ -4284,7 +4284,7 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.objectContaining({
             queueItemId: reviewQueueItemId,
             state: "blocked",
-            title: expect.stringContaining("Evidence still insufficient"),
+            title: expect.stringContaining("추가 근거 필요"),
             cardType: "risk_acceptance",
             blocksPlanning: true,
             availableOutcomes: expect.arrayContaining(["risk_accepted", "research_insufficient"])
@@ -4388,7 +4388,7 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.objectContaining({
             queueItemId: reviewQueueItemId,
             state: "next",
-            title: expect.stringContaining("Evidence ready")
+            title: expect.stringContaining("근거 확인됨")
           })
         ],
         blocked: []

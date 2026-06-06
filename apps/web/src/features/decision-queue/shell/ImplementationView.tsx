@@ -333,7 +333,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             ))}
           </dl>
         ) : null}
-        {runtimeStatus?.reason ? <p className="research-recovery">{runtimeStatus.reason}</p> : null}
+        {runtimeEvidence.reasonLabel ? <p className="research-recovery">{runtimeEvidence.reasonLabel}</p> : null}
         {statuses.length ? (
           <ul className="effect-list">
             {statuses.map((status) => (

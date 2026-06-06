@@ -53,9 +53,11 @@ function safeExternalUrl(value: string | undefined) {
 }
 
 function TextList({ items }: { readonly items: readonly string[] }) {
+  const uniqueItems = [...new Set(items)];
+
   return (
     <ul>
-      {items.map((item, index) => (
+      {uniqueItems.map((item, index) => (
         <li key={`${index}:${item}`}>{item}</li>
       ))}
     </ul>
@@ -320,8 +322,8 @@ function EvidenceMatrixCard({
             <dt>{copy.research.additionalQuestions}</dt>
             <dd>
               <ul>
-                {matrix.additionalQuestions.map((question) => (
-                  <li key={question}>{question}</li>
+                {[...new Set(matrix.additionalQuestions)].map((question, index) => (
+                  <li key={`${matrix.evidenceMatrixId}:${index}:${question}`}>{question}</li>
                 ))}
               </ul>
             </dd>
@@ -497,6 +499,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
               const summaryLabel = card
                 ? copy.research.reviewCardTypeLabels[card.cardType]
                 : copy.research.routeOutcomeLabels[task.routeOutcome];
+              const headingLabel = card?.title ?? task.objective;
               const impactLabel = copy.research.researchImpactLabels[card?.impact ?? task.impact];
               const terminalOutcomeLabel = card?.terminalOutcome
                 ? copy.research.terminalOutcomeLabels[card.terminalOutcome]
@@ -516,10 +519,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 <article className="research-card" key={task.researchTaskId}>
                   <div className="research-card-main">
                     <header className="research-card-header">
-                      <h3>{task.objective}</h3>
+                      <h3>{headingLabel}</h3>
                       <span className="research-status-badge">{statusLabel}</span>
                     </header>
-                    <p className="research-card-summary">{card?.title ?? summaryLabel}</p>
+                    <p className="research-card-summary">{summaryLabel}</p>
                     <dl className="research-card-facts">
                       <div>
                         <dt>{copy.research.gateStatus}</dt>
@@ -559,8 +562,8 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       <aside className="research-additional-questions" aria-label={copy.research.additionalQuestions}>
                         <p>{copy.research.additionalQuestions}</p>
                         <ul>
-                          {card.additionalQuestions.map((question) => (
-                            <li key={question}>{question}</li>
+                          {[...new Set(card.additionalQuestions)].map((question, index) => (
+                            <li key={`${card.cardId}:${index}:${question}`}>{question}</li>
                           ))}
                         </ul>
                       </aside>
