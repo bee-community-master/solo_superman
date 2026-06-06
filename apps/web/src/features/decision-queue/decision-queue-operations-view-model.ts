@@ -113,13 +113,36 @@ function uniqueLabels(labels: readonly string[]) {
   return [...new Set(labels)];
 }
 
+const RESEARCH_REVIEW_CARD_TITLE_PREFIXES = [
+  "Research review",
+  "Research failed",
+  "Quality gate review required",
+  "Evidence still insufficient",
+  "Evidence ready",
+  "Research stale",
+  "Decision blocked",
+  "Known risk",
+  "리서치 확인 필요",
+  "근거 부족",
+  "근거 품질 검토 필요",
+  "추가 근거 필요",
+  "근거 확인됨",
+  "최신성 확인 필요",
+  "판단 보류 필요",
+  "확인된 리스크"
+] as const;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+const RESEARCH_REVIEW_CARD_TITLE_PREFIX_PATTERN = new RegExp(
+  `^(?:${RESEARCH_REVIEW_CARD_TITLE_PREFIXES.map(escapeRegExp).join("|")})\\s*:?\\s*`,
+  "iu"
+);
+
 export function researchReviewCardSubject(title: string) {
-  return title
-    .replace(
-      /^(?:Research review|Research failed|Quality gate review required|Evidence still insufficient|Evidence ready|Research stale|Decision blocked|Known risk|리서치 확인 필요|근거 부족|근거 품질 검토 필요|추가 근거 필요|근거 확인됨|최신성 확인 필요|판단 보류 필요|확인된 리스크)\s*:?\s*/iu,
-      ""
-    )
-    .trim() || title;
+  return title.replace(RESEARCH_REVIEW_CARD_TITLE_PREFIX_PATTERN, "").trim() || title;
 }
 
 export function localizedResearchReviewCardTitle(card: ResearchReviewCardProjection, stateLabel: string) {

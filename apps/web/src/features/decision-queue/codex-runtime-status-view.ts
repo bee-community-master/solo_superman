@@ -55,23 +55,27 @@ const CODEX_RUNTIME_REASON_LABELS = {
   }
 } as const satisfies Record<string, Record<AppLanguage, string>>;
 
+const RAW_CODEX_RUNTIME_REASONS = {
+  livePreviewEnabled: "Live Codex SDK turn execution is enabled for preview-only artifacts.",
+  manualFallbackRequired:
+    "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then.",
+  livePreviewDisabledPrefix: "Live Codex SDK turn execution is not enabled"
+} as const;
+
 export function userFacingCodexRuntimeReason(reason: string | null | undefined, language: AppLanguage = "ko") {
   if (!reason) {
     return null;
   }
 
-  if (reason === "Live Codex SDK turn execution is enabled for preview-only artifacts.") {
+  if (reason === RAW_CODEX_RUNTIME_REASONS.livePreviewEnabled) {
     return CODEX_RUNTIME_REASON_LABELS.livePreviewEnabled[language];
   }
 
-  if (
-    reason ===
-    "Codex CLI login is available, but set SOLO_CODEX_SDK_LIVE_TURNS=1 to enable preview-only live turn execution; manual handoff fallback is required until then."
-  ) {
+  if (reason === RAW_CODEX_RUNTIME_REASONS.manualFallbackRequired) {
     return CODEX_RUNTIME_REASON_LABELS.manualFallbackRequired[language];
   }
 
-  if (reason.startsWith("Live Codex SDK turn execution is not enabled")) {
+  if (reason.startsWith(RAW_CODEX_RUNTIME_REASONS.livePreviewDisabledPrefix)) {
     return CODEX_RUNTIME_REASON_LABELS.livePreviewDisabled[language];
   }
 
