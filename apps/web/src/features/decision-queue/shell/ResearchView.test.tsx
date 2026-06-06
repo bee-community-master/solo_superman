@@ -616,6 +616,34 @@ describe("ResearchView", () => {
     expect(markup.split("https://example.com/source-report")).toHaveLength(2);
   });
 
+  it("localizes research card title prefixes for the active UI language", () => {
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...researchProjection(),
+          reviewCards: [
+            {
+              cardId: "research_reviewed_card" as QueueItemId,
+              researchTaskId: "research_task_reviewed" as ResearchTaskId,
+              cardType: "research_review",
+              title: "추가 근거 필요: onboarding retention",
+              state: "research_insufficient",
+              impact: "high",
+              retainedSourceRefs: [],
+              availableOutcomes: ["risk_accepted", "research_insufficient"],
+              blocksPlanning: true,
+              recoveryActions: ["mark_research_insufficient"]
+            }
+          ]
+        }
+      }
+    });
+
+    expect(markup).toContain("Needs more research: onboarding retention");
+    expect(markup).not.toContain("추가 근거 필요: onboarding retention");
+  });
+
   it("renders evidence matrices with pro, con, uncertainty, blocker, and follow-up details", () => {
     const research = researchProjection();
     const markup = renderResearchView({

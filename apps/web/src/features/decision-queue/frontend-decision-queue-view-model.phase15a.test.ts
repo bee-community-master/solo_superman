@@ -338,6 +338,31 @@ describe("Decision Queue view model phase15a", () => {
     });
   });
 
+  it("localizes research-card blocker title prefixes from persisted card titles", () => {
+    const research = researchProjection(true);
+    const localizedTitleResearch = {
+      ...research,
+      reviewCards: research.reviewCards.map((card) => ({
+        ...card,
+        title: "추가 근거 필요: onboarding retention",
+        state: "research_insufficient" as const
+      }))
+    };
+    const operations = phase15aOperationsViewModel(
+      {
+        allowlists: allowlistProjection(),
+        disclosures: disclosureProjection(),
+        runs: runProjection(),
+        research: localizedTitleResearch
+      },
+      DECISION_QUEUE_COPY.en.phase15a
+    );
+
+    expect(operations.exitGate.blockers).toEqual([
+      "Research card still needs review: Needs more research: onboarding retention"
+    ]);
+  });
+
   it("keeps review-card-only quality gate metadata visible", () => {
     const research = researchProjection(true);
     const reviewCardOnlyResearch = {

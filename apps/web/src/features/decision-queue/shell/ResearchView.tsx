@@ -7,6 +7,7 @@ import type {
 } from "@solo-superman/contracts";
 import { chatGptVisibleResearchImportHint } from "../chatgpt-visible-research-import";
 import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegation-request";
+import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -499,8 +500,8 @@ export function ResearchView({ controller }: ResearchViewProps) {
               const summaryLabel = card
                 ? copy.research.reviewCardTypeLabels[card.cardType]
                 : copy.research.routeOutcomeLabels[task.routeOutcome];
-              const headingLabel = card?.title ?? task.objective;
               const impactLabel = copy.research.researchImpactLabels[card?.impact ?? task.impact];
+              const headingLabel = card ? localizedResearchReviewCardTitle(card, statusLabel) : task.objective;
               const terminalOutcomeLabel = card?.terminalOutcome
                 ? copy.research.terminalOutcomeLabels[card.terminalOutcome]
                 : null;
