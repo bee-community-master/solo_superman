@@ -10,6 +10,7 @@ import { useDecisionQueueCopy } from "./decision-queue-copy";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
+import { uniqueTextItems } from "./list-values";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
@@ -43,10 +44,6 @@ function compactSourceTraceLabel(value: string) {
   const compacted = value.replace(/\s+/gu, " ").trim();
 
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
-}
-
-function uniqueTextItems(items: readonly string[]) {
-  return [...new Set(items)];
 }
 
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {

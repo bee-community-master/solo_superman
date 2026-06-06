@@ -11,6 +11,7 @@ import { localizedResearchReviewCardTitle } from "../decision-queue-operations-v
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { uniqueTextItems } from "./list-values";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ResearchViewProps {
@@ -21,10 +22,6 @@ function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
   const sourceRefs = [card.retainedSourceRef, ...(card.retainedSourceRefs ?? [])];
 
   return [...new Set(sourceRefs.filter((ref): ref is string => Boolean(ref)))];
-}
-
-function uniqueTextItems(items: readonly string[]) {
-  return [...new Set(items)];
 }
 
 function latestResearchResultForTask(
