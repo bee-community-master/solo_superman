@@ -23,6 +23,10 @@ function retainedSourceRefsForResearchCard(card: ResearchReviewCardProjection) {
   return [...new Set(sourceRefs.filter((ref): ref is string => Boolean(ref)))];
 }
 
+function uniqueTextItems(items: readonly string[]) {
+  return [...new Set(items)];
+}
+
 function latestResearchResultForTask(
   results: readonly ResearchResultProjection[],
   researchTaskId: ResearchResultProjection["researchTaskId"]
@@ -54,12 +58,10 @@ function safeExternalUrl(value: string | undefined) {
 }
 
 function TextList({ items }: { readonly items: readonly string[] }) {
-  const uniqueItems = [...new Set(items)];
-
   return (
     <ul>
-      {uniqueItems.map((item, index) => (
-        <li key={`${index}:${item}`}>{item}</li>
+      {uniqueTextItems(items).map((item) => (
+        <li key={item}>{item}</li>
       ))}
     </ul>
   );
@@ -323,8 +325,8 @@ function EvidenceMatrixCard({
             <dt>{copy.research.additionalQuestions}</dt>
             <dd>
               <ul>
-                {[...new Set(matrix.additionalQuestions)].map((question, index) => (
-                  <li key={`${matrix.evidenceMatrixId}:${index}:${question}`}>{question}</li>
+                {uniqueTextItems(matrix.additionalQuestions).map((question) => (
+                  <li key={question}>{question}</li>
                 ))}
               </ul>
             </dd>
@@ -563,8 +565,8 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       <aside className="research-additional-questions" aria-label={copy.research.additionalQuestions}>
                         <p>{copy.research.additionalQuestions}</p>
                         <ul>
-                          {[...new Set(card.additionalQuestions)].map((question, index) => (
-                            <li key={`${card.cardId}:${index}:${question}`}>{question}</li>
+                          {uniqueTextItems(card.additionalQuestions).map((question) => (
+                            <li key={question}>{question}</li>
                           ))}
                         </ul>
                       </aside>

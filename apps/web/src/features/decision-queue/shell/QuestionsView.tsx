@@ -45,6 +45,10 @@ function compactSourceTraceLabel(value: string) {
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
 }
 
+function uniqueTextItems(items: readonly string[]) {
+  return [...new Set(items)];
+}
+
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
   en: [
     "Research evidence summary",
@@ -612,8 +616,8 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           <aside className="research-additional-questions" aria-label={copy.questions.researchAdditionalQuestions}>
                             <p>{copy.questions.researchAdditionalQuestions}</p>
                             <ul>
-                              {[...new Set(item.additionalQuestions)].map((question, index) => (
-                                <li key={`${item.queueItemId}:additional-question:${index}:${question}`}>
+                              {uniqueTextItems(item.additionalQuestions).map((question) => (
+                                <li key={question}>
                                   <GeneratedQuestionText language={language} text={question} />
                                 </li>
                               ))}
