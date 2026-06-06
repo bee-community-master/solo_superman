@@ -1000,15 +1000,15 @@ function mergeById<TItem, TId extends string>(items: readonly TItem[], nextItem:
   return [...withoutExisting, nextItem];
 }
 
+const RESEARCH_REVIEW_TITLE_PREFIX_PATTERN =
+  /^(?:Research review|Research failed|Quality gate review required|Evidence still insufficient|Evidence ready|Research stale|리서치 확인 필요|근거 부족|근거 품질 검토 필요|추가 근거 필요|근거 확인됨|최신성 확인 필요)\s*:?\s*/iu;
+
+export function stripResearchReviewTitlePrefix(value: string) {
+  return value.replace(RESEARCH_REVIEW_TITLE_PREFIX_PATTERN, "").trim();
+}
+
 function researchCardDisplayTitle(objective: string) {
-  return compactDecisionTopic(objective)
-    .replace(/^Research review\s*:?\s*/iu, "")
-    .replace(/^Research failed\s*:?\s*/iu, "")
-    .replace(/^Quality gate review required\s*:?\s*/iu, "")
-    .replace(/^Evidence still insufficient\s*:?\s*/iu, "")
-    .replace(/^Evidence ready\s*:?\s*/iu, "")
-    .replace(/^Research stale\s*:?\s*/iu, "")
-    .trim() || "리서치 확인 항목";
+  return stripResearchReviewTitlePrefix(compactDecisionTopic(objective)) || "리서치 확인 항목";
 }
 
 function reviewCardForTask(task: ResearchTaskProjection): ResearchReviewCardProjection {

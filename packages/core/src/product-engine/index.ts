@@ -212,6 +212,7 @@ import {
   planResearchTask,
   resolveResearchReviewCardInProjection,
   stripInternalResearchMetaText,
+  stripResearchReviewTitlePrefix,
   synthesizeEvidenceMatrix
 } from "../research-engine";
 import {
@@ -2575,13 +2576,7 @@ function readableEvidenceContextExcerpt(value: string) {
 }
 
 function researchObjectiveDisplayTitle(value: string) {
-  const excerpt = readableEvidenceContextExcerpt(value)
-    .replace(/^Research review\s*:?\s*/iu, "")
-    .replace(/^Research failed\s*:?\s*/iu, "")
-    .replace(/^Quality gate review required\s*:?\s*/iu, "")
-    .replace(/^Evidence still insufficient\s*:?\s*/iu, "")
-    .replace(/^Evidence ready\s*:?\s*/iu, "")
-    .replace(/^Research stale\s*:?\s*/iu, "")
+  const excerpt = stripResearchReviewTitlePrefix(readableEvidenceContextExcerpt(value))
     .replace(/^기존 리서치 메모와 source trace를 기준으로\s*/iu, "기존 리서치 메모 기준으로 ")
     .trim();
 
