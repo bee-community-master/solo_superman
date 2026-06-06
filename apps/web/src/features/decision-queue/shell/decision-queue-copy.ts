@@ -404,12 +404,12 @@ const EN_COPY = {
         "Business review intensity can only be changed for business-validation projects.",
       activeSessionRequiredSubmitAnswer: "An active session is required before submitting an answer.",
       answerTextRequired: "Answer text is required.",
-      activeSessionRequiredDraftedAnswers: "An active session is required before submitting drafted answers.",
-      draftedAnswersRequired: "Write at least one active question answer before submitting drafted answers.",
+      activeSessionRequiredDraftedAnswers: "An active session is required before submitting saved answers.",
+      draftedAnswersRequired: "Save at least one active question answer before submitting saved answers.",
       draftedAnswersPartialFailureRefreshed:
-        " Some drafted answers were submitted before the failure; the queue was refreshed.",
+        " Some saved answers were submitted before the failure; the queue was refreshed.",
       draftedAnswersPartialFailureRefreshRequired:
-        " Some drafted answers were submitted before the failure; refresh the queue before continuing.",
+        " Some saved answers were submitted before the failure; refresh the queue before continuing.",
       activeSessionRequiredRefreshQuestions: "An active session is required before refreshing questions.",
       activeSessionRequiredLoadNextQuestions:
         "An active session is required before loading the next question list.",
@@ -535,7 +535,7 @@ const EN_COPY = {
     questionLoopNextActionTitle: "Question loop next action",
     questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
-      `Submit ${count} drafted answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
+      `Submit ${count} saved answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
     questionLoopNextActionActive: (count: number) =>
       `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current visible question${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} cleared.`,
     questionLoopNextActionLoadNext: (count: number) =>
@@ -1873,12 +1873,12 @@ const JA_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "事業レビュー強度は、事業検証プロジェクトでのみ変更できます。",
       activeSessionRequiredSubmitAnswer: "回答を送信するにはアクティブなセッションが必要です。",
       answerTextRequired: "回答テキストが必要です。",
-      activeSessionRequiredDraftedAnswers: "下書き回答を送信するにはアクティブなセッションが必要です。",
-      draftedAnswersRequired: "下書き回答を送信する前に、少なくとも1つのアクティブな質問に回答してください。",
+      activeSessionRequiredDraftedAnswers: "保存した回答を送信するにはアクティブなセッションが必要です。",
+      draftedAnswersRequired: "保存した回答を送信する前に、少なくとも1つのアクティブな質問回答を保存してください。",
       draftedAnswersPartialFailureRefreshed:
-        " 失敗前に一部の下書き回答が送信され、キューは更新されました。",
+        " 失敗前に一部の保存した回答が送信され、キューは更新されました。",
       draftedAnswersPartialFailureRefreshRequired:
-        " 失敗前に一部の下書き回答が送信されました。続行する前にキューを更新してください。",
+        " 失敗前に一部の保存した回答が送信されました。続行する前にキューを更新してください。",
       activeSessionRequiredRefreshQuestions: "質問を更新するにはアクティブなセッションが必要です。",
       activeSessionRequiredLoadNextQuestions: "次の質問リストを読み込むにはアクティブなセッションが必要です。",
       answerCurrentBeforeLoadNextQuestions:
@@ -2001,7 +2001,7 @@ const JA_COPY: typeof EN_COPY = {
     questionLoopNextActionTitle: "質問ループの次のアクション",
     questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
-      `下書き回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
+      `保存した回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
     questionLoopNextActionActive: (count: number) =>
       `表示中の質問 ${count}件に回答してください。表示中の質問が片付くとループは自動で続けられます。`,
     questionLoopNextActionLoadNext: (count: number) =>
@@ -3345,11 +3345,11 @@ const KO_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "사업 리뷰 강도는 비즈니스 검증 프로젝트에서만 변경할 수 있습니다.",
       activeSessionRequiredSubmitAnswer: "답변을 제출하려면 활성 세션이 필요합니다.",
       answerTextRequired: "답변 내용을 입력해야 합니다.",
-      activeSessionRequiredDraftedAnswers: "작성한 답변을 제출하려면 활성 세션이 필요합니다.",
-      draftedAnswersRequired: "작성한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 입력해야 합니다.",
-      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 작성 답변이 제출되었고 큐를 새로고침했습니다.",
+      activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
+      draftedAnswersRequired: "저장한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 저장해야 합니다.",
+      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 큐를 새로고침했습니다.",
       draftedAnswersPartialFailureRefreshRequired:
-        " 실패 전에 일부 작성 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
+        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
       activeSessionRequiredRefreshQuestions: "질문을 새로고침하려면 활성 세션이 필요합니다.",
       activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
       answerCurrentBeforeLoadNextQuestions:
@@ -3473,7 +3473,7 @@ const KO_COPY: typeof EN_COPY = {
     questionLoopNextActionTitle: "질문 루프 다음 행동",
     questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
-      `작성한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
+      `저장한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
     questionLoopNextActionActive: (count: number) =>
       `지금 보이는 질문 ${count}개에 답하세요. 지금 보이는 질문이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
     questionLoopNextActionLoadNext: (count: number) =>
