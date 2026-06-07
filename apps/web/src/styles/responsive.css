@@ -34,6 +34,7 @@
 
   .planning-view .spec-panel,
   .planning-view .founder-brief-panel,
+  .implementation-view .implementation-start-guide,
   .implementation-view .auto-implementation-run-panel,
   .implementation-view .implementation-step-ledger-panel,
   .implementation-view .activity-panel {
