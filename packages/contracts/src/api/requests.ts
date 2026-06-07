@@ -146,7 +146,7 @@ export interface AnalyzeAmbiguityRequest extends ScaffoldRequestPlaceholder {
   readonly sessionId: SessionId;
   readonly expectedStateVersion: StateVersion;
   readonly targetRef: string;
-  readonly generatedQuestionSet?: unknown;
+  readonly generatedQuestionSet: unknown;
 }
 
 export interface ActivateQuestionBatchRequest extends ScaffoldRequestPlaceholder {

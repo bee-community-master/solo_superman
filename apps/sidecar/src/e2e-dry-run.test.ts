@@ -46,6 +46,7 @@ import {
 import { hashBrowserActionPreview } from "./product-engine/browser-action-adapter";
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
+import { generatedFounderQuestionSet } from "./generated-ambiguity-question-fixtures";
 import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -943,7 +944,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
     try {
       for (const intensity of ["balanced", "strong", "investor_grade"] as const) {
         const start = await postJson(app, "/api/v1/projects", {
-          rawIdea: `A ${intensity} business critic dry-run idea`,
+          rawIdea: `A ${intensity} founder business critic dry-run idea`,
           localPrivacyMode: "local_only",
           projectPurposeMode: "business",
           projectPurposeModeConfirmation: "user_confirmed",
@@ -970,7 +971,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         });
         const analyze = await postJson(app, `/api/v1/sessions/${sessionId}/spec/analyze`, {
           expectedStateVersion: stateVersionAfter(responseData(draft.body)),
-          targetRef: "current_spec"
+          targetRef: "current_spec",
+          generatedQuestionSet: generatedFounderQuestionSet(intensity)
         });
         const analyzeData = responseData(analyze.body);
         const activate = await postJson(app, `/api/v1/sessions/${sessionId}/queue/activate`, {
@@ -994,7 +996,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             expect.objectContaining({
               outputType: "ambiguity_analysis",
               payload: expect.objectContaining({
-                issueCount: intensity === "balanced" ? 16 : intensity === "strong" ? 18 : 23
+                issueCount: intensity === "balanced" ? 16 : intensity === "strong" ? 17 : 19
               })
             })
           ]
@@ -1003,7 +1005,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         if (intensity === "balanced") {
           expect(nextItems).toEqual([]);
         } else if (intensity === "strong") {
-          expect(nextItems).toEqual(
+          expect([...records(queue.active), ...nextItems]).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
                 businessCriticPressureKind: "core_assumption_challenge"
@@ -3329,7 +3331,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const draftData = responseData(draft.body);
       const analyze = await postJson(app, `/api/v1/sessions/${sessionId}/spec/analyze`, {
         expectedStateVersion: 3,
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedFounderQuestionSet()
       });
       const analyzeData = responseData(analyze.body);
 

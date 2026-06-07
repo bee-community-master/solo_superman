@@ -17,6 +17,7 @@ import {
   type SmokeRequestApp
 } from "./smoke-helpers";
 import { sessionEventCount } from "./auto-implementation-smoke-fixtures";
+import { generatedFounderQuestionSet } from "./generated-ambiguity-question-fixtures";
 
 export const CLARIFICATION_PIPELINE_SMOKE = "clarification_pipeline" as const;
 
@@ -192,7 +193,8 @@ async function runClarificationFlow(scenario: ClarificationScenario, localCapabi
     sessionId: project.sessionId,
     path: `/api/v1/sessions/${project.sessionId}/spec/analyze`,
     body: {
-      targetRef: "current_spec"
+      targetRef: "current_spec",
+      generatedQuestionSet: generatedFounderQuestionSet()
     }
   });
   const activate = await postWithCurrentVersion({

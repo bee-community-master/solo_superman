@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from "react";
-import type { AmbiguityAnswerSelectionMode, QueueItemProjection } from "@solo-superman/contracts";
+import {
+  localizedUserFacingDecisionQueueText,
+  type AmbiguityAnswerSelectionMode,
+  type QueueItemProjection
+} from "@solo-superman/contracts";
 import {
   draftedActiveQuestionAnswerIds,
   questionFatigueViewModel,
@@ -83,41 +87,6 @@ const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
   ]
 };
 
-function localizedGeneratedText(value: string, language: AppLanguage) {
-  if (language !== "ko") {
-    return value;
-  }
-
-  return value
-    .replace(/한계와\s+불확실성은\s*([^.\n。]+)(?:입니다)?\.?/gu, "한계/불확실성: $1")
-    .replace(/\b(\d+)\s+days?\s+ago\s*[·-]\s*/giu, "최근 공개 검색 요약: ")
-    .replace(
-      /\bUse this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce\.?/giu,
-      "이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다."
-    )
-    .replace(/\bcash flow\b/giu, "현금 흐름")
-    .replace(/\bdocuments\b/giu, "서류")
-    .replace(/\binsurance\b/giu, "보험")
-    .replace(/\baccount updates\b/giu, "계좌 업데이트")
-    .replace(/\bnext-step planning\b/giu, "다음 계획")
-    .replace(/\bduring and after divorce\b/giu, "이혼 전후")
-    .replace(/\bsource_quality_insufficient\b/giu, "출처 품질 부족")
-    .replace(/\busable source-linked finding\b/giu, "출처와 연결된 유의미한 근거")
-    .replace(/\busable finding\b/giu, "유의미한 근거")
-    .replace(/\bsource-linked finding\b/giu, "출처 연결 근거")
-    .replace(/\bother perspectives?\b/giu, "다른 관점")
-    .replace(/\bcounterexamples?\b/giu, "반례")
-    .replace(/\blimitations?\b/giu, "한계")
-    .replace(/\bsource freshness\b/giu, "출처 최신성")
-    .replace(/\bcurrent public evidence\b/giu, "현재 공개 근거")
-    .replace(/\bcore-assumption risk\b/giu, "핵심 가설 리스크")
-    .replace(/\bassumption_pressure\b/giu, "가설 압박")
-    .replace(/\bpaid intent\b/giu, "유료 의향")
-    .replace(/\bwillingness-to-pay\b/giu, "유료 의향")
-    .replace(/\bprice proxy\b/giu, "가격 대체 지표")
-    .replace(/\bwas not found\b/giu, "찾지 못했습니다");
-}
-
 function lineWithEmphasis(line: string, language: AppLanguage) {
   const labels = EMPHASIS_LABELS_BY_LANGUAGE[language];
   const bulletMatch = /^(\s*[-•]\s*)([^:：]{2,40})([:：])\s*(.*)$/u.exec(line);
@@ -145,7 +114,7 @@ function lineWithEmphasis(line: string, language: AppLanguage) {
 }
 
 function GeneratedQuestionText({ language, text }: { readonly language: AppLanguage; readonly text: string }) {
-  const localizedText = localizedGeneratedText(text, language);
+  const localizedText = localizedUserFacingDecisionQueueText(text, language);
   const lines = localizedText.split(/\r?\n/u);
 
   return (

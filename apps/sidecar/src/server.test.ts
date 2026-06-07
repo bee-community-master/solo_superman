@@ -66,6 +66,10 @@ import {
 } from "./runtime";
 import type { CodexRuntimeAdapter } from "./runtime";
 import { createSidecarApp } from "./server";
+import {
+  generatedFounderQuestionSet,
+  generatedPetLifecycleQuestionSet
+} from "./generated-ambiguity-question-fixtures";
 import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
@@ -2165,7 +2169,7 @@ describe("PR-02 sidecar health shell", () => {
     try {
       const { sessionId } = await createProjectForTest(
         storageApp,
-        "A post-active business critic intensity route test idea"
+        "A post-active founder business critic intensity route test idea"
       );
       await postCommand(`/api/v1/sessions/${sessionId}/intake`, {
         expectedStateVersion: 1,
@@ -2176,7 +2180,8 @@ describe("PR-02 sidecar health shell", () => {
       });
       await postCommand(`/api/v1/sessions/${sessionId}/spec/analyze`, {
         expectedStateVersion: 3,
-        targetRef: "current_spec"
+        targetRef: "current_spec",
+        generatedQuestionSet: generatedFounderQuestionSet()
       });
       const activate = await postCommand(`/api/v1/sessions/${sessionId}/queue/activate`, {
         expectedStateVersion: 4
@@ -2210,107 +2215,7 @@ describe("PR-02 sidecar health shell", () => {
   });
 
   it("generates initial ambiguity questions through the Codex prompt template route", async () => {
-    const generatedQuestionSet = {
-      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
-      sourceSummary: "Pet lifecycle app",
-      questions: [
-        {
-          sectionRef: "Target Customer",
-          topicKey: "pet_guardian_segment",
-          uncertaintyType: "vague",
-          severity: "high",
-          summary: "First pet guardian segment is too broad",
-          whyItMatters: "Different guardians need medical, insurance, daily care, or end-of-life support first.",
-          questionText: "Which pet guardian group should test the lifecycle app first?",
-          expectedAnswerType: "choice",
-          answerSelectionMode: "single",
-          answerOptions: [
-            {
-              id: "first_pet_guardian",
-              label: "First-time pet guardians",
-              value: "Test first-time pet guardians first.",
-              primaryDetail: "Focuses the first interview target.",
-              secondaryDetail: "Senior-care needs still need checking."
-            },
-            {
-              id: "senior_pet_guardian",
-              label: "Senior pet guardians",
-              value: "Test senior pet guardians first.",
-              primaryDetail: "Prioritizes medical and medication records.",
-              secondaryDetail: "Daily habit value still needs checking."
-            },
-            {
-              id: "multi_pet_household",
-              label: "Multi-pet households",
-              value: "Test multi-pet households first.",
-              primaryDetail: "Checks whether multiple records are painful.",
-              secondaryDetail: "Single-pet simplicity still needs checking."
-            }
-          ],
-          decisionItUnlocks: "First interview target and onboarding copy.",
-          ambiguityDimension: "scope",
-          ambiguityRoutingPath: "human_judgment",
-          researchQuestion: "Check whether public pet guardian discussions show stronger record-management pain by guardian group.",
-          possibleRoutes: ["question", "decision_candidate"]
-        },
-        {
-          sectionRef: "Problem",
-          topicKey: "record_fragmentation",
-          uncertaintyType: "missing",
-          severity: "high",
-          summary: "Record fragmentation is not concrete yet",
-          whyItMatters: "The first product slice depends on the most frequent record-finding pain.",
-          questionText: "Which pet record is most painful to find or keep updated today?",
-          expectedAnswerType: "text",
-          answerOptions: [],
-          decisionItUnlocks: "First problem statement and evidence plan.",
-          ambiguityDimension: "context",
-          ambiguityRoutingPath: "current_research",
-          researchQuestion: "Check which pet records guardians repeatedly mention losing, re-requesting, or failing to keep current.",
-          possibleRoutes: ["question", "research_needed"],
-          suggestedResearchTask: "Look for pet clinic reviews, insurance claim guides, and guardian community posts that mention fragmented medical, food, daily-care, insurance, or end-of-life records plus counterexamples and the remaining human judgment about which record to prioritize."
-        },
-        {
-          sectionRef: "Value Proposition",
-          topicKey: "switching_reason",
-          uncertaintyType: "decision_required",
-          severity: "high",
-          summary: "Switching reason is not chosen",
-          whyItMatters: "Guardians need a concrete reason to move away from notes, photos, and clinic apps.",
-          questionText: "What reason would make guardians switch from notes or clinic apps?",
-          expectedAnswerType: "choice",
-          answerSelectionMode: "single",
-          answerOptions: [
-            {
-              id: "medical_timeline",
-              label: "Medical timeline",
-              value: "Lead with medical timeline.",
-              primaryDetail: "Focuses first value on care history.",
-              secondaryDetail: "Insurance value still needs checking."
-            },
-            {
-              id: "insurance_docs",
-              label: "Insurance documents",
-              value: "Lead with insurance document organization.",
-              primaryDetail: "Focuses first value on reimbursement work.",
-              secondaryDetail: "Uninsured guardians still need checking."
-            },
-            {
-              id: "daily_care",
-              label: "Daily care log",
-              value: "Lead with daily care logging.",
-              primaryDetail: "Focuses first value on repeated use.",
-              secondaryDetail: "Willingness to pay still needs checking."
-            }
-          ],
-          decisionItUnlocks: "First value proposition.",
-          ambiguityDimension: "assumption_pressure",
-          ambiguityRoutingPath: "human_judgment",
-          researchQuestion: "Check public guardian complaints for moments when notes, photos, or clinic apps stop being enough.",
-          possibleRoutes: ["question", "decision_candidate"]
-        }
-      ]
-    };
+    const generatedQuestionSet = generatedPetLifecycleQuestionSet();
     let seenPrompt = "";
     const codexRuntimeAdapter = createCodexRuntimeAdapter({
       env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
@@ -2375,6 +2280,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(seenPrompt).toContain("Do not use a fixed question template");
       expect(seenPrompt).toContain("Apply an Idea-Fit Gate");
       expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
+      expect(seenPrompt).toContain("Business critic intensity: balanced");
+      expect(seenPrompt).toContain('businessCriticPressureKind "core_assumption_challenge"');
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
     } finally {
       await storage.close();
@@ -7424,7 +7331,8 @@ describe("PR-02 sidecar health shell", () => {
         },
         body: JSON.stringify({
           expectedStateVersion: 3,
-          targetRef: "current_spec"
+          targetRef: "current_spec",
+          generatedQuestionSet: generatedFounderQuestionSet()
         })
       });
       const analyzeBody = await jsonBody(analyze);
@@ -13149,6 +13057,69 @@ describe("PR-02 sidecar health shell", () => {
       expect(body.error).toMatchObject({
         code: "VALIDATION_FAILED",
         message: "targetRef must be a non-empty string."
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("rejects ambiguity analysis when generated question JSON is missing at the route boundary", async () => {
+    const { app: storageApp, storage } = await createMigratedStorageApp();
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A route test idea that requires generated questions before analysis"
+      );
+      await storageApp.request(`/api/v1/sessions/${sessionId}/intake`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 1,
+          answer: "Validate the generated-question-only route boundary."
+        })
+      });
+      await storageApp.request(`/api/v1/sessions/${sessionId}/spec/initial`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 2
+        })
+      });
+
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/spec/analyze`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          expectedStateVersion: 3,
+          targetRef: "current_spec"
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        category: "rejected",
+        error: {
+          code: "COMMAND_PRECONDITION_FAILED",
+          message: "AnalyzeAmbiguity requires Codex-generated question JSON.",
+          details: {
+            questionGeneration: {
+              mode: "codex_required",
+              reason: "generated_question_set_missing"
+            }
+          }
+        }
       });
     } finally {
       await storage.close();

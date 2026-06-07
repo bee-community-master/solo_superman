@@ -6,6 +6,7 @@ import {
   CODEX_SDK_PACKAGE_VERSION,
   type ConfidenceCompletionProjection,
   type CodexRuntimeStatusDto,
+  type ProjectId,
   type ProjectionVersion,
   type SessionId,
   type StatusEndpointDto
@@ -132,6 +133,18 @@ function confidenceFixture(): ConfidenceCompletionProjection {
   };
 }
 
+function activeSessionProjection() {
+  return {
+    kind: "SessionShellProjection",
+    projectId: "proj_implementation" as ProjectId,
+    sessionId: "sess_implementation" as SessionId,
+    version: 1 as ProjectionVersion,
+    phase: "spec",
+    projectPurposeModeLabel: "Business validation",
+    projectPurposeModeEffect: "Business validation mode keeps implementation gates active."
+  } as const;
+}
+
 describe("ImplementationView", () => {
   it("shows the implementation start path before workspace creation", () => {
     const markup = renderImplementationView();
@@ -143,15 +156,20 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Completion source");
     expect(markup).toContain("Planning handoff");
     expect(markup).toContain("Workspace run");
-    expect(markup).toContain('<button type="button" disabled="">Score completeness</button>');
-    expect(markup).toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
-    expect(markup).toContain('<button type="button" disabled="">Run planning handoff check</button>');
-    expect(markup).toContain('<button type="button" disabled="">Prepare implementation context</button>');
-    expect(markup).toContain('<button type="button" disabled="">Prepare context and create run</button>');
+    expect(markup).not.toContain('<button type="button" disabled="">Score completeness</button>');
+    expect(markup).not.toContain('<button type="button" disabled="">Prepare Founder Brief</button>');
+    expect(markup).not.toContain('<button type="button" disabled="">Run planning handoff check</button>');
+    expect(markup).not.toContain('<button type="button" disabled="">Prepare implementation context</button>');
+    expect(markup).not.toContain('<button type="button" disabled="">Prepare context and create run</button>');
   });
 
   it("localizes implementation handoff labels for Korean users", () => {
-    const markup = renderImplementationView({}, "ko");
+    const markup = renderImplementationView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      }
+    }, "ko");
 
     expect(markup).toContain("구현 시작 경로");
     expect(markup).toContain("구현 계획 전달");
@@ -190,7 +208,12 @@ describe("ImplementationView", () => {
 
 
   it("shows general release blockers and release-lab bundle commands", () => {
-    const markup = renderImplementationView();
+    const markup = renderImplementationView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      }
+    });
 
     expect(markup).toContain("General release evidence blockers");
     expect(markup).toContain("blocked by external evidence");
@@ -207,7 +230,12 @@ describe("ImplementationView", () => {
   });
 
   it("localizes general release blockers for Korean users", () => {
-    const markup = renderImplementationView({}, "ko");
+    const markup = renderImplementationView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      }
+    }, "ko");
 
     expect(markup).toContain("일반 공개 증거 차단 항목");
     expect(markup).toContain("외부 증거 대기");
@@ -296,5 +324,14 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Live Codex question and research preview execution is enabled.");
     expect(markup).not.toContain("Live Codex SDK turn execution is enabled for preview-only artifacts.");
     expect(markup).toContain("Tool available. No background tasks are pending.");
+  });
+
+  it("localizes runtime pending summary copy for Korean users", () => {
+    const markup = renderImplementationView({
+      runtimeStatus: codexRuntimeStatus()
+    }, "ko");
+
+    expect(markup).toContain("도구 사용 불가. 대기 중인 백그라운드 작업은 없습니다.");
+    expect(markup).not.toContain("No background tasks are pending.");
   });
 });

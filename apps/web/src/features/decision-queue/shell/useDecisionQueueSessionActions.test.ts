@@ -413,7 +413,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", generatedQuestionSet);
   });
 
-  it("skips Codex prompt-template generation when onboarding keeps automated research manual-only", async () => {
+  it("uses Codex prompt-template generation while keeping public research manual-only", async () => {
     const projectId = "proj_manual_only_initial_questions" as ProjectId;
     const sessionId = "sess_manual_only_initial_questions" as SessionId;
     const sessionProjection: SessionShellProjection = {
@@ -454,9 +454,15 @@ describe("useDecisionQueueSessionActions", () => {
     const draftInitialSpec = vi.fn(async () => commandResponse(3));
     const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
     const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
-    const generateInitialQuestionSet = vi.fn(async () => {
-      throw new Error("manual-only onboarding must not call Codex generation");
-    });
+    const generatedQuestionSet = {
+      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+      questions: [
+        {
+          topicKey: "private_journal_workflow"
+        }
+      ]
+    };
+    const generateInitialQuestionSet = vi.fn(async () => generatedQuestionSet);
     let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
 
     function Harness() {
@@ -466,7 +472,7 @@ describe("useDecisionQueueSessionActions", () => {
         businessCriticIntensity: null,
         businessCriticIntensityChangeReason: "",
         chatGptLoginAcknowledged: false,
-        codexLoginAuthenticated: false,
+        codexLoginAuthenticated: true,
         client: {
           createProject,
           createResearchAllowlist,
@@ -480,7 +486,7 @@ describe("useDecisionQueueSessionActions", () => {
         idea: "A private journaling workflow",
         initialResearchAutomationPermission: "manual_only",
         initialBusinessCriticIntensityReason: "",
-        intake: "Keep the first questions local and deterministic.",
+        intake: "Keep public research disabled while Codex generates the first questions.",
         isBusy: false,
         knownRiskDrafts: {},
         projectPurposeMode: "personal",
@@ -524,8 +530,15 @@ describe("useDecisionQueueSessionActions", () => {
       initialResearchAutomationPermission: "manual_only"
     }));
     expect(createResearchAllowlist).not.toHaveBeenCalled();
-    expect(generateInitialQuestionSet).not.toHaveBeenCalled();
-    expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", undefined);
+    expect(generateInitialQuestionSet).toHaveBeenCalledWith({
+      sessionId,
+      expectedStateVersion: 3,
+      idea: "A private journaling workflow",
+      intake: "Keep public research disabled while Codex generates the first questions.",
+      projectPurposeMode: "personal",
+      businessCriticIntensity: null
+    });
+    expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", generatedQuestionSet);
   });
 
   it("submits an answer without waiting for background research starts to finish", async () => {

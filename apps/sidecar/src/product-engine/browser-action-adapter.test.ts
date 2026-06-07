@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EXECUTION_AUTHORITY_SCHEMA_VERSION, type BrowserActionPreviewDto, type ExecutionAuthorityRecord } from "@solo-superman/contracts";
-import { browserActionTargetFromUrl, hashBrowserActionPreview, runBrowserAction } from "./browser-action-adapter";
+import {
+  browserActionTargetFromUrl,
+  hashBrowserActionPreview,
+  publicReadTargetDnsBlockReason,
+  runBrowserAction
+} from "./browser-action-adapter";
 
 const SAFE_ACTION = {
   kind: "navigate_and_capture",
@@ -92,8 +97,23 @@ describe("browser action public-read target policy", () => {
     }
   });
 
+  it("blocks public-read DNS names that resolve to private or loopback addresses", async () => {
+    const target = browserActionTargetFromUrl("https://research.example.com/path", "approved_public_read");
+
+    if ("code" in target) {
+      throw new Error("expected public DNS target parsing to pass before DNS resolution");
+    }
+
+    await expect(
+      publicReadTargetDnsBlockReason(target, async () => [{ address: "127.0.0.1", family: 4 }])
+    ).resolves.toMatchObject({
+      code: "sandbox_failure",
+      message: expect.stringContaining("private, loopback, or otherwise non-public")
+    });
+  });
+
   it("runs approved public-read browser actions without external mutation or credential custody", async () => {
-    const targetUrl = "https://research.example.com/path";
+    const targetUrl = "https://example.com/path";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response("<main>public read fixture</main>", {
         status: 200,
@@ -108,22 +128,22 @@ describe("browser action public-read target policy", () => {
       action: SAFE_ACTION
     });
 
-    expect(fetchMock).toHaveBeenCalledWith("https://research.example.com/path", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/path", expect.objectContaining({
       method: "GET",
       redirect: "manual"
     }));
     expect(result).toMatchObject({
       status: "completed",
       target: {
-        origin: "https://research.example.com",
-        hostname: "research.example.com",
+        origin: "https://example.com",
+        hostname: "example.com",
         port: 443
       },
       httpStatusCode: 200,
       blockReasons: []
     });
     expect(result.evidenceRefs).toEqual(expect.arrayContaining([
-      "browser_action:target:https://research.example.com",
+      "browser_action:target:https://example.com",
       "browser_action:http_status:200"
     ]));
   });

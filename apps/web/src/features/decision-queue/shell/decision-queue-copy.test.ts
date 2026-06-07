@@ -13,6 +13,15 @@ describe("decision queue language copy", () => {
   it("keeps the first-run language switch focused on supported setup languages", () => {
     expect(DECISION_QUEUE_PAGE_ORDER[0]).toBe("onboarding");
     expect(DECISION_QUEUE_COPY.en.pageMeta.onboarding.label).toBe("Onboarding");
+    expect(DECISION_QUEUE_COPY.en.pageMeta.onboarding.shortLabel).toBe("Onboard");
+    expect(DECISION_QUEUE_COPY.en.pageMeta.implementation.shortLabel).toBe("Build");
+    expect(DECISION_QUEUE_COPY.ko.pageMeta.onboarding.shortLabel).toBe("시작");
+    expect(DECISION_QUEUE_COPY.ko.pageMeta.implementation.shortLabel).toBe("구현");
+    expect(
+      DECISION_QUEUE_PAGE_ORDER.map((pageId) => DECISION_QUEUE_COPY.en.pageMeta[pageId].shortLabel)
+    ).not.toEqual(["O", "Q", "R", "P", "I", "A"]);
+    expect(DECISION_QUEUE_COPY.ko.layout.localServiceConnected).toBe("로컬 서비스 연결됨");
+    expect(DECISION_QUEUE_COPY.ko.layout.diagnosticDetails).toBe("진단 세부 정보");
     expect(DECISION_QUEUE_COPY.ja.pageMeta.onboarding.label).toBe("オンボーディング");
     expect(DECISION_QUEUE_COPY.ko.pageMeta.onboarding.label).toBe("온보딩");
     expect(DECISION_QUEUE_COPY.en.pageMeta.questions.description).toBe(
@@ -143,6 +152,9 @@ describe("decision queue language copy", () => {
       "personal"
     ]);
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerPlan).toBe("Local Codex task plan");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.workerRuntimeNextActions.enableLiveTurns).not.toContain(
+      "SOLO_CODEX"
+    );
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerPlanExecutionAuthority).toBe("実行権限");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerPlanAllowedWriteScope).toBe("허용된 쓰기 범위");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.workerExecutionModeLabels.local_sandboxed_codex).toBe(

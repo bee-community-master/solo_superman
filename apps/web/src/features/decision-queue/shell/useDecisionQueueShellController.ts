@@ -1363,7 +1363,7 @@ export function useDecisionQueueShellController() {
   }, [projections.session, refreshProjections, shouldPollResearchRuns]);
 
   const activePageMeta = copy.pageMeta[activePage];
-  const connectionLabel = connectionState.status === "connected" ? connectionState.connection.mode : connectionState.status;
+  const connectionLabel = connectionState.status === "connected" ? copy.layout.localServiceConnected : connectionState.status;
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
     {

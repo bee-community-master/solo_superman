@@ -80,3 +80,92 @@
     flex: 1 1 180px;
   }
 }
+
+@media (max-width: 960px) {
+  .desktop-shell {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .desktop-topbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .phase-trail {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .phase-pill {
+    flex: 0 0 auto;
+  }
+
+  .topbar-actions {
+    justify-self: stretch;
+    justify-content: space-between;
+  }
+
+  .desktop-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .left-rail,
+  .right-rail,
+  .desktop-workspace {
+    min-width: 0;
+    overflow-y: visible;
+  }
+
+  .left-rail,
+  .right-rail {
+    border: 0;
+    border-bottom: 1px solid var(--solo-border);
+  }
+
+  .left-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .left-nav .rail-label,
+  .rail-progress,
+  .nav-copy small,
+  .nav-badge {
+    display: none;
+  }
+
+  .nav-card {
+    min-height: 46px;
+    margin-bottom: 0;
+  }
+
+  .desktop-workspace {
+    padding: 18px 14px 24px;
+  }
+
+  .session-action-column {
+    order: -1;
+  }
+
+  .right-rail {
+    padding: 14px;
+  }
+
+  .workspace-heading {
+    gap: 10px;
+  }
+
+  .implementation-start-steps li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
