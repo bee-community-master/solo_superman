@@ -10,7 +10,7 @@ import {
   queueItemIsQuestionDebt
 } from "../decision-queue-view-model";
 import { isBusinessCriticQueueItem } from "./decision-queue-shell-model";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
@@ -19,8 +19,6 @@ import { uniqueTextItems } from "./list-values";
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
 }
-
-type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
 
 function businessCriticSummary(copy: DecisionQueueCopy, item: QueueItemProjection) {
   return [
