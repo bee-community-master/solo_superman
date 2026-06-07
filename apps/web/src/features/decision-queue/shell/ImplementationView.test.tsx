@@ -150,6 +150,8 @@ describe("ImplementationView", () => {
     const markup = renderImplementationView();
 
     expect(markup).toContain("Implementation start path");
+    expect(markup).toContain("<h2>Execution records</h2><span>pending</span>");
+    expect(markup).not.toContain("scaffold_placeholder");
     expect(markup).toContain("Next implementation action");
     expect(markup).toContain("Start a session from the idea intake.");
     expect(markup).toContain("Active session");

@@ -12,6 +12,18 @@ interface ImplementationViewProps {
 
 const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
 
+function runtimeActivityStatusLabel(status: string, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
+  if (status === "scaffold_placeholder") {
+    return copy.pending;
+  }
+
+  if (status === "available" || status === "unavailable" || status === "blocked") {
+    return copy.runtimeStatusLabels[status];
+  }
+
+  return copy.unknown;
+}
+
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
   const { language } = useAppLanguage();
@@ -92,6 +104,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
   const pendingSummaryLabel = pendingSummary.totalPending
     ? copy.implementation.pendingBackgroundTasks(pendingSummary.totalPending)
     : copy.implementation.noBackgroundTasks;
+  const runtimeActivityLabel = runtimeActivityStatusLabel(runtimeActivity.runtimeStatus, copy.implementation);
   const hasActiveSession = Boolean(projections.session);
   const hasImplementationContext = hasActiveSession || autoImplementationRunView.hasRun;
   const hasCompletionSource =
@@ -327,7 +340,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
       <section className="panel runtime-panel">
         <div className="panel-heading">
           <h2>{copy.implementation.runtimeEvidence}</h2>
-          <span>{runtimeActivity.runtimeStatus}</span>
+          <span>{runtimeActivityLabel}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy} onClick={() => void refreshRuntimeStatus()}>
