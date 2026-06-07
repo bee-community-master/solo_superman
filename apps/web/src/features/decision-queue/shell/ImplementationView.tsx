@@ -4,7 +4,7 @@ import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel"
 import type { CommandStatus, EffectTaskStatus, RuntimeActivityProjection } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ImplementationViewProps {
@@ -13,7 +13,7 @@ interface ImplementationViewProps {
 
 const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
 
-type ImplementationCopy = ReturnType<typeof useDecisionQueueCopy>["implementation"];
+type ImplementationCopy = DecisionQueueCopy["implementation"];
 
 function runtimeActivityStatusLabel(status: RuntimeActivityProjection["runtimeStatus"], copy: ImplementationCopy) {
   const labels: Record<RuntimeActivityProjection["runtimeStatus"], string> = {
