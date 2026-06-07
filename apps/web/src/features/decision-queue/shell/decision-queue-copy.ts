@@ -358,6 +358,8 @@ const EN_COPY = {
     blockedQuestions: "Blocked questions",
     reconnectSidecar: "Reconnect local service",
     localServiceConnected: "Local service connected",
+    localServiceUnavailableStatus: "Local service needs reconnect",
+    workspaceStatus: "Workspace",
     diagnosticDetails: "Diagnostic details",
     sidecarUnavailable: "Local service unavailable",
     sidecarUnavailableMessage: "The local service is not connected.",
@@ -368,12 +370,18 @@ const EN_COPY = {
   nav: {
     onboardingReady: "Login + goal setup",
     onboardingComplete: "First questions created",
+    planningPending: "Handoff pending",
+    planningReady: "Planning-ready",
+    planningBlocked: "Needs review",
+    implementationNotStarted: "Not started",
+    permissionNotStarted: "Not started",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "Start a session",
+    sessionSetupStatus: "Setup",
     firstRunAria: "Goal setup guide",
     firstRunTitle: "Goal setup",
     firstRunItems: [
@@ -1834,6 +1842,8 @@ const JA_COPY: typeof EN_COPY = {
     blockedQuestions: "ブロック中の質問",
     reconnectSidecar: "ローカルサービスに再接続",
     localServiceConnected: "ローカルサービス接続済み",
+    localServiceUnavailableStatus: "ローカルサービス再接続が必要",
+    workspaceStatus: "ワークスペース",
     diagnosticDetails: "診断詳細",
     sidecarUnavailable: "ローカルサービスを利用できません",
     sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
@@ -1844,12 +1854,18 @@ const JA_COPY: typeof EN_COPY = {
   nav: {
     onboardingReady: "ログイン + 目標設定",
     onboardingComplete: "最初の質問を作成済み",
+    planningPending: "引き継ぎ待ち",
+    planningReady: "計画準備済み",
+    planningBlocked: "確認が必要",
+    implementationNotStarted: "開始前",
+    permissionNotStarted: "開始前",
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "セッションを始める",
+    sessionSetupStatus: "設定",
     firstRunAria: "目標設定ガイド",
     firstRunTitle: "目標設定",
     firstRunItems: [
@@ -3311,6 +3327,8 @@ const KO_COPY: typeof EN_COPY = {
     blockedQuestions: "차단된 질문",
     reconnectSidecar: "로컬 서비스 다시 연결",
     localServiceConnected: "로컬 서비스 연결됨",
+    localServiceUnavailableStatus: "로컬 서비스 연결 필요",
+    workspaceStatus: "작업공간",
     diagnosticDetails: "진단 세부 정보",
     sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
     sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
@@ -3321,12 +3339,18 @@ const KO_COPY: typeof EN_COPY = {
   nav: {
     onboardingReady: "로그인 + 목표 설정",
     onboardingComplete: "첫 질문 생성됨",
+    planningPending: "인계 대기",
+    planningReady: "계획 준비됨",
+    planningBlocked: "검토 필요",
+    implementationNotStarted: "시작 전",
+    permissionNotStarted: "시작 전",
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
     researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "세션 시작",
+    sessionSetupStatus: "설정",
     firstRunAria: "목표 설정 가이드",
     firstRunTitle: "목표 설정",
     firstRunItems: [

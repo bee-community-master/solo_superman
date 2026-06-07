@@ -336,14 +336,17 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummaryLabel}` : pendingSummaryLabel}</p>
         {runtimeStatus ? (
-          <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
-            {runtimeEvidenceItems.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value ?? copy.implementation.unknown}</dd>
-              </div>
-            ))}
-          </dl>
+          <details className="runtime-diagnostics runtime-evidence-details">
+            <summary>{copy.implementation.runtimeEvidenceDetails}</summary>
+            <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
+              {runtimeEvidenceItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value ?? copy.implementation.unknown}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
         ) : null}
         {runtimeEvidence.reasonLabel ? (
           <details className="runtime-diagnostics">

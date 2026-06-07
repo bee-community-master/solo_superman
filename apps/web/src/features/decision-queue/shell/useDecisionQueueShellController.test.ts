@@ -12,11 +12,30 @@ import {
   autoImplementationWorkspaceCreateBlocker,
   autoImplementationWorkspaceCreateFailureMessage,
   buildAutoImplementationRunCreateRequest,
+  connectionStatusLabel,
+  implementationNavSublabel,
+  permissionNavStatusLabel,
+  planningNavSublabel,
   researchRunControlHasPollableRuns
 } from "./useDecisionQueueShellController";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
 
 const ACTION_ERRORS = DECISION_QUEUE_COPY.en.autoImplementation.actionErrors;
+
+describe("Decision Queue shell chrome labels", () => {
+  it("maps local-service and workflow statuses to product-facing copy", () => {
+    expect(connectionStatusLabel({
+      status: "unavailable",
+      message: "Sidecar connection is unavailable."
+    }, DECISION_QUEUE_COPY.ko)).toBe("로컬 서비스 연결 필요");
+    expect(planningNavSublabel("empty", DECISION_QUEUE_COPY.ko)).toBe("인계 대기");
+    expect(planningNavSublabel("blocked", DECISION_QUEUE_COPY.ko)).toBe("검토 필요");
+    expect(planningNavSublabel("final", DECISION_QUEUE_COPY.en)).toBe("Planning-ready");
+    expect(implementationNavSublabel(null, "not_started", DECISION_QUEUE_COPY.ko)).toBe("시작 전");
+    expect(implementationNavSublabel("running", "not_started", DECISION_QUEUE_COPY.en)).toBe("running");
+    expect(permissionNavStatusLabel("not_started", DECISION_QUEUE_COPY.en)).toBe("Not started");
+  });
+});
 
 describe("autoImplementationWorkspaceCreateBlocker", () => {
   it("blocks workspace creation until a planning-ready handoff exists", () => {

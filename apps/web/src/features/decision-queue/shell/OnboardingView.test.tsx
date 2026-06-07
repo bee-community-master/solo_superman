@@ -75,12 +75,13 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
 }
 
 describe("OnboardingView", () => {
-  it("renders idea inputs before action cards so conditional setup stays below the control that revealed it", () => {
+  it("renders the first-run action strip before setup fields", () => {
     const markup = renderOnboardingView({
       idea: DEFAULT_IDEA,
       intake: DEFAULT_INTAKE
     });
 
+    expect(markup).toContain('class="first-run-action-strip"');
     expect(markup).toContain('class="session-start-layout"');
     expect(markup).toContain('class="session-input-column"');
     expect(markup).toContain('class="session-action-column"');
@@ -97,6 +98,10 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Codex + read-only public web research");
     expect(markup).toContain("Codex + visible ChatGPT Pro/Deep Research");
     expect(markup).not.toContain("Sign in to ChatGPT in your browser first");
+    expect(markup.indexOf("First-question readiness checklist")).toBeLessThan(
+      markup.indexOf("Idea summary")
+    );
+    expect(markup.indexOf("Create first questions")).toBeLessThan(markup.indexOf("Idea summary"));
     expect(markup.indexOf("Idea summary")).toBeLessThan(markup.indexOf("Goal description"));
   });
 
@@ -183,8 +188,8 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
     expect(markup).toContain("Enter an idea summary before starting.");
     expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');
-    expect(markup.indexOf("Create first questions")).toBeLessThan(
-      markup.indexOf("First-question readiness checklist")
+    expect(markup.indexOf("First-question readiness checklist")).toBeLessThan(
+      markup.indexOf("Create first questions")
     );
   });
 

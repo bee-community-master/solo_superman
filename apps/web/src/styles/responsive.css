@@ -153,8 +153,12 @@
     padding: 18px 14px 24px;
   }
 
+  .first-run-action-strip {
+    grid-template-columns: 1fr;
+  }
+
   .session-action-column {
-    order: -1;
+    order: initial;
   }
 
   .right-rail {

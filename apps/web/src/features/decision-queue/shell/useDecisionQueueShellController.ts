@@ -129,6 +129,49 @@ function unavailableRuntimeStatus(message: string): CodexRuntimeStatusDto {
   };
 }
 
+export function connectionStatusLabel(connectionState: ConnectionState, copy: DecisionQueueCopy) {
+  return connectionState.status === "connected"
+    ? copy.layout.localServiceConnected
+    : copy.layout.localServiceUnavailableStatus;
+}
+
+export function planningNavSublabel(
+  status: ReturnType<typeof planningHandoffViewModel>["status"],
+  copy: DecisionQueueCopy
+) {
+  if (status === "final") {
+    return copy.nav.planningReady;
+  }
+
+  if (status === "blocked") {
+    return copy.nav.planningBlocked;
+  }
+
+  return copy.nav.planningPending;
+}
+
+export function implementationNavSublabel(
+  runStatus: string | null,
+  ledgerStatus: string,
+  copy: DecisionQueueCopy
+) {
+  if (runStatus) {
+    return copy.autoImplementation.runStatusLabels[
+      runStatus as keyof typeof copy.autoImplementation.runStatusLabels
+    ] ?? runStatus;
+  }
+
+  if (ledgerStatus === "not_started") {
+    return copy.nav.implementationNotStarted;
+  }
+
+  return ledgerStatus;
+}
+
+export function permissionNavStatusLabel(status: string, copy: DecisionQueueCopy) {
+  return status === "not_started" ? copy.nav.permissionNotStarted : status;
+}
+
 function logRuntimeStatusDiagnostic(level: "info" | "warn", event: string, details: Readonly<Record<string, unknown>>) {
   if (typeof window === "undefined") {
     return;
@@ -1363,7 +1406,7 @@ export function useDecisionQueueShellController() {
   }, [projections.session, refreshProjections, shouldPollResearchRuns]);
 
   const activePageMeta = copy.pageMeta[activePage];
-  const connectionLabel = connectionState.status === "connected" ? copy.layout.localServiceConnected : connectionState.status;
+  const connectionLabel = connectionStatusLabel(connectionState, copy);
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
     {
@@ -1389,13 +1432,17 @@ export function useDecisionQueueShellController() {
     {
       id: "planning" as const,
       label: copy.pageMeta.planning.label,
-      sublabel: planningHandoffView.statusLabel,
+      sublabel: planningNavSublabel(planningHandoffView.status, copy),
       health: planningHandoffView.status === "blocked" ? "blocked" : projections.spec ? "active" : "pending"
     },
     {
       id: "implementation" as const,
       label: copy.pageMeta.implementation.label,
-      sublabel: autoImplementationRunView.hasRun ? autoImplementationRunView.status : implementationStepLedgerView.status,
+      sublabel: implementationNavSublabel(
+        autoImplementationRunView.hasRun ? autoImplementationRunView.status : null,
+        implementationStepLedgerView.status,
+        copy
+      ),
       health: implementationStepLedgerView.status === "completed"
         ? "done"
         : projections.autoImplementationRuns || projections.implementationStepLedger
@@ -1405,7 +1452,10 @@ export function useDecisionQueueShellController() {
     {
       id: "permissions" as const,
       label: copy.pageMeta.permissions.label,
-      sublabel: copy.nav.permissionsSublabel(chatGptDelegationView.status, servicePageUsePermissionView.status),
+      sublabel: copy.nav.permissionsSublabel(
+        permissionNavStatusLabel(chatGptDelegationView.status, copy),
+        permissionNavStatusLabel(servicePageUsePermissionView.status, copy)
+      ),
       health:
         chatGptDelegationView.status !== "not_started" || servicePageUsePermissionView.status !== "not_started"
           ? "active"
