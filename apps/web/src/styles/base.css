@@ -19,6 +19,10 @@
   --solo-red-bg: #fef2f2;
   --solo-amber: #d97706;
   --solo-amber-bg: #fffbeb;
+  --solo-warning-border: #eadcc5;
+  --solo-warning-bg: #fffaf2;
+  --solo-success-border: #b2dad7;
+  --solo-success-bg: #f6fbf9;
   --solo-blue: #1d4ed8;
   --solo-blue-bg: #eff6ff;
   --solo-shadow: 0 18px 42px rgb(17 24 39 / 7%);

@@ -93,16 +93,16 @@
   align-items: start;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) minmax(170px, auto);
-  border: 1px solid #eadcc5;
+  border: 1px solid var(--solo-warning-border);
   border-radius: 12px;
-  background: #fffaf2;
+  background: var(--solo-warning-bg);
   margin-bottom: 16px;
   padding: 14px;
 }
 
 .first-run-action-strip-ready {
-  border-color: #b2dad7;
-  background: #f6fbf9;
+  border-color: var(--solo-success-border);
+  background: var(--solo-success-bg);
 }
 
 .first-run-action-strip > button[type="submit"] {
