@@ -172,7 +172,7 @@ export function permissionNavStatusLabel(
   status: ChatGptDelegationViewModel["status"] | ServicePageUsePermissionViewModel["status"],
   copy: DecisionQueueCopy
 ) {
-  return status === "not_started" ? copy.nav.permissionNotStarted : status;
+  return copy.nav.permissionStatusLabels[status];
 }
 
 function logRuntimeStatusDiagnostic(level: "info" | "warn", event: string, details: Readonly<Record<string, unknown>>) {

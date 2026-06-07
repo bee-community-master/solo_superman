@@ -16,6 +16,7 @@ import type {
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
+  ChatGptBrowserDelegationStatus,
   CodexAccountAuthStatus,
   CodexAccountType,
   CodexRuntimeExecutionMode,
@@ -35,7 +36,8 @@ import type {
   ResearchRouteOutcome,
   ResearchSourceReliability,
   ResearchTaskStatus,
-  ResearchUpdatedQueueCardType
+  ResearchUpdatedQueueCardType,
+  ServicePageUsePermissionStatus
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
@@ -389,7 +391,20 @@ const EN_COPY = {
       completed: "Completed",
       not_started: "Not started"
     } satisfies Record<ImplementationStepStatus | "not_started", string>,
-    permissionNotStarted: "Not started",
+    permissionStatusLabels: {
+      pending_preflight: "Pending preflight",
+      waiting_for_approval: "Waiting for approval",
+      running: "Running",
+      waiting_for_user: "Waiting for user",
+      importing_result: "Importing result",
+      completed: "Completed",
+      blocked: "Blocked",
+      failed: "Failed",
+      revoked: "Revoked",
+      granted: "Granted",
+      final_submit_requested: "Final submit requested",
+      not_started: "Not started"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -1901,7 +1916,20 @@ const JA_COPY: typeof EN_COPY = {
       completed: "完了",
       not_started: "開始前"
     } satisfies Record<ImplementationStepStatus | "not_started", string>,
-    permissionNotStarted: "開始前",
+    permissionStatusLabels: {
+      pending_preflight: "事前確認待ち",
+      waiting_for_approval: "承認待ち",
+      running: "実行中",
+      waiting_for_user: "ユーザー対応待ち",
+      importing_result: "結果を取り込み中",
+      completed: "完了",
+      blocked: "ブロック中",
+      failed: "失敗",
+      revoked: "取り消し済み",
+      granted: "許可済み",
+      final_submit_requested: "最終送信リクエスト済み",
+      not_started: "開始前"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
@@ -3414,7 +3442,20 @@ const KO_COPY: typeof EN_COPY = {
       completed: "완료",
       not_started: "시작 전"
     } satisfies Record<ImplementationStepStatus | "not_started", string>,
-    permissionNotStarted: "시작 전",
+    permissionStatusLabels: {
+      pending_preflight: "사전 확인 대기",
+      waiting_for_approval: "승인 대기",
+      running: "실행 중",
+      waiting_for_user: "사용자 조치 대기",
+      importing_result: "결과 가져오는 중",
+      completed: "완료",
+      blocked: "차단됨",
+      failed: "실패",
+      revoked: "취소됨",
+      granted: "허용됨",
+      final_submit_requested: "최종 제출 요청됨",
+      not_started: "시작 전"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
     researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`

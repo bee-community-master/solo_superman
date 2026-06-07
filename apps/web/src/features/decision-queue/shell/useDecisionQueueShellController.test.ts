@@ -35,6 +35,8 @@ describe("Decision Queue shell chrome labels", () => {
     expect(implementationNavSublabel(null, "clean_code_review_required", DECISION_QUEUE_COPY.ko)).toBe("클린코드 리뷰 필요");
     expect(implementationNavSublabel("running", "not_started", DECISION_QUEUE_COPY.en)).toBe("running");
     expect(permissionNavStatusLabel("not_started", DECISION_QUEUE_COPY.en)).toBe("Not started");
+    expect(permissionNavStatusLabel("waiting_for_approval", DECISION_QUEUE_COPY.ko)).toBe("승인 대기");
+    expect(permissionNavStatusLabel("final_submit_requested", DECISION_QUEUE_COPY.ja)).toBe("最終送信リクエスト済み");
   });
 });
 
