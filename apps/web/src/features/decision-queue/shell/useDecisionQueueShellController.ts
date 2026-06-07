@@ -165,11 +165,7 @@ export function implementationNavSublabel(
     return copy.autoImplementation.runStatusLabels[runStatus];
   }
 
-  if (ledgerStatus === "not_started") {
-    return copy.nav.implementationNotStarted;
-  }
-
-  return ledgerStatus;
+  return copy.nav.implementationLedgerStatusLabels[ledgerStatus];
 }
 
 export function permissionNavStatusLabel(

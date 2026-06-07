@@ -32,6 +32,7 @@ describe("Decision Queue shell chrome labels", () => {
     expect(planningNavSublabel("blocked", DECISION_QUEUE_COPY.ko)).toBe("검토 필요");
     expect(planningNavSublabel("final", DECISION_QUEUE_COPY.en)).toBe("Planning-ready");
     expect(implementationNavSublabel(null, "not_started", DECISION_QUEUE_COPY.ko)).toBe("시작 전");
+    expect(implementationNavSublabel(null, "clean_code_review_required", DECISION_QUEUE_COPY.ko)).toBe("클린코드 리뷰 필요");
     expect(implementationNavSublabel("running", "not_started", DECISION_QUEUE_COPY.en)).toBe("running");
     expect(permissionNavStatusLabel("not_started", DECISION_QUEUE_COPY.en)).toBe("Not started");
   });
