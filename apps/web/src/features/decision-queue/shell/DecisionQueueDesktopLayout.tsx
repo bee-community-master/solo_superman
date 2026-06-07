@@ -1,5 +1,4 @@
 import { type ReactNode } from "react";
-import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
 import { LanguageSwitcher } from "../../../shared/i18n/app-language";
 import { DECISION_QUEUE_PAGE_ORDER, useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -141,7 +140,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
         <section className="desktop-workspace" aria-labelledby="active-view-title">
           <div className="workspace-heading">
             <div>
-              <p className="view-kicker">{CONTRACT_SCHEMA_VERSION}</p>
+              <p className="view-kicker">{copy.layout.workspaceStatus}</p>
               <h2 id="active-view-title">{activePageMeta.title}</h2>
               <p>{activePageMeta.description}</p>
             </div>

@@ -1,14 +1,12 @@
 import type { IfStopNowArtifactProjection } from "@solo-superman/contracts";
 import { Phase15bReadinessPanel } from "../Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "../PlanningHandoffPanel";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface PlanningViewProps {
   readonly controller: DecisionQueueShellController;
 }
-
-type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
 
 function PlanningTextList({ ariaLabel, items }: { readonly ariaLabel?: string; readonly items: readonly string[] }) {
   return (

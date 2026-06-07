@@ -20,7 +20,7 @@ import {
   type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
-import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
+import { autoImplementationRunViewModel, type AutoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import {
   buildAutoImplementationGitHubIssueApprovedRequest,
   buildAutoImplementationGitHubIssueDryRunRequest
@@ -47,10 +47,16 @@ import {
   canPlanCurrentStageAutoImplementationWorkerJob,
   latestCurrentStageAutoImplementationWorkerJob
 } from "../auto-implementation-worker-job-selection";
-import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
-import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
+import { chatGptDelegationViewModel, type ChatGptDelegationViewModel } from "../ChatGptDelegationPanel";
+import {
+  implementationStepLedgerViewModel,
+  type ImplementationStepLedgerViewModel
+} from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
+import {
+  servicePageUsePermissionViewModel,
+  type ServicePageUsePermissionViewModel
+} from "../ServicePageUsePermissionPanel";
 import {
   confidencePlaceholder,
   decisionQueueRecoveryViewModel,
@@ -127,6 +133,46 @@ function unavailableRuntimeStatus(message: string): CodexRuntimeStatusDto {
     },
     reason: message
   };
+}
+
+export function connectionStatusLabel(connectionState: ConnectionState, copy: DecisionQueueCopy) {
+  return connectionState.status === "connected"
+    ? copy.layout.localServiceConnected
+    : copy.layout.localServiceUnavailableStatus;
+}
+
+export function planningNavSublabel(
+  status: ReturnType<typeof planningHandoffViewModel>["status"],
+  copy: DecisionQueueCopy
+) {
+  if (status === "final") {
+    return copy.nav.planningReady;
+  }
+
+  if (status === "blocked") {
+    return copy.nav.planningBlocked;
+  }
+
+  return copy.nav.planningPending;
+}
+
+export function implementationNavSublabel(
+  runStatus: AutoImplementationRunViewModel["status"] | null,
+  ledgerStatus: ImplementationStepLedgerViewModel["status"],
+  copy: DecisionQueueCopy
+) {
+  if (runStatus) {
+    return copy.autoImplementation.runStatusLabels[runStatus];
+  }
+
+  return copy.nav.implementationLedgerStatusLabels[ledgerStatus];
+}
+
+export function permissionNavStatusLabel(
+  status: ChatGptDelegationViewModel["status"] | ServicePageUsePermissionViewModel["status"],
+  copy: DecisionQueueCopy
+) {
+  return copy.nav.permissionStatusLabels[status];
 }
 
 function logRuntimeStatusDiagnostic(level: "info" | "warn", event: string, details: Readonly<Record<string, unknown>>) {
@@ -1363,7 +1409,7 @@ export function useDecisionQueueShellController() {
   }, [projections.session, refreshProjections, shouldPollResearchRuns]);
 
   const activePageMeta = copy.pageMeta[activePage];
-  const connectionLabel = connectionState.status === "connected" ? copy.layout.localServiceConnected : connectionState.status;
+  const connectionLabel = connectionStatusLabel(connectionState, copy);
   const connectionTone = connectionState.status === "connected" ? "connected" : connectionState.status;
   const navItems = [
     {
@@ -1389,13 +1435,17 @@ export function useDecisionQueueShellController() {
     {
       id: "planning" as const,
       label: copy.pageMeta.planning.label,
-      sublabel: planningHandoffView.statusLabel,
+      sublabel: planningNavSublabel(planningHandoffView.status, copy),
       health: planningHandoffView.status === "blocked" ? "blocked" : projections.spec ? "active" : "pending"
     },
     {
       id: "implementation" as const,
       label: copy.pageMeta.implementation.label,
-      sublabel: autoImplementationRunView.hasRun ? autoImplementationRunView.status : implementationStepLedgerView.status,
+      sublabel: implementationNavSublabel(
+        autoImplementationRunView.hasRun ? autoImplementationRunView.status : null,
+        implementationStepLedgerView.status,
+        copy
+      ),
       health: implementationStepLedgerView.status === "completed"
         ? "done"
         : projections.autoImplementationRuns || projections.implementationStepLedger
@@ -1405,7 +1455,10 @@ export function useDecisionQueueShellController() {
     {
       id: "permissions" as const,
       label: copy.pageMeta.permissions.label,
-      sublabel: copy.nav.permissionsSublabel(chatGptDelegationView.status, servicePageUsePermissionView.status),
+      sublabel: copy.nav.permissionsSublabel(
+        permissionNavStatusLabel(chatGptDelegationView.status, copy),
+        permissionNavStatusLabel(servicePageUsePermissionView.status, copy)
+      ),
       health:
         chatGptDelegationView.status !== "not_started" || servicePageUsePermissionView.status !== "not_started"
           ? "active"

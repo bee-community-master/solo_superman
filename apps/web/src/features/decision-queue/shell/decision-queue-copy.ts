@@ -16,12 +16,16 @@ import type {
   BusinessCriticalQuestionCategory,
   BusinessCriticIntensity,
   BusinessCriticPressureKind,
+  ChatGptBrowserDelegationStatus,
   CodexAccountAuthStatus,
   CodexAccountType,
   CodexRuntimeExecutionMode,
   CodexRuntimeStatus,
+  CommandStatus,
   DecisionEvidencePackGateStatus,
+  EffectTaskStatus,
   EvidenceBalanceStatus,
+  ImplementationStepStatus,
   ProjectPurposeMode,
   ResearchImpact,
   ResearchQualityGateCheckCode,
@@ -32,7 +36,8 @@ import type {
   ResearchRouteOutcome,
   ResearchSourceReliability,
   ResearchTaskStatus,
-  ResearchUpdatedQueueCardType
+  ResearchUpdatedQueueCardType,
+  ServicePageUsePermissionStatus
 } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import type { ChatGptDelegationViewModelCopy } from "../ChatGptDelegationPanel";
@@ -358,6 +363,8 @@ const EN_COPY = {
     blockedQuestions: "Blocked questions",
     reconnectSidecar: "Reconnect local service",
     localServiceConnected: "Local service connected",
+    localServiceUnavailableStatus: "Local service needs reconnect",
+    workspaceStatus: "Workspace",
     diagnosticDetails: "Diagnostic details",
     sidecarUnavailable: "Local service unavailable",
     sidecarUnavailableMessage: "The local service is not connected.",
@@ -368,12 +375,42 @@ const EN_COPY = {
   nav: {
     onboardingReady: "Login + goal setup",
     onboardingComplete: "First questions created",
+    planningPending: "Handoff pending",
+    planningReady: "Planning-ready",
+    planningBlocked: "Needs review",
+    implementationLedgerStatusLabels: {
+      planned: "Planned",
+      ready: "Ready",
+      implementing: "Implementing",
+      committed: "Committed",
+      review_required: "Review required",
+      clean_code_review_required: "Clean-code review required",
+      tests_required: "Tests required",
+      blocked: "Blocked",
+      completed: "Completed",
+      not_started: "Not started"
+    } satisfies Record<ImplementationStepStatus | "not_started", string>,
+    permissionStatusLabels: {
+      pending_preflight: "Pending preflight",
+      waiting_for_approval: "Waiting for approval",
+      running: "Running",
+      waiting_for_user: "Waiting for user",
+      importing_result: "Importing result",
+      completed: "Completed",
+      blocked: "Blocked",
+      failed: "Failed",
+      revoked: "Revoked",
+      granted: "Granted",
+      final_submit_requested: "Final submit requested",
+      not_started: "Not started"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "Start a session",
+    sessionSetupStatus: "Setup",
     firstRunAria: "Goal setup guide",
     firstRunTitle: "Goal setup",
     firstRunItems: [
@@ -954,6 +991,22 @@ const EN_COPY = {
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
     pending: "pending",
+    commandStatusLabels: {
+      pending: "pending",
+      partially_complete: "partially complete",
+      complete: "complete",
+      failed: "failed",
+      blocked: "blocked"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "queued",
+      leased: "leased",
+      running: "running",
+      succeeded: "succeeded",
+      failed: "failed",
+      blocked: "blocked",
+      cancelled: "cancelled"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "Refresh status",
     refreshRuntimeStatus: "Refresh runtime status",
     startGuideTitle: "Implementation start path",
@@ -1834,6 +1887,8 @@ const JA_COPY: typeof EN_COPY = {
     blockedQuestions: "ブロック中の質問",
     reconnectSidecar: "ローカルサービスに再接続",
     localServiceConnected: "ローカルサービス接続済み",
+    localServiceUnavailableStatus: "ローカルサービス再接続が必要",
+    workspaceStatus: "ワークスペース",
     diagnosticDetails: "診断詳細",
     sidecarUnavailable: "ローカルサービスを利用できません",
     sidecarUnavailableMessage: "ローカルサービスに接続されていません。",
@@ -1844,12 +1899,42 @@ const JA_COPY: typeof EN_COPY = {
   nav: {
     onboardingReady: "ログイン + 目標設定",
     onboardingComplete: "最初の質問を作成済み",
+    planningPending: "引き継ぎ待ち",
+    planningReady: "計画準備済み",
+    planningBlocked: "確認が必要",
+    implementationLedgerStatusLabels: {
+      planned: "計画済み",
+      ready: "準備済み",
+      implementing: "実装中",
+      committed: "コミット済み",
+      review_required: "レビューが必要",
+      clean_code_review_required: "クリーンコードレビューが必要",
+      tests_required: "テストが必要",
+      blocked: "ブロック中",
+      completed: "完了",
+      not_started: "開始前"
+    } satisfies Record<ImplementationStepStatus | "not_started", string>,
+    permissionStatusLabels: {
+      pending_preflight: "事前確認待ち",
+      waiting_for_approval: "承認待ち",
+      running: "実行中",
+      waiting_for_user: "ユーザー対応待ち",
+      importing_result: "結果を取り込み中",
+      completed: "完了",
+      blocked: "ブロック中",
+      failed: "失敗",
+      revoked: "取り消し済み",
+      granted: "許可済み",
+      final_submit_requested: "最終送信リクエスト済み",
+      not_started: "開始前"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active} active · ${next} next`,
     researchSublabel: (tasks: number, runs: number) => `${tasks} tasks · ${runs} runs`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "セッションを始める",
+    sessionSetupStatus: "設定",
     firstRunAria: "目標設定ガイド",
     firstRunTitle: "目標設定",
     firstRunItems: [
@@ -2420,6 +2505,22 @@ const JA_COPY: typeof EN_COPY = {
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
     pending: "保留中",
+    commandStatusLabels: {
+      pending: "保留中",
+      partially_complete: "一部完了",
+      complete: "完了",
+      failed: "失敗",
+      blocked: "ブロック中"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "キュー待ち",
+      leased: "処理中",
+      running: "実行中",
+      succeeded: "成功",
+      failed: "失敗",
+      blocked: "ブロック中",
+      cancelled: "キャンセル済み"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "ステータス更新",
     refreshRuntimeStatus: "実行環境の状態を更新",
     startGuideTitle: "実装開始パス",
@@ -3311,6 +3412,8 @@ const KO_COPY: typeof EN_COPY = {
     blockedQuestions: "차단된 질문",
     reconnectSidecar: "로컬 서비스 다시 연결",
     localServiceConnected: "로컬 서비스 연결됨",
+    localServiceUnavailableStatus: "로컬 서비스 연결 필요",
+    workspaceStatus: "작업공간",
     diagnosticDetails: "진단 세부 정보",
     sidecarUnavailable: "로컬 서비스를 사용할 수 없음",
     sidecarUnavailableMessage: "로컬 서비스가 연결되어 있지 않습니다.",
@@ -3321,12 +3424,42 @@ const KO_COPY: typeof EN_COPY = {
   nav: {
     onboardingReady: "로그인 + 목표 설정",
     onboardingComplete: "첫 질문 생성됨",
+    planningPending: "인계 대기",
+    planningReady: "계획 준비됨",
+    planningBlocked: "검토 필요",
+    implementationLedgerStatusLabels: {
+      planned: "계획됨",
+      ready: "준비됨",
+      implementing: "구현 중",
+      committed: "커밋됨",
+      review_required: "리뷰 필요",
+      clean_code_review_required: "클린코드 리뷰 필요",
+      tests_required: "테스트 필요",
+      blocked: "차단됨",
+      completed: "완료",
+      not_started: "시작 전"
+    } satisfies Record<ImplementationStepStatus | "not_started", string>,
+    permissionStatusLabels: {
+      pending_preflight: "사전 확인 대기",
+      waiting_for_approval: "승인 대기",
+      running: "실행 중",
+      waiting_for_user: "사용자 조치 대기",
+      importing_result: "결과 가져오는 중",
+      completed: "완료",
+      blocked: "차단됨",
+      failed: "실패",
+      revoked: "취소됨",
+      granted: "허용됨",
+      final_submit_requested: "최종 제출 요청됨",
+      not_started: "시작 전"
+    } satisfies Record<ChatGptBrowserDelegationStatus | ServicePageUsePermissionStatus | "not_started", string>,
     questionsSublabel: (active: number, next: number) => `${active}개 활성 · 다음 ${next}개`,
     researchSublabel: (tasks: number, runs: number) => `${tasks}개 작업 · ${runs}개 실행`,
     permissionsSublabel: (workspaceStatus: string, permissionStatus: string) => `${workspaceStatus} · ${permissionStatus}`
   },
   questions: {
     sessionStart: "세션 시작",
+    sessionSetupStatus: "설정",
     firstRunAria: "목표 설정 가이드",
     firstRunTitle: "목표 설정",
     firstRunItems: [
@@ -3895,6 +4028,22 @@ const KO_COPY: typeof EN_COPY = {
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "대기 중",
+    commandStatusLabels: {
+      pending: "대기 중",
+      partially_complete: "일부 완료",
+      complete: "완료",
+      failed: "실패",
+      blocked: "차단됨"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "대기열",
+      leased: "처리 중",
+      running: "실행 중",
+      succeeded: "성공",
+      failed: "실패",
+      blocked: "차단됨",
+      cancelled: "취소됨"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "상태 새로고침",
     refreshRuntimeStatus: "실행 환경 상태 새로고침",
     startGuideTitle: "구현 시작 경로",

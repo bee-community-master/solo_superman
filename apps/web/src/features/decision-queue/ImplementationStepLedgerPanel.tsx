@@ -11,7 +11,7 @@ import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 import type { DecisionQueueCopy } from "./shell/decision-queue-copy";
 
 export interface ImplementationStepLedgerViewModel {
-  readonly status: string;
+  readonly status: ImplementationStepRecord["status"] | "not_started";
   readonly summary: string;
   readonly trackerLabel: string;
   readonly progressReport: string;

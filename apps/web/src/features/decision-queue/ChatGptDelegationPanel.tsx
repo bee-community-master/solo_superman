@@ -6,7 +6,7 @@ import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 import { formatListWithFallback } from "./text-formatting";
 
 export interface ChatGptDelegationViewModel {
-  readonly status: string;
+  readonly status: ChatGptBrowserDelegationProjection["currentStatus"] | "not_started";
   readonly summary: string;
   readonly explanation: string;
   readonly visibleHandoffLabel: string;

@@ -1,4 +1,3 @@
-import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { userFacingCodexRuntimeReason } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -36,6 +35,9 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     startCodexLogin
   } = controller;
   const readinessClassName = canStart ? "start-readiness start-readiness-ready" : "start-readiness start-readiness-blocked";
+  const actionStripClassName = canStart
+    ? "first-run-action-strip first-run-action-strip-ready"
+    : "first-run-action-strip first-run-action-strip-blocked";
   const codexAccount = controller.runtimeStatus?.account ?? null;
   const visibleChatGptResearchEnabled = initialResearchAutomationAllowsVisibleChatGpt(
     initialResearchAutomationPermission
@@ -51,8 +53,24 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
       <form className="panel start-panel" onSubmit={runInitialQueueFlow}>
         <div className="panel-heading">
           <h2>{copy.questions.sessionStart}</h2>
-          <span>{CONTRACT_SCHEMA_VERSION}</span>
+          <span>{copy.questions.sessionSetupStatus}</span>
         </div>
+        <section className={actionStripClassName} aria-label={copy.questions.startReadinessAria}>
+          <div className={readinessClassName} aria-live="polite">
+            <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
+            <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
+            {initialQueueStartBlockerMessages.length ? (
+              <ul>
+                {initialQueueStartBlockerMessages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <button type="submit" disabled={!canStart || isBusy}>
+            {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
+          </button>
+        </section>
         <div className="session-start-layout">
           <div className="session-input-column">
             <section className="start-guide goal-setup-guide" aria-label={copy.questions.firstRunAria}>
@@ -135,20 +153,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             ) : null}
           </div>
           <div className="session-action-column">
-            <button type="submit" disabled={!canStart || isBusy}>
-              {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
-            </button>
-            <section className={readinessClassName} aria-label={copy.questions.startReadinessAria} aria-live="polite">
-              <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
-              <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
-              {initialQueueStartBlockerMessages.length ? (
-                <ul>
-                  {initialQueueStartBlockerMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
             <fieldset className="mode-fieldset">
               <legend>{copy.questions.initialResearchAutomationPermission}</legend>
               {copy.questions.initialResearchAutomationPermissionOptions.map((option) => (

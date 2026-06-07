@@ -10,7 +10,7 @@ import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegat
 import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import { uniqueTextItems } from "./list-values";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -38,8 +38,6 @@ function latestResearchResultForTask(
 
   return undefined;
 }
-
-type DecisionQueueCopy = ReturnType<typeof useDecisionQueueCopy>;
 
 function safeExternalUrl(value: string | undefined) {
   if (!value) {

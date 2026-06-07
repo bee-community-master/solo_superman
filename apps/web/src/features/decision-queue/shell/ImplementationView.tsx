@@ -1,9 +1,10 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ReleaseReadinessPanel } from "../ReleaseReadinessPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
+import type { CommandStatus, EffectTaskStatus, RuntimeActivityProjection } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
-import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ImplementationViewProps {
@@ -11,6 +12,27 @@ interface ImplementationViewProps {
 }
 
 const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
+
+type ImplementationCopy = DecisionQueueCopy["implementation"];
+
+function runtimeActivityStatusLabel(status: RuntimeActivityProjection["runtimeStatus"], copy: ImplementationCopy) {
+  const labels: Record<RuntimeActivityProjection["runtimeStatus"], string> = {
+    scaffold_placeholder: copy.pending,
+    available: copy.runtimeStatusLabels.available,
+    unavailable: copy.runtimeStatusLabels.unavailable,
+    blocked: copy.runtimeStatusLabels.blocked
+  };
+
+  return labels[status];
+}
+
+function commandStatusLabel(status: CommandStatus, copy: ImplementationCopy) {
+  return copy.commandStatusLabels[status];
+}
+
+function effectStatusLabel(status: EffectTaskStatus, copy: ImplementationCopy) {
+  return copy.effectStatusLabels[status];
+}
 
 export function ImplementationView({ controller }: ImplementationViewProps) {
   const copy = useDecisionQueueCopy();
@@ -92,6 +114,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
   const pendingSummaryLabel = pendingSummary.totalPending
     ? copy.implementation.pendingBackgroundTasks(pendingSummary.totalPending)
     : copy.implementation.noBackgroundTasks;
+  const runtimeActivityLabel = runtimeActivityStatusLabel(runtimeActivity.runtimeStatus, copy.implementation);
   const hasActiveSession = Boolean(projections.session);
   const hasImplementationContext = hasActiveSession || autoImplementationRunView.hasRun;
   const hasCompletionSource =
@@ -327,7 +350,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
       <section className="panel runtime-panel">
         <div className="panel-heading">
           <h2>{copy.implementation.runtimeEvidence}</h2>
-          <span>{runtimeActivity.runtimeStatus}</span>
+          <span>{runtimeActivityLabel}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy} onClick={() => void refreshRuntimeStatus()}>
@@ -336,14 +359,17 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
         </div>
         <p>{runtimeStatus ? `${copy.implementation.adapterPrefix} ${runtimeStatusLabel}. ${pendingSummaryLabel}` : pendingSummaryLabel}</p>
         {runtimeStatus ? (
-          <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
-            {runtimeEvidenceItems.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value ?? copy.implementation.unknown}</dd>
-              </div>
-            ))}
-          </dl>
+          <details className="runtime-diagnostics runtime-evidence-details">
+            <summary>{copy.implementation.runtimeEvidenceDetails}</summary>
+            <dl className="readiness-grid" aria-label={copy.implementation.runtimeEvidenceDetails}>
+              {runtimeEvidenceItems.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value ?? copy.implementation.unknown}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
         ) : null}
         {runtimeEvidence.reasonLabel ? (
           <details className="runtime-diagnostics">
@@ -355,7 +381,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           <ul className="effect-list">
             {statuses.map((status) => (
               <li key={status.commandId}>
-                {status.commandStatus}: {status.effects.length} {copy.implementation.effectSuffix}
+                {commandStatusLabel(status.commandStatus, copy.implementation)}: {status.effects.length} {copy.implementation.effectSuffix}
               </li>
             ))}
           </ul>
@@ -374,12 +400,16 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             commandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}</span>
+                <span>
+                  {entry.status
+                    ? commandStatusLabel(entry.status.commandStatus, copy.implementation)
+                    : entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}
+                </span>
                 {entry.status?.effects.length ? (
                   <ul className="effect-list">
                     {entry.status.effects.map((effect) => (
                       <li key={effect.effectTaskId}>
-                        {effect.effectType}: {effect.status}
+                        {effect.effectType}: {effectStatusLabel(effect.status, copy.implementation)}
                       </li>
                     ))}
                   </ul>

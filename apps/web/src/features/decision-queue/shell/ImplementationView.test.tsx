@@ -145,11 +145,49 @@ function activeSessionProjection() {
   } as const;
 }
 
+function commandStatusActivityFixture(): StatusEndpointDto {
+  const commandId = "cmd_activity_label" as StatusEndpointDto["commandId"];
+
+  return {
+    commandId,
+    category: "accepted",
+    commandStatus: "partially_complete",
+    eventIds: ["event_activity_label" as StatusEndpointDto["eventIds"][number]],
+    effects: [
+      {
+        effectTaskId: "effect_task_activity_label" as StatusEndpointDto["effects"][number]["effectTaskId"],
+        effectType: "queue_projection_effect",
+        status: "running",
+        sourceCommandId: commandId,
+        sourceEventIds: ["event_activity_label" as StatusEndpointDto["eventIds"][number]],
+        correlationId: "corr_activity_label" as StatusEndpointDto["effects"][number]["correlationId"],
+        idempotencyKey: "activity-label",
+        attemptCount: 1,
+        maxAttempts: 3,
+        queuedAt: "2026-05-23T00:00:00.000Z",
+        updatedAt: "2026-05-23T00:00:00.000Z",
+        schemaVersion: "1" as StatusEndpointDto["effects"][number]["schemaVersion"]
+      }
+    ],
+    pendingEffectSummary: {
+      totalPending: 1,
+      byType: {
+        queue_projection_effect: 1
+      },
+      visibleLabel: "1 pending effect"
+    },
+    projectionHints: [],
+    lastUpdatedAt: "2026-05-23T00:00:00.000Z"
+  };
+}
+
 describe("ImplementationView", () => {
   it("shows the implementation start path before workspace creation", () => {
     const markup = renderImplementationView();
 
     expect(markup).toContain("Implementation start path");
+    expect(markup).toContain("<h2>Execution records</h2><span>pending</span>");
+    expect(markup).not.toContain("scaffold_placeholder");
     expect(markup).toContain("Next implementation action");
     expect(markup).toContain("Start a session from the idea intake.");
     expect(markup).toContain("Active session");
@@ -333,5 +371,28 @@ describe("ImplementationView", () => {
 
     expect(markup).toContain("도구 사용 불가. 대기 중인 백그라운드 작업은 없습니다.");
     expect(markup).not.toContain("No background tasks are pending.");
+  });
+
+  it("localizes implementation command and effect activity statuses", () => {
+    const status = commandStatusActivityFixture();
+    const markup = renderImplementationView({
+      commandLog: [
+        {
+          id: "activity-label-log",
+          label: "Run queued projection",
+          createdAt: "2026-05-23T00:00:00.000Z",
+          status
+        }
+      ],
+      pendingSummary: pendingEffectSummary([status]),
+      runtimeActivity: runtimeActivityProjectionFromStatuses([status]),
+      statuses: [status]
+    }, "ko");
+
+    expect(markup).toContain("일부 완료: 1 개");
+    expect(markup).toContain("<span>일부 완료</span>");
+    expect(markup).toContain("queue_projection_effect: 실행 중");
+    expect(markup).not.toContain("partially_complete");
+    expect(markup).not.toContain("queue_projection_effect: running");
   });
 });

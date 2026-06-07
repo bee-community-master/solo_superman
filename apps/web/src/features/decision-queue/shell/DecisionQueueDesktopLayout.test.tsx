@@ -14,39 +14,39 @@ describe("DecisionQueueDesktopLayout", () => {
       {
         id: "onboarding",
         label: pageMeta.onboarding.label,
-        sublabel: "not_started",
+        sublabel: "Login + goal setup",
         health: "pending"
       },
       {
         id: "questions",
         label: pageMeta.questions.label,
-        sublabel: "not_started",
+        sublabel: "0 active · 0 next",
         health: "pending",
         badge: 0
       },
       {
         id: "research",
         label: pageMeta.research.label,
-        sublabel: "not_started",
+        sublabel: "0 tasks · 0 runs",
         health: "pending",
         badge: undefined
       },
       {
         id: "planning",
         label: pageMeta.planning.label,
-        sublabel: "not_started",
+        sublabel: "Handoff pending",
         health: "pending"
       },
       {
         id: "implementation",
         label: pageMeta.implementation.label,
-        sublabel: "not_started",
+        sublabel: "Not started",
         health: "pending"
       },
       {
         id: "permissions",
         label: pageMeta.permissions.label,
-        sublabel: "not_started",
+        sublabel: "Not started · Not started",
         health: "pending"
       }
     ] satisfies DecisionQueueDesktopLayoutController["navItems"];
@@ -93,5 +93,8 @@ describe("DecisionQueueDesktopLayout", () => {
     expect(markup).not.toContain('<span class="phase-label">O</span>');
     expect(markup).not.toContain('<span class="phase-label">I</span>');
     expect(markup).toContain("Local service connected");
+    expect(markup).toContain('<p class="view-kicker">Workspace</p>');
+    expect(markup).not.toContain("solo-superman.contracts.v1");
+    expect(markup).not.toContain("not_started");
   });
 });

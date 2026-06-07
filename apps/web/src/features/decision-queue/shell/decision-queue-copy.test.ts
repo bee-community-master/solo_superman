@@ -21,6 +21,10 @@ describe("decision queue language copy", () => {
       DECISION_QUEUE_PAGE_ORDER.map((pageId) => DECISION_QUEUE_COPY.en.pageMeta[pageId].shortLabel)
     ).not.toEqual(["O", "Q", "R", "P", "I", "A"]);
     expect(DECISION_QUEUE_COPY.ko.layout.localServiceConnected).toBe("로컬 서비스 연결됨");
+    expect(DECISION_QUEUE_COPY.ko.layout.localServiceUnavailableStatus).toBe("로컬 서비스 연결 필요");
+    expect(DECISION_QUEUE_COPY.ko.layout.workspaceStatus).toBe("작업공간");
+    expect(DECISION_QUEUE_COPY.ko.nav.planningPending).toBe("인계 대기");
+    expect(DECISION_QUEUE_COPY.ko.nav.implementationLedgerStatusLabels.not_started).toBe("시작 전");
     expect(DECISION_QUEUE_COPY.ko.layout.diagnosticDetails).toBe("진단 세부 정보");
     expect(DECISION_QUEUE_COPY.ja.pageMeta.onboarding.label).toBe("オンボーディング");
     expect(DECISION_QUEUE_COPY.ko.pageMeta.onboarding.label).toBe("온보딩");
