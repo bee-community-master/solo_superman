@@ -81,7 +81,7 @@ describe("OnboardingView", () => {
       intake: DEFAULT_INTAKE
     });
 
-    expect(markup).toContain('class="first-run-action-strip"');
+    expect(markup).toContain('class="first-run-action-strip first-run-action-strip-blocked"');
     expect(markup).toContain('class="session-start-layout"');
     expect(markup).toContain('class="session-input-column"');
     expect(markup).toContain('class="session-action-column"');
@@ -201,6 +201,7 @@ describe("OnboardingView", () => {
 
     expect(markup).toContain("Ready to create first questions");
     expect(markup).toContain("Everything needed for the first question is in place.");
+    expect(markup).toContain('class="first-run-action-strip first-run-action-strip-ready"');
     expect(markup).toContain("<button type=\"submit\">Create first questions</button>");
   });
 

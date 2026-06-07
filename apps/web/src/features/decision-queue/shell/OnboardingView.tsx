@@ -35,6 +35,9 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     startCodexLogin
   } = controller;
   const readinessClassName = canStart ? "start-readiness start-readiness-ready" : "start-readiness start-readiness-blocked";
+  const actionStripClassName = canStart
+    ? "first-run-action-strip first-run-action-strip-ready"
+    : "first-run-action-strip first-run-action-strip-blocked";
   const codexAccount = controller.runtimeStatus?.account ?? null;
   const visibleChatGptResearchEnabled = initialResearchAutomationAllowsVisibleChatGpt(
     initialResearchAutomationPermission
@@ -52,7 +55,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
           <h2>{copy.questions.sessionStart}</h2>
           <span>{copy.questions.sessionSetupStatus}</span>
         </div>
-        <section className="first-run-action-strip" aria-label={copy.questions.startReadinessAria}>
+        <section className={actionStripClassName} aria-label={copy.questions.startReadinessAria}>
           <div className={readinessClassName} aria-live="polite">
             <strong>{canStart ? copy.questions.startReadinessReadyTitle : copy.questions.startReadinessBlockedTitle}</strong>
             <p>{canStart ? copy.questions.startReadinessReadyHelp : copy.questions.startReadinessBlockedHelp}</p>
