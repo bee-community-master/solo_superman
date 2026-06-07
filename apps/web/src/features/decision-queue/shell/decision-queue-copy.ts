@@ -378,7 +378,6 @@ const EN_COPY = {
     planningPending: "Handoff pending",
     planningReady: "Planning-ready",
     planningBlocked: "Needs review",
-    implementationNotStarted: "Not started",
     implementationLedgerStatusLabels: {
       planned: "Planned",
       ready: "Ready",
@@ -1903,7 +1902,6 @@ const JA_COPY: typeof EN_COPY = {
     planningPending: "引き継ぎ待ち",
     planningReady: "計画準備済み",
     planningBlocked: "確認が必要",
-    implementationNotStarted: "開始前",
     implementationLedgerStatusLabels: {
       planned: "計画済み",
       ready: "準備済み",
@@ -3429,7 +3427,6 @@ const KO_COPY: typeof EN_COPY = {
     planningPending: "인계 대기",
     planningReady: "계획 준비됨",
     planningBlocked: "검토 필요",
-    implementationNotStarted: "시작 전",
     implementationLedgerStatusLabels: {
       planned: "계획됨",
       ready: "준비됨",
