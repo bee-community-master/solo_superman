@@ -1,6 +1,7 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ReleaseReadinessPanel } from "../ReleaseReadinessPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
+import type { CommandStatus, EffectTaskStatus } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -22,6 +23,14 @@ function runtimeActivityStatusLabel(status: string, copy: ReturnType<typeof useD
   }
 
   return copy.unknown;
+}
+
+function commandStatusLabel(status: CommandStatus, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
+  return copy.commandStatusLabels[status];
+}
+
+function effectStatusLabel(status: EffectTaskStatus, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
+  return copy.effectStatusLabels[status];
 }
 
 export function ImplementationView({ controller }: ImplementationViewProps) {
@@ -371,7 +380,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
           <ul className="effect-list">
             {statuses.map((status) => (
               <li key={status.commandId}>
-                {status.commandStatus}: {status.effects.length} {copy.implementation.effectSuffix}
+                {commandStatusLabel(status.commandStatus, copy.implementation)}: {status.effects.length} {copy.implementation.effectSuffix}
               </li>
             ))}
           </ul>
@@ -390,12 +399,16 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             commandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}</span>
+                <span>
+                  {entry.status
+                    ? commandStatusLabel(entry.status.commandStatus, copy.implementation)
+                    : entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}
+                </span>
                 {entry.status?.effects.length ? (
                   <ul className="effect-list">
                     {entry.status.effects.map((effect) => (
                       <li key={effect.effectTaskId}>
-                        {effect.effectType}: {effect.status}
+                        {effect.effectType}: {effectStatusLabel(effect.status, copy.implementation)}
                       </li>
                     ))}
                   </ul>

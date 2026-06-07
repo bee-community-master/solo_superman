@@ -20,7 +20,9 @@ import type {
   CodexAccountType,
   CodexRuntimeExecutionMode,
   CodexRuntimeStatus,
+  CommandStatus,
   DecisionEvidencePackGateStatus,
+  EffectTaskStatus,
   EvidenceBalanceStatus,
   ProjectPurposeMode,
   ResearchImpact,
@@ -962,6 +964,22 @@ const EN_COPY = {
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
     pending: "pending",
+    commandStatusLabels: {
+      pending: "pending",
+      partially_complete: "partially complete",
+      complete: "complete",
+      failed: "failed",
+      blocked: "blocked"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "queued",
+      leased: "leased",
+      running: "running",
+      succeeded: "succeeded",
+      failed: "failed",
+      blocked: "blocked",
+      cancelled: "cancelled"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "Refresh status",
     refreshRuntimeStatus: "Refresh runtime status",
     startGuideTitle: "Implementation start path",
@@ -2436,6 +2454,22 @@ const JA_COPY: typeof EN_COPY = {
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
     pending: "保留中",
+    commandStatusLabels: {
+      pending: "保留中",
+      partially_complete: "一部完了",
+      complete: "完了",
+      failed: "失敗",
+      blocked: "ブロック中"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "キュー待ち",
+      leased: "処理中",
+      running: "実行中",
+      succeeded: "成功",
+      failed: "失敗",
+      blocked: "ブロック中",
+      cancelled: "キャンセル済み"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "ステータス更新",
     refreshRuntimeStatus: "実行環境の状態を更新",
     startGuideTitle: "実装開始パス",
@@ -3919,6 +3953,22 @@ const KO_COPY: typeof EN_COPY = {
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "대기 중",
+    commandStatusLabels: {
+      pending: "대기 중",
+      partially_complete: "일부 완료",
+      complete: "완료",
+      failed: "실패",
+      blocked: "차단됨"
+    } satisfies Record<CommandStatus, string>,
+    effectStatusLabels: {
+      queued: "대기열",
+      leased: "처리 중",
+      running: "실행 중",
+      succeeded: "성공",
+      failed: "실패",
+      blocked: "차단됨",
+      cancelled: "취소됨"
+    } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "상태 새로고침",
     refreshRuntimeStatus: "실행 환경 상태 새로고침",
     startGuideTitle: "구현 시작 경로",
