@@ -20,7 +20,7 @@ import {
   type SessionId,
   type StatusEndpointDto
 } from "@solo-superman/contracts";
-import { autoImplementationRunViewModel } from "../AutoImplementationRunPanel";
+import { autoImplementationRunViewModel, type AutoImplementationRunViewModel } from "../AutoImplementationRunPanel";
 import {
   buildAutoImplementationGitHubIssueApprovedRequest,
   buildAutoImplementationGitHubIssueDryRunRequest
@@ -48,7 +48,10 @@ import {
   latestCurrentStageAutoImplementationWorkerJob
 } from "../auto-implementation-worker-job-selection";
 import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
-import { implementationStepLedgerViewModel } from "../ImplementationStepLedgerPanel";
+import {
+  implementationStepLedgerViewModel,
+  type ImplementationStepLedgerViewModel
+} from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
 import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
 import {
@@ -151,14 +154,12 @@ export function planningNavSublabel(
 }
 
 export function implementationNavSublabel(
-  runStatus: string | null,
-  ledgerStatus: string,
+  runStatus: AutoImplementationRunViewModel["status"] | null,
+  ledgerStatus: ImplementationStepLedgerViewModel["status"],
   copy: DecisionQueueCopy
 ) {
   if (runStatus) {
-    return copy.autoImplementation.runStatusLabels[
-      runStatus as keyof typeof copy.autoImplementation.runStatusLabels
-    ] ?? runStatus;
+    return copy.autoImplementation.runStatusLabels[runStatus];
   }
 
   if (ledgerStatus === "not_started") {

@@ -1,7 +1,7 @@
 import { AutoImplementationRunPanel } from "../AutoImplementationRunPanel";
 import { ReleaseReadinessPanel } from "../ReleaseReadinessPanel";
 import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel";
-import type { CommandStatus, EffectTaskStatus } from "@solo-superman/contracts";
+import type { CommandStatus, EffectTaskStatus, RuntimeActivityProjection } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
@@ -13,23 +13,24 @@ interface ImplementationViewProps {
 
 const IMPLEMENTATION_READINESS_METRIC_THRESHOLD = 75;
 
-function runtimeActivityStatusLabel(status: string, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
-  if (status === "scaffold_placeholder") {
-    return copy.pending;
-  }
+type ImplementationCopy = ReturnType<typeof useDecisionQueueCopy>["implementation"];
 
-  if (status === "available" || status === "unavailable" || status === "blocked") {
-    return copy.runtimeStatusLabels[status];
-  }
+function runtimeActivityStatusLabel(status: RuntimeActivityProjection["runtimeStatus"], copy: ImplementationCopy) {
+  const labels: Record<RuntimeActivityProjection["runtimeStatus"], string> = {
+    scaffold_placeholder: copy.pending,
+    available: copy.runtimeStatusLabels.available,
+    unavailable: copy.runtimeStatusLabels.unavailable,
+    blocked: copy.runtimeStatusLabels.blocked
+  };
 
-  return copy.unknown;
+  return labels[status];
 }
 
-function commandStatusLabel(status: CommandStatus, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
+function commandStatusLabel(status: CommandStatus, copy: ImplementationCopy) {
   return copy.commandStatusLabels[status];
 }
 
-function effectStatusLabel(status: EffectTaskStatus, copy: ReturnType<typeof useDecisionQueueCopy>["implementation"]) {
+function effectStatusLabel(status: EffectTaskStatus, copy: ImplementationCopy) {
   return copy.effectStatusLabels[status];
 }
 
