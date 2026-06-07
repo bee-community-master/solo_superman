@@ -135,15 +135,18 @@ describe("OnboardingView", () => {
 
   it("renders backend Codex CLI login status before the first queue can start", () => {
     const markup = renderOnboardingView({
-      runtimeStatus: codexRuntimeStatus({
-        reason: "Codex CLI is not logged in for this local environment."
-      })
+      runtimeStatus: {
+        ...codexRuntimeStatus(),
+        reason: "Live Codex SDK turn execution is not enabled for this local environment."
+      }
     });
 
     expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
     expect(markup).toContain("Codex status");
     expect(markup).toContain("Login required");
     expect(markup).toContain("codex auth login");
+    expect(markup).toContain("Live Codex preview execution is not enabled yet.");
+    expect(markup).not.toContain("Live Codex SDK turn execution is not enabled");
     expect(markup).toContain("Open Codex login");
     expect(markup).toContain("Refresh Codex login status");
     expect(markup.indexOf("First-question readiness checklist")).toBeLessThan(

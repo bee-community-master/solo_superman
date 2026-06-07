@@ -294,7 +294,7 @@ const EN_COPY = {
     research: {
       label: "Research",
       shortLabel: "Research",
-      title: "Research review",
+      title: "Evidence check",
       description: "Manage approved public research and manually imported evidence."
     },
     planning: {
@@ -407,12 +407,12 @@ const EN_COPY = {
         "Business review intensity can only be changed for business-validation projects.",
       activeSessionRequiredSubmitAnswer: "An active session is required before submitting an answer.",
       answerTextRequired: "Answer text is required.",
-      activeSessionRequiredDraftedAnswers: "An active session is required before submitting drafted answers.",
-      draftedAnswersRequired: "Write at least one active question answer before submitting drafted answers.",
+      activeSessionRequiredDraftedAnswers: "An active session is required before submitting saved answers.",
+      draftedAnswersRequired: "Save at least one active question answer before submitting saved answers.",
       draftedAnswersPartialFailureRefreshed:
-        " Some drafted answers were submitted before the failure; the queue was refreshed.",
+        " Some saved answers were submitted before the failure; the queue was refreshed.",
       draftedAnswersPartialFailureRefreshRequired:
-        " Some drafted answers were submitted before the failure; refresh the queue before continuing.",
+        " Some saved answers were submitted before the failure; refresh the queue before continuing.",
       activeSessionRequiredRefreshQuestions: "An active session is required before refreshing questions.",
       activeSessionRequiredLoadNextQuestions:
         "An active session is required before loading the next question list.",
@@ -434,8 +434,8 @@ const EN_COPY = {
       activateQuestionBatch: "Activate next question",
       changeProjectPurposeMode: "Change project purpose mode",
       changeBusinessCriticIntensity: "Change business critic intensity",
-      submitAnswer: "Submit answer",
-      submitDraftedAnswer: "Submit drafted answer",
+      submitAnswer: "Save answer",
+      submitDraftedAnswer: "Submit saved answers",
       loadNextQuestions: "Load next questions",
       carryAsKnownRisk: "Keep for later checking",
       importResearchResult: "Import research result",
@@ -538,7 +538,7 @@ const EN_COPY = {
     questionLoopNextActionTitle: "Question loop next action",
     questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
-      `Submit ${count} drafted answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
+      `Submit ${count} saved answer${count === 1 ? "" : "s"} so research and follow-up questions can continue in the background.`,
     questionLoopNextActionActive: (count: number) =>
       `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current visible question${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} cleared.`,
     questionLoopNextActionLoadNext: (count: number) =>
@@ -626,9 +626,9 @@ const EN_COPY = {
     composedAnswerPreview: "Answer that will be submitted",
     composedAnswerPreviewHelp: "This combines selected options with your written reason.",
     answerAriaPrefix: "Answer",
-    submitAnswer: "Submit answer",
+    submitAnswer: "Save answer",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `Submit ${count} drafted answers` : "Submit drafted answers",
+      count > 0 ? `Submit ${count} saved answer${count === 1 ? "" : "s"}` : "Submit saved answers",
     nextValidationActionAriaPrefix: "Next check for",
     additionalRiskDetails: "Keep as a later check instead of answering",
     additionalRiskHelp: "Use this separate action only when you want to stop answering this card now and carry it with a next validation step.",
@@ -773,8 +773,8 @@ const EN_COPY = {
         ? "1 planned read-only research task will start within the active allowlist budget."
         : `${count} planned read-only research tasks will start within the active allowlist budget.`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "Create or reactivate an active public web allowlist before starting the ready batch.",
-      no_ready_tasks: "No planned public web tasks are ready within the active allowlist concurrency budget."
+      missing_allowlist: "Research tasks exist, but public web sources must be enabled before they can run.",
+      no_ready_tasks: "No public web research task is executable within the current allowlist budget."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
@@ -883,11 +883,11 @@ const EN_COPY = {
       ready_for_review: "Ready for review",
       research_insufficient: "Needs more research",
       stale: "Out of date",
-      terminal_failure: "Research failed",
+      terminal_failure: "Run failed",
       resolved: "Resolved"
     } satisfies Record<ResearchReviewCardState, string>,
     reviewCardTypeLabels: {
-      research_review: "Research review",
+      research_review: "Evidence check",
       decision_approval: "Decision approval",
       risk_acceptance: "Risk acceptance",
       conflict_resolution: "Conflict resolution",
@@ -1389,7 +1389,7 @@ const EN_COPY = {
     tasks: "tasks",
     activeRuns: "active runs",
     recentActivity: "Recent activity",
-    researchNeedsReview: "Research review is not finished yet. Check remaining items and recovery paths first.",
+    researchNeedsReview: "Evidence checks are not finished yet. Check remaining items and recovery paths first.",
     pending: "pending",
     noActivity: "No activity yet.",
     radarAxes: {
@@ -1469,7 +1469,7 @@ const EN_COPY = {
       ready_for_review: "Ready for review",
       research_insufficient: "Needs more research",
       stale: "Out of date",
-      terminal_failure: "Research failed",
+      terminal_failure: "Run failed",
       resolved: "Resolved"
     },
     terminalReasonLabels: {
@@ -1543,7 +1543,7 @@ const EN_COPY = {
       `${runCount} run(s); ${attentionCount} need review or recovery; refresh ${refetchUrl}`,
     noRunStatus: "No research run status loaded.",
     qualityGatePending: "Quality check has not produced a visible result.",
-    exitGateBlocked: "Research review is not finished yet. Check the remaining items and recovery paths first.",
+    exitGateBlocked: "Evidence checks are not finished yet. Check the remaining items and recovery paths first.",
     exitGateReady: "Research results and recovery paths are ready. You can move to execution-readiness review."
   },
   phase15b: {
@@ -1881,12 +1881,12 @@ const JA_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "事業レビュー強度は、事業検証プロジェクトでのみ変更できます。",
       activeSessionRequiredSubmitAnswer: "回答を送信するにはアクティブなセッションが必要です。",
       answerTextRequired: "回答テキストが必要です。",
-      activeSessionRequiredDraftedAnswers: "下書き回答を送信するにはアクティブなセッションが必要です。",
-      draftedAnswersRequired: "下書き回答を送信する前に、少なくとも1つのアクティブな質問に回答してください。",
+      activeSessionRequiredDraftedAnswers: "保存した回答を送信するにはアクティブなセッションが必要です。",
+      draftedAnswersRequired: "保存した回答を送信する前に、少なくとも1つのアクティブな質問回答を保存してください。",
       draftedAnswersPartialFailureRefreshed:
-        " 失敗前に一部の下書き回答が送信され、キューは更新されました。",
+        " 失敗前に一部の保存した回答が送信され、キューは更新されました。",
       draftedAnswersPartialFailureRefreshRequired:
-        " 失敗前に一部の下書き回答が送信されました。続行する前にキューを更新してください。",
+        " 失敗前に一部の保存した回答が送信されました。続行する前にキューを更新してください。",
       activeSessionRequiredRefreshQuestions: "質問を更新するにはアクティブなセッションが必要です。",
       activeSessionRequiredLoadNextQuestions: "次の質問リストを読み込むにはアクティブなセッションが必要です。",
       answerCurrentBeforeLoadNextQuestions:
@@ -1907,8 +1907,8 @@ const JA_COPY: typeof EN_COPY = {
       activateQuestionBatch: "次の質問を有効化",
       changeProjectPurposeMode: "プロジェクト目的を変更",
       changeBusinessCriticIntensity: "事業レビュー強度を変更",
-      submitAnswer: "回答を送信",
-      submitDraftedAnswer: "下書き回答を送信",
+      submitAnswer: "回答を保存",
+      submitDraftedAnswer: "保存した回答を送信",
       loadNextQuestions: "次の質問を読み込み",
       carryAsKnownRisk: "後で確認する項目として残す",
       importResearchResult: "リサーチ結果を取り込み",
@@ -2009,7 +2009,7 @@ const JA_COPY: typeof EN_COPY = {
     questionLoopNextActionTitle: "質問ループの次のアクション",
     questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
-      `下書き回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
+      `保存した回答 ${count}件を送信すると、リサーチと追加質問のループを続けられます。`,
     questionLoopNextActionActive: (count: number) =>
       `表示中の質問 ${count}件に回答してください。表示中の質問が片付くとループは自動で続けられます。`,
     questionLoopNextActionLoadNext: (count: number) =>
@@ -2096,9 +2096,9 @@ const JA_COPY: typeof EN_COPY = {
     composedAnswerPreview: "送信される回答",
     composedAnswerPreviewHelp: "選択した候補と入力した理由をまとめた内容です。",
     answerAriaPrefix: "回答",
-    submitAnswer: "回答を送信",
+    submitAnswer: "回答を保存",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `下書き回答 ${count}件を送信` : "下書き回答を送信",
+      count > 0 ? `保存した回答 ${count}件を送信` : "保存した回答を送信",
     nextValidationActionAriaPrefix: "次の確認",
     additionalRiskDetails: "回答せず後で確認する項目として残す",
     additionalRiskHelp: "この別アクションは、今このカードに回答せず、次に確認する内容を残す場合だけ使います。",
@@ -2239,8 +2239,8 @@ const JA_COPY: typeof EN_COPY = {
         ? "読み取り専用リサーチタスク1件を active allowlist の予算内で開始します。"
         : `読み取り専用リサーチタスク${count}件を active allowlist の予算内で開始します。`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "準備済みバッチを開始する前に active public web allowlist を作成または再有効化してください。",
-      no_ready_tasks: "active allowlist の concurrency budget 内で開始できる planned public-web task はありません。"
+      missing_allowlist: "リサーチタスクはありますが、実行するには公開Webソースを有効にする必要があります。",
+      no_ready_tasks: "現在の allowlist 予算内で実行できる公開Webリサーチタスクはありません。"
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
@@ -3358,11 +3358,11 @@ const KO_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "사업 리뷰 강도는 비즈니스 검증 프로젝트에서만 변경할 수 있습니다.",
       activeSessionRequiredSubmitAnswer: "답변을 제출하려면 활성 세션이 필요합니다.",
       answerTextRequired: "답변 내용을 입력해야 합니다.",
-      activeSessionRequiredDraftedAnswers: "작성한 답변을 제출하려면 활성 세션이 필요합니다.",
-      draftedAnswersRequired: "작성한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 입력해야 합니다.",
-      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 작성 답변이 제출되었고 큐를 새로고침했습니다.",
+      activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
+      draftedAnswersRequired: "저장한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 저장해야 합니다.",
+      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 큐를 새로고침했습니다.",
       draftedAnswersPartialFailureRefreshRequired:
-        " 실패 전에 일부 작성 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
+        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
       activeSessionRequiredRefreshQuestions: "질문을 새로고침하려면 활성 세션이 필요합니다.",
       activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
       answerCurrentBeforeLoadNextQuestions:
@@ -3383,8 +3383,8 @@ const KO_COPY: typeof EN_COPY = {
       activateQuestionBatch: "다음 질문 활성화",
       changeProjectPurposeMode: "프로젝트 목적 변경",
       changeBusinessCriticIntensity: "사업 리뷰 강도 변경",
-      submitAnswer: "답변 제출",
-      submitDraftedAnswer: "작성한 답변 제출",
+      submitAnswer: "답변 저장",
+      submitDraftedAnswer: "저장한 답변 제출",
       loadNextQuestions: "다음 질문 불러오기",
       carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
       importResearchResult: "리서치 결과 가져오기",
@@ -3486,7 +3486,7 @@ const KO_COPY: typeof EN_COPY = {
     questionLoopNextActionTitle: "질문 루프 다음 행동",
     questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
-      `작성한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
+      `저장한 답변 ${count}개를 제출하면 리서치와 후속 질문 루프가 계속 이어집니다.`,
     questionLoopNextActionActive: (count: number) =>
       `지금 보이는 질문 ${count}개에 답하세요. 지금 보이는 질문이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
     questionLoopNextActionLoadNext: (count: number) =>
@@ -3573,9 +3573,9 @@ const KO_COPY: typeof EN_COPY = {
     composedAnswerPreview: "제출될 답변",
     composedAnswerPreviewHelp: "선택한 항목과 직접 적은 이유를 합친 내용입니다.",
     answerAriaPrefix: "답변",
-    submitAnswer: "답변 제출",
+    submitAnswer: "답변 저장",
     submitDraftedAnswers: (count: number) =>
-      count > 0 ? `작성한 답변 ${count}개 제출` : "작성한 답변 제출",
+      count > 0 ? `저장한 답변 ${count}개 제출` : "저장한 답변 제출",
     nextValidationActionAriaPrefix: "다음 확인",
     additionalRiskDetails: "답하지 않고 나중에 확인할 항목으로 남기기",
     additionalRiskHelp: "이 전용 동작은 지금 이 카드에 답하지 않고 다음에 확인할 내용을 남길 때만 사용하세요.",
@@ -3714,8 +3714,8 @@ const KO_COPY: typeof EN_COPY = {
     readyReadOnlyRunsPlanReady: (count: number) =>
       `읽기 전용 리서치 작업 ${count}개가 active allowlist 예산 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
-      missing_allowlist: "준비된 배치를 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
-      no_ready_tasks: "active allowlist concurrency budget 안에서 시작할 수 있는 planned public-web task가 없습니다."
+      missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
+      no_ready_tasks: "현재 allowlist 예산 안에서 실행 가능한 공개 웹 리서치 작업이 없습니다."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "리서치 allowlist를 변경하려면 활성 프로젝트가 필요합니다.",

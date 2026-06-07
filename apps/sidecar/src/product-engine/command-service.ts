@@ -216,9 +216,11 @@ import {
 } from "./research-memory-markdown";
 import {
   createWebSearchReadOnlyResearchAdapter,
+  WebSearchReadOnlyAdapterError,
   webSearchReadOnlyResearchAdapterOptionsFromEnv,
   webSearchReadOnlyAdapterFailureMessage
 } from "./web-search-readonly-adapter";
+import { redactSensitiveDiagnosticText } from "./diagnostic-redaction";
 import { applyResearchGateEnvDefaultsFromProjectConfig, loadSoloProjectConfig } from "./project-config";
 import {
   DEFAULT_AUTO_IMPLEMENTATION_PROJECT_FOLDER_NAME,
@@ -253,6 +255,22 @@ export class ProductEngineServiceError extends Error {
 const LOCAL_FAKE_PROVIDER_RESULT_DELAY_MILLIS = 30_000;
 const MOUNTED_RESEARCH_ADAPTER_KINDS = ["local_fake_readonly", "web_search_readonly"] as const;
 type MountedResearchAdapterKind = (typeof MOUNTED_RESEARCH_ADAPTER_KINDS)[number];
+const RESEARCH_PROVIDER_DIAGNOSTIC_MAX_MESSAGE_LENGTH = 400;
+
+export function redactedResearchProviderDiagnosticMessage(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const redacted = redactSensitiveDiagnosticText(rawMessage, { redactLocalPaths: true })
+    .replace(/\s+/gu, " ")
+    .trim();
+
+  return redacted.length > RESEARCH_PROVIDER_DIAGNOSTIC_MAX_MESSAGE_LENGTH
+    ? `${redacted.slice(0, RESEARCH_PROVIDER_DIAGNOSTIC_MAX_MESSAGE_LENGTH).trimEnd()}...`
+    : redacted;
+}
+
+function researchProviderDiagnosticErrorCode(error: unknown) {
+  return error instanceof WebSearchReadOnlyAdapterError ? error.code : null;
+}
 
 function sessionProjectPurposeModeFields(project: ProductEngineStateSnapshot["project"]) {
   return {
@@ -5052,7 +5070,20 @@ export function createProductEngineCommandService(
         researchRun: run,
         disclosurePayload: await disclosurePayloadForRun(run)
       });
-    } catch {
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          type: "research-provider-diagnostic",
+          event: "poll-result-failed",
+          at: now,
+          projectId: run.projectId,
+          researchRunId: run.researchRunId,
+          adapterKind: run.provider.adapterKind,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorCode: researchProviderDiagnosticErrorCode(error),
+          message: redactedResearchProviderDiagnosticMessage(error)
+        })
+      );
       return markResearchRunProviderFailed(run, now);
     }
 

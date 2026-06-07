@@ -14,6 +14,7 @@ import { useDecisionQueueCopy } from "./decision-queue-copy";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
+import { uniqueTextItems } from "./list-values";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
@@ -581,8 +582,10 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           <aside className="research-additional-questions" aria-label={copy.questions.researchAdditionalQuestions}>
                             <p>{copy.questions.researchAdditionalQuestions}</p>
                             <ul>
-                              {item.additionalQuestions.map((question) => (
-                                <li key={question}><GeneratedQuestionText language={language} text={question} /></li>
+                              {uniqueTextItems(item.additionalQuestions).map((question) => (
+                                <li key={question}>
+                                  <GeneratedQuestionText language={language} text={question} />
+                                </li>
                               ))}
                             </ul>
                           </aside>

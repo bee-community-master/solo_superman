@@ -1,4 +1,6 @@
 import { CONTRACT_SCHEMA_VERSION } from "@solo-superman/contracts";
+import { useAppLanguage } from "../../../shared/i18n/app-language";
+import { userFacingCodexRuntimeReason } from "../codex-runtime-status-view";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import { initialResearchAutomationAllowsVisibleChatGpt } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -9,6 +11,7 @@ interface OnboardingViewProps {
 
 export function OnboardingView({ controller }: OnboardingViewProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const {
     businessCriticIntensity,
     canStart,
@@ -37,10 +40,11 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
   const visibleChatGptResearchEnabled = initialResearchAutomationAllowsVisibleChatGpt(
     initialResearchAutomationPermission
   );
-  const codexStatusReason =
+  const rawCodexStatusReason =
     codexAccount?.reason ??
     controller.runtimeStatus?.reason ??
     (controller.connectionState.status === "unavailable" ? controller.connectionState.message : null);
+  const codexStatusReason = userFacingCodexRuntimeReason(rawCodexStatusReason, language);
 
   return (
     <div className="view-grid onboarding-view">

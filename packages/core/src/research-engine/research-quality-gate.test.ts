@@ -14,6 +14,7 @@ import {
   emptyResearchEvidenceProjection,
   importResearchResult,
   planResearchTask,
+  stripResearchReviewTitlePrefix,
   synthesizeEvidenceMatrix
 } from "./index";
 
@@ -55,6 +56,13 @@ function result(overrides: Partial<Parameters<typeof importResearchResult>[0]> =
 }
 
 describe("Decision-linked research quality gate", () => {
+  it("strips all generated review title prefixes before composing display titles", () => {
+    expect(stripResearchReviewTitlePrefix("Decision blocked: Validate pricing")).toBe("Validate pricing");
+    expect(stripResearchReviewTitlePrefix("Known risk: Validate pricing")).toBe("Validate pricing");
+    expect(stripResearchReviewTitlePrefix("판단 보류 필요: 가격 검증")).toBe("가격 검증");
+    expect(stripResearchReviewTitlePrefix("확인된 리스크: 가격 검증")).toBe("가격 검증");
+  });
+
   it("reads configurable evidence gate thresholds from environment", () => {
     vi.stubEnv("SOLO_RESEARCH_HIGH_IMPACT_REQUIRES_BALANCED_EVIDENCE", "false");
     vi.stubEnv("SOLO_RESEARCH_MINIMUM_USABLE_FINDINGS", "3");

@@ -3,6 +3,7 @@ import type {
   PendingEffectSummaryDto,
   ProjectionVersion,
   ResearchEvidenceProjection,
+  ResearchReviewCardProjection,
   ResearchRunControlProjection,
   RuntimeActivityProjection,
   SessionId,
@@ -108,6 +109,46 @@ function planningBlockingCards(research: ResearchEvidenceProjection | null) {
   return research?.reviewCards.filter((card) => card.blocksPlanning) ?? [];
 }
 
+function uniqueLabels(labels: readonly string[]) {
+  return [...new Set(labels)];
+}
+
+const RESEARCH_REVIEW_CARD_TITLE_PREFIXES = [
+  "Research review",
+  "Research failed",
+  "Quality gate review required",
+  "Evidence still insufficient",
+  "Evidence ready",
+  "Research stale",
+  "Decision blocked",
+  "Known risk",
+  "리서치 확인 필요",
+  "근거 부족",
+  "근거 품질 검토 필요",
+  "추가 근거 필요",
+  "근거 확인됨",
+  "최신성 확인 필요",
+  "판단 보류 필요",
+  "확인된 리스크"
+] as const;
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+const RESEARCH_REVIEW_CARD_TITLE_PREFIX_PATTERN = new RegExp(
+  `^(?:${RESEARCH_REVIEW_CARD_TITLE_PREFIXES.map(escapeRegExp).join("|")})\\s*:?\\s*`,
+  "iu"
+);
+
+export function researchReviewCardSubject(title: string) {
+  return title.replace(RESEARCH_REVIEW_CARD_TITLE_PREFIX_PATTERN, "").trim() || title;
+}
+
+export function localizedResearchReviewCardTitle(card: ResearchReviewCardProjection, stateLabel: string) {
+  return `${stateLabel}: ${researchReviewCardSubject(card.title)}`;
+}
+
 function researchQualityGateLabels(input: Phase15aOperationsInput, copy: Phase15aOperationsCopy) {
   return [
     ...(input.research?.evidencePacks.map((pack) =>
@@ -117,7 +158,7 @@ function researchQualityGateLabels(input: Phase15aOperationsInput, copy: Phase15
       .filter((card) => Boolean(card.gateStatus || card.reviewReason))
       .map((card) =>
         [
-          card.title,
+          localizedResearchReviewCardTitle(card, phase15aReviewCardStateLabel(copy, card.state)),
           card.gateStatus
             ? phase15aEvidenceGateStatusLabel(copy, card.gateStatus)
             : phase15aReviewCardStateLabel(copy, card.state),
@@ -148,7 +189,7 @@ export function phase15aOperationsViewModel(
       input.runs?.refetchUrl &&
       input.runs.recovery.sseEventNames.includes("projection.updated")
   );
-  const blockers = [
+  const blockers = uniqueLabels([
     ...(activeAllowlists.length === 0 ? [copy.blockers.noActiveAllowlist] : []),
     ...(!input.allowlists?.refetchUrl ? [copy.blockers.noAllowlistRefetch] : []),
     ...(!input.disclosures?.refetchUrl ? [copy.blockers.noDisclosureRefetch] : []),
@@ -157,8 +198,10 @@ export function phase15aOperationsViewModel(
       ? [copy.blockers.noRunSse]
       : []),
     ...(!qualityGateVisible ? [copy.blockers.noQualityGate] : []),
-    ...planningBlockingCards(input.research).map((card) => copy.blockers.reviewCardRemaining(card.title))
-  ];
+    ...planningBlockingCards(input.research).map((card) =>
+      copy.blockers.reviewCardRemaining(localizedResearchReviewCardTitle(card, phase15aReviewCardStateLabel(copy, card.state)))
+    )
+  ]);
   const allowlistPolicyLabel = selectedAllowlist
     ? copy.allowlistPolicyLoaded(
         phase15aAllowlistStatusLabel(copy, selectedAllowlist.status),

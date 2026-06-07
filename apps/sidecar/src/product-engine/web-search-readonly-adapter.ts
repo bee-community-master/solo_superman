@@ -1313,6 +1313,8 @@ async function readSearchCandidates(page: Page, input: WebSearchReadOnlySearchIn
     try {
       await delay(input.delayMillis());
       await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: input.timeoutMillis });
+      await page.waitForLoadState("domcontentloaded", { timeout: input.timeoutMillis }).catch(() => undefined);
+      await page.waitForLoadState("networkidle", { timeout: Math.min(input.timeoutMillis, 5_000) }).catch(() => undefined);
 
       const searchText = await pageText(page);
 
@@ -1360,13 +1362,6 @@ async function publicFetchCandidates(candidates: readonly SearchCandidate[]) {
     }
   }
 
-  if (publicCandidates.length === 0) {
-    throw new WebSearchReadOnlyAdapterError(
-      "no_public_results",
-      "No public search results remained after excluding localhost, private-network, and DNS-private targets."
-    );
-  }
-
   return publicCandidates;
 }
 
@@ -1410,6 +1405,10 @@ export async function runPlaywrightPublicWebSearch(
     return fetchPublicCandidatePages(page, publicCandidates, input);
   } catch (error) {
     if (error instanceof WebSearchReadOnlyAdapterError) {
+      if (error.code === "no_public_results") {
+        return [];
+      }
+
       throw error;
     }
 
@@ -1498,13 +1497,6 @@ export function createWebSearchReadOnlyResearchAdapter(
       }
 
       const sources = [...allSources.values()];
-
-      if (sources.length === 0) {
-        throw new WebSearchReadOnlyAdapterError(
-          "no_public_results",
-          "No public web sources were readable from the browser search run."
-        );
-      }
       const limitations = [
         "Only publicly reachable web pages were checked; login-only, paid, CAPTCHA, and anti-bot-blocked pages were not used.",
         "Search snippets and available page text may be incomplete, so important claims still need follow-up confirmation.",

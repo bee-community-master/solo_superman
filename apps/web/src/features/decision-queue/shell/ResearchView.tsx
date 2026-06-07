@@ -7,9 +7,11 @@ import type {
 } from "@solo-superman/contracts";
 import { chatGptVisibleResearchImportHint } from "../chatgpt-visible-research-import";
 import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegation-request";
+import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
+import { uniqueTextItems } from "./list-values";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface ResearchViewProps {
@@ -55,8 +57,8 @@ function safeExternalUrl(value: string | undefined) {
 function TextList({ items }: { readonly items: readonly string[] }) {
   return (
     <ul>
-      {items.map((item, index) => (
-        <li key={`${index}:${item}`}>{item}</li>
+      {uniqueTextItems(items).map((item) => (
+        <li key={item}>{item}</li>
       ))}
     </ul>
   );
@@ -320,7 +322,7 @@ function EvidenceMatrixCard({
             <dt>{copy.research.additionalQuestions}</dt>
             <dd>
               <ul>
-                {matrix.additionalQuestions.map((question) => (
+                {uniqueTextItems(matrix.additionalQuestions).map((question) => (
                   <li key={question}>{question}</li>
                 ))}
               </ul>
@@ -498,6 +500,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 ? copy.research.reviewCardTypeLabels[card.cardType]
                 : copy.research.routeOutcomeLabels[task.routeOutcome];
               const impactLabel = copy.research.researchImpactLabels[card?.impact ?? task.impact];
+              const headingLabel = card ? localizedResearchReviewCardTitle(card, statusLabel) : task.objective;
               const terminalOutcomeLabel = card?.terminalOutcome
                 ? copy.research.terminalOutcomeLabels[card.terminalOutcome]
                 : null;
@@ -516,10 +519,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 <article className="research-card" key={task.researchTaskId}>
                   <div className="research-card-main">
                     <header className="research-card-header">
-                      <h3>{task.objective}</h3>
+                      <h3>{headingLabel}</h3>
                       <span className="research-status-badge">{statusLabel}</span>
                     </header>
-                    <p className="research-card-summary">{card?.title ?? summaryLabel}</p>
+                    <p className="research-card-summary">{summaryLabel}</p>
                     <dl className="research-card-facts">
                       <div>
                         <dt>{copy.research.gateStatus}</dt>
@@ -559,7 +562,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       <aside className="research-additional-questions" aria-label={copy.research.additionalQuestions}>
                         <p>{copy.research.additionalQuestions}</p>
                         <ul>
-                          {card.additionalQuestions.map((question) => (
+                          {uniqueTextItems(card.additionalQuestions).map((question) => (
                             <li key={question}>{question}</li>
                           ))}
                         </ul>

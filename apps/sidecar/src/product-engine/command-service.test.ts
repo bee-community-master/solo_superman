@@ -16,7 +16,10 @@ import type {
   SessionId,
   StateVersion
 } from "@solo-superman/contracts";
-import { createProductEngineCommandService } from "./command-service";
+import {
+  createProductEngineCommandService,
+  redactedResearchProviderDiagnosticMessage
+} from "./command-service";
 import { removeTemporaryDirectory } from "../test-cleanup";
 
 const tempDirs: string[] = [];
@@ -44,6 +47,23 @@ async function createMigratedStorage() {
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map(removeTemporaryDirectory));
+});
+
+describe("research provider diagnostics", () => {
+  it("redacts secrets and local paths from provider failure messages", () => {
+    const message = redactedResearchProviderDiagnosticMessage(
+      new Error(
+        "Navigation failed for https://example.com/search?q=founder&access_token=plain-secret-value with Bearer abcdefghijklmnopqrstuvwxyz at /Users/demo/private/project"
+      )
+    );
+
+    expect(message).toContain("access_token=[REDACTED]");
+    expect(message).toContain("Bearer [REDACTED]");
+    expect(message).toContain("[REDACTED_PATH]");
+    expect(message).not.toContain("plain-secret-value");
+    expect(message).not.toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(message).not.toContain("/Users/demo/private/project");
+  });
 });
 
 const missingRequiredSourceRefs = [

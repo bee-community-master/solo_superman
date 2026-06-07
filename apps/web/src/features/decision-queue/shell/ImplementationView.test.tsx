@@ -295,7 +295,8 @@ describe("ImplementationView", () => {
       autoImplementationRunView: autoImplementationRunViewModel(
         AUTO_IMPLEMENTATION_RUN_READY_FIXTURE,
         null,
-        runtimeStatus
+        runtimeStatus,
+        "en"
       ),
       runtimeStatus
     });
@@ -320,6 +321,8 @@ describe("ImplementationView", () => {
     expect(markup).toContain("enabled");
     expect(markup).toContain("Manual fallback path");
     expect(markup).toContain("available");
+    expect(markup).toContain("Live Codex question and research preview execution is enabled.");
+    expect(markup).not.toContain("Live Codex SDK turn execution is enabled for preview-only artifacts.");
     expect(markup).toContain("Tool available. No background tasks are pending.");
   });
 
