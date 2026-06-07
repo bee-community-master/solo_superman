@@ -7,7 +7,7 @@ import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
 import { formatListWithFallback } from "./text-formatting";
 
 export interface ServicePageUsePermissionViewModel {
-  readonly status: string;
+  readonly status: ServicePageUsePermissionProjection["currentStatus"] | "not_started";
   readonly summary: string;
   readonly serviceLabel: string;
   readonly pageUrl: string;

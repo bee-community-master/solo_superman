@@ -47,13 +47,16 @@ import {
   canPlanCurrentStageAutoImplementationWorkerJob,
   latestCurrentStageAutoImplementationWorkerJob
 } from "../auto-implementation-worker-job-selection";
-import { chatGptDelegationViewModel } from "../ChatGptDelegationPanel";
+import { chatGptDelegationViewModel, type ChatGptDelegationViewModel } from "../ChatGptDelegationPanel";
 import {
   implementationStepLedgerViewModel,
   type ImplementationStepLedgerViewModel
 } from "../ImplementationStepLedgerPanel";
 import type { ResearchOperationsState } from "../Phase15aOperationsPanel";
-import { servicePageUsePermissionViewModel } from "../ServicePageUsePermissionPanel";
+import {
+  servicePageUsePermissionViewModel,
+  type ServicePageUsePermissionViewModel
+} from "../ServicePageUsePermissionPanel";
 import {
   confidencePlaceholder,
   decisionQueueRecoveryViewModel,
@@ -169,7 +172,10 @@ export function implementationNavSublabel(
   return ledgerStatus;
 }
 
-export function permissionNavStatusLabel(status: string, copy: DecisionQueueCopy) {
+export function permissionNavStatusLabel(
+  status: ChatGptDelegationViewModel["status"] | ServicePageUsePermissionViewModel["status"],
+  copy: DecisionQueueCopy
+) {
   return status === "not_started" ? copy.nav.permissionNotStarted : status;
 }
 
