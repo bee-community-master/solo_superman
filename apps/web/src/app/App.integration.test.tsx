@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -93,6 +93,8 @@ function bodyText() {
 }
 
 let mountedRoot: Root | null = null;
+const previousReactActEnvironment = (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+  .IS_REACT_ACT_ENVIRONMENT;
 
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -112,6 +114,17 @@ afterEach(async () => {
     mountedRoot = null;
   }
   document.body.innerHTML = "";
+});
+
+afterAll(() => {
+  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+
+  if (previousReactActEnvironment === undefined) {
+    delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousReactActEnvironment;
 });
 
 describe("App integration", () => {
