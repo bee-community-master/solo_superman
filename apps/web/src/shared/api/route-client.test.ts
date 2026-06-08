@@ -21,7 +21,12 @@ function expectSingleWebRouteClientPlaceholder(route: ProductApiRoute) {
   );
 
   expect(matchingPlaceholders, `placeholder count for ${route.routeId}`).toHaveLength(1);
-  return matchingPlaceholders[0]!;
+  const [placeholder] = matchingPlaceholders;
+  if (!placeholder) {
+    throw new Error(`Missing placeholder for ${route.routeId}`);
+  }
+
+  return placeholder;
 }
 
 describe("PR-09 web route client catalog", () => {

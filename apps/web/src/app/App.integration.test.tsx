@@ -75,7 +75,11 @@ async function waitFor(expectation: () => void) {
     }
   }
 
-  throw lastError;
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  throw new Error("Timed out waiting for expectation to pass.");
 }
 
 async function renderApp() {
