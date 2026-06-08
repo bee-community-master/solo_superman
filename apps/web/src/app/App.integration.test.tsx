@@ -15,6 +15,8 @@ import type * as SidecarClientModule from "../shared/api/sidecar-client";
 import { APP_LANGUAGE_STORAGE_KEY } from "../shared/i18n/app-language";
 import { App } from "./App";
 
+type ReactActGlobal = typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+
 const sidecarClientMocks = vi.hoisted(() => ({
   createSidecarClient: vi.fn(),
   discoverSidecarConnection: vi.fn(),
@@ -84,8 +86,7 @@ async function renderApp() {
   await act(async () => {
     root.render(<App />);
   });
-
-  return { container, root };
+  mountedRoot = root;
 }
 
 function bodyText() {
@@ -93,11 +94,11 @@ function bodyText() {
 }
 
 let mountedRoot: Root | null = null;
-const previousReactActEnvironment = (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-  .IS_REACT_ACT_ENVIRONMENT;
+const reactActGlobal = globalThis as ReactActGlobal;
+const previousReactActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
 
 beforeEach(() => {
-  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   document.body.innerHTML = "";
   window.localStorage.clear();
   window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, "en");
@@ -108,8 +109,10 @@ beforeEach(() => {
 
 afterEach(async () => {
   if (mountedRoot) {
+    const root = mountedRoot;
+
     await act(async () => {
-      mountedRoot?.unmount();
+      root.unmount();
     });
     mountedRoot = null;
   }
@@ -117,8 +120,6 @@ afterEach(async () => {
 });
 
 afterAll(() => {
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-
   if (previousReactActEnvironment === undefined) {
     delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
     return;
@@ -135,8 +136,7 @@ describe("App integration", () => {
       getRuntimeStatus: sidecarClientMocks.getRuntimeStatus
     });
 
-    const { root } = await renderApp();
-    mountedRoot = root;
+    await renderApp();
 
     await waitFor(() => {
       expect(sidecarClientMocks.discoverSidecarConnection).toHaveBeenCalledTimes(1);
@@ -152,8 +152,7 @@ describe("App integration", () => {
   it("renders local service recovery when sidecar discovery is unavailable", async () => {
     sidecarClientMocks.discoverSidecarConnection.mockResolvedValue(null);
 
-    const { root } = await renderApp();
-    mountedRoot = root;
+    await renderApp();
 
     await waitFor(() => {
       expect(sidecarClientMocks.discoverSidecarConnection).toHaveBeenCalledTimes(1);
