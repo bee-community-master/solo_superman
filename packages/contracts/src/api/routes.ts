@@ -684,6 +684,11 @@ export const API_ROUTE_CATALOG = [
 export type ApiRoute = (typeof API_ROUTE_CATALOG)[number];
 export type ApiRouteId = ApiRoute["routeId"];
 export type ApiRouteClientName = ApiRoute["clientName"];
+export type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
+
+export function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
+  return route.path.startsWith("/api/v1");
+}
 
 export const PR04_MOUNTED_PRODUCT_API_ROUTE_IDS = [
   "createProject",
