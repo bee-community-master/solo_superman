@@ -1,7 +1,52 @@
 import { describe, expect, it } from "vitest";
-import { findWebRouteClientPlaceholder } from "./route-client";
+import {
+  API_ROUTE_CATALOG,
+  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  type ApiRoute
+} from "@solo-superman/contracts";
+import { findWebRouteClientPlaceholder, webRouteClientPlaceholders } from "./route-client";
+
+type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
+
+function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
+  return route.path.startsWith("/api/v1");
+}
+
+const productApiRoutes = API_ROUTE_CATALOG.filter(isProductApiRoute);
+const currentMountedRouteIds = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);
 
 describe("PR-09 web route client catalog", () => {
+  it("keeps one web route placeholder for every cataloged product API route", () => {
+    expect(webRouteClientPlaceholders).toHaveLength(productApiRoutes.length);
+
+    for (const route of productApiRoutes) {
+      const matchingPlaceholders = webRouteClientPlaceholders.filter(
+        (placeholder) => placeholder.clientName === route.clientName
+      );
+
+      expect(matchingPlaceholders, `placeholder count for ${route.routeId}`).toHaveLength(1);
+      expect(matchingPlaceholders[0]).toMatchObject({
+        clientName: route.clientName,
+        method: route.method,
+        path: route.path,
+        requiredQueryParams: "requiredQueryParams" in route ? route.requiredQueryParams : []
+      });
+    }
+  });
+
+  it("does not leave currently mounted product routes marked as client placeholders", () => {
+    for (const route of productApiRoutes) {
+      const placeholder = findWebRouteClientPlaceholder(route.clientName);
+
+      expect(placeholder, `missing placeholder for ${route.routeId}`).not.toBeNull();
+      if (currentMountedRouteIds.has(route.routeId)) {
+        expect(placeholder?.implementation, `implementation status for ${route.routeId}`).not.toBe("not_mounted_yet");
+      } else {
+        expect(placeholder?.implementation, `implementation status for ${route.routeId}`).toBe("not_mounted_yet");
+      }
+    }
+  });
+
   it("marks Decision Queue, research, runtime preview, completion, and spec approval routes as mounted in the sidecar", () => {
     expect(findWebRouteClientPlaceholder("getCommandStatus")).toMatchObject({
       method: "GET",
