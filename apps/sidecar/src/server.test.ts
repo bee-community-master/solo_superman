@@ -10,6 +10,7 @@ import {
   autoImplementationFinalPrBodyEvidenceRefs,
   CONTRACT_SCHEMA_VERSION,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  isProductApiRoute,
   IMPLEMENTATION_STEP_LEDGER_READY_FIXTURE,
   IMPLEMENTATION_STEP_LEDGER_SCHEMA_VERSION,
   PHASE15B_UPGRADE_HINTS_SCHEMA_VERSION,
@@ -70,7 +71,7 @@ import { removeTemporaryDirectory } from "./test-cleanup";
 
 const localCapabilityToken = "test-local-capability-token";
 const tempDirs: string[] = [];
-const productApiRouteCount = API_ROUTE_CATALOG.filter((route) => route.path.startsWith("/api/v1")).length;
+const productApiRouteCount = API_ROUTE_CATALOG.filter(isProductApiRoute).length;
 const unmountedProductApiRouteCount = productApiRouteCount - CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS.length;
 const migratedStatus = {
   state: "migrated",

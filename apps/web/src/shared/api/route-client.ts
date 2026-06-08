@@ -14,10 +14,10 @@ import {
   POST_PHASE3_PR05_SERVICE_PAGE_PERMISSION_ROUTE_IDS,
   POST_PHASE3_PR06_IMPLEMENTATION_STEP_LEDGER_ROUTE_IDS,
   POST_PHASE3_PR07_AUTO_IMPLEMENTATION_ROUTE_IDS,
-  type ApiRoute
+  isProductApiRoute,
+  type ProductApiRoute
 } from "@solo-superman/contracts";
 
-type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
 type WebRouteClientImplementation =
   | "not_mounted_yet"
   | "mounted_pr_09"
@@ -122,10 +122,6 @@ export interface WebRouteClientPlaceholder {
   readonly path: ProductApiRoute["path"];
   readonly requiredQueryParams: readonly string[];
   readonly implementation: WebRouteClientImplementation;
-}
-
-function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
-  return route.path.startsWith("/api/v1");
 }
 
 function implementationStatus(route: ProductApiRoute): WebRouteClientImplementation {

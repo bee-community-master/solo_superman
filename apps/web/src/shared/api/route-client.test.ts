@@ -2,15 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   API_ROUTE_CATALOG,
   CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
-  type ApiRoute
+  isProductApiRoute,
+  type ProductApiRoute
 } from "@solo-superman/contracts";
 import { findWebRouteClientPlaceholder, webRouteClientPlaceholders } from "./route-client";
-
-type ProductApiRoute = Extract<ApiRoute, { readonly path: `/api/v1${string}` }>;
-
-function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
-  return route.path.startsWith("/api/v1");
-}
 
 const productApiRoutes = API_ROUTE_CATALOG.filter(isProductApiRoute);
 const currentMountedRouteIds = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);

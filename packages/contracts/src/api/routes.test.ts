@@ -45,14 +45,13 @@ import {
   POST_PHASE3_PR07_MOUNTED_PRODUCT_API_ROUTE_IDS,
   GENERATED_QUESTION_JSON_ROUTE_IDS,
   GENERATED_QUESTION_JSON_MOUNTED_PRODUCT_API_ROUTE_IDS,
-  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS
+  CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS,
+  isProductApiRoute
 } from "./routes";
-
-const PRODUCT_API_PREFIX = "/api/v1";
 
 describe("API route catalog", () => {
   it("keeps product API routes as compile-time placeholders", () => {
-    const productRoutes = API_ROUTE_CATALOG.filter((route) => route.path.startsWith(PRODUCT_API_PREFIX));
+    const productRoutes = API_ROUTE_CATALOG.filter(isProductApiRoute);
 
     expect(productRoutes.length).toBeGreaterThan(0);
     expect(productRoutes.every((route) => route.implementedInPr01 === false)).toBe(true);
