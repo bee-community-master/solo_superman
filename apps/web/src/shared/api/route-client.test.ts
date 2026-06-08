@@ -15,17 +15,23 @@ function isProductApiRoute(route: ApiRoute): route is ProductApiRoute {
 const productApiRoutes = API_ROUTE_CATALOG.filter(isProductApiRoute);
 const currentMountedRouteIds = new Set<string>(CURRENT_MOUNTED_PRODUCT_API_ROUTE_IDS);
 
+function expectSingleWebRouteClientPlaceholder(route: ProductApiRoute) {
+  const matchingPlaceholders = webRouteClientPlaceholders.filter(
+    (placeholder) => placeholder.clientName === route.clientName
+  );
+
+  expect(matchingPlaceholders, `placeholder count for ${route.routeId}`).toHaveLength(1);
+  return matchingPlaceholders[0]!;
+}
+
 describe("PR-09 web route client catalog", () => {
   it("keeps one web route placeholder for every cataloged product API route", () => {
     expect(webRouteClientPlaceholders).toHaveLength(productApiRoutes.length);
 
     for (const route of productApiRoutes) {
-      const matchingPlaceholders = webRouteClientPlaceholders.filter(
-        (placeholder) => placeholder.clientName === route.clientName
-      );
+      const placeholder = expectSingleWebRouteClientPlaceholder(route);
 
-      expect(matchingPlaceholders, `placeholder count for ${route.routeId}`).toHaveLength(1);
-      expect(matchingPlaceholders[0]).toMatchObject({
+      expect(placeholder).toMatchObject({
         clientName: route.clientName,
         method: route.method,
         path: route.path,
