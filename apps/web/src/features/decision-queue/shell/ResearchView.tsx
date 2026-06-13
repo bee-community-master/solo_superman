@@ -3,13 +3,16 @@ import type {
   EvidenceItemProjection,
   EvidenceMatrixProjection,
   ResearchResultProjection,
+  ResearchTaskProjection,
   ResearchReviewCardProjection
 } from "@solo-superman/contracts";
+import { localizedUserFacingDecisionQueueText } from "@solo-superman/contracts";
 import { chatGptVisibleResearchImportHint } from "../chatgpt-visible-research-import";
 import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegation-request";
 import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
+import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import { uniqueTextItems } from "./list-values";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -52,10 +55,28 @@ function safeExternalUrl(value: string | undefined) {
   }
 }
 
-function TextList({ items }: { readonly items: readonly string[] }) {
+function userFacingText(value: string | undefined, language: AppLanguage) {
+  return value ? localizedUserFacingDecisionQueueText(value, language) : "";
+}
+
+function compactUserFacingText(value: string | undefined, language: AppLanguage, maxLength = 180) {
+  const text = userFacingText(value, language).replace(/\s+/gu, " ").trim();
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 1).trim()}…`;
+}
+
+function TextList({ items, language }: { readonly items: readonly string[]; readonly language: AppLanguage }) {
+  const visibleItems = uniqueTextItems(items)
+    .map((item) => compactUserFacingText(item, language))
+    .filter(Boolean);
+
   return (
     <ul>
-      {uniqueTextItems(items).map((item) => (
+      {visibleItems.map((item) => (
         <li key={item}>{item}</li>
       ))}
     </ul>
@@ -79,16 +100,6 @@ function ReadyReadOnlyResearchStartPlan({
     <aside className={`research-batch-plan ${toneClassName}`} aria-live="polite">
       <p className="research-batch-plan-title">{copy.research.readyReadOnlyRunsPlanTitle}</p>
       <p>{summary}</p>
-      {isReady ? (
-        <div>
-          <p>{copy.research.readyReadOnlyRunsPlanTaskIds}</p>
-          <ul>
-            {plan.taskIds.map((taskId) => (
-              <li key={taskId}>{taskId}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </aside>
   );
 }
@@ -96,10 +107,12 @@ function ReadyReadOnlyResearchStartPlan({
 function EvidenceItems({
   copy,
   items,
+  language,
   label
 }: {
   readonly copy: DecisionQueueCopy;
   readonly items: readonly EvidenceItemProjection[];
+  readonly language: AppLanguage;
   readonly label: string;
 }) {
   return (
@@ -109,7 +122,7 @@ function EvidenceItems({
         {items.length ? (
           <ul>
             {items.map((item) => (
-              <li key={item.evidenceItemId}>{item.summary}</li>
+              <li key={item.evidenceItemId}>{compactUserFacingText(item.summary, language)}</li>
             ))}
           </ul>
         ) : (
@@ -122,12 +135,14 @@ function EvidenceItems({
 
 function EvidencePackSource({
   copy,
+  language,
   pack
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly pack: DecisionEvidencePackProjection;
 }) {
-  const sourceLabel = pack.sourceTitle ?? pack.sourceUrl ?? copy.research.unknown;
+  const sourceLabel = pack.sourceTitle ?? pack.sourceUrl ?? copy.research.noPublicSourceConfirmed;
   const sourceUrl = safeExternalUrl(pack.sourceUrl);
 
   return (
@@ -136,10 +151,10 @@ function EvidencePackSource({
       <dd>
         {sourceUrl ? (
           <a href={sourceUrl} rel="noreferrer" target="_blank">
-            {sourceLabel}
+            {userFacingText(sourceLabel, language)}
           </a>
         ) : (
-          sourceLabel
+          userFacingText(sourceLabel, language)
         )}
       </dd>
     </div>
@@ -148,9 +163,11 @@ function EvidencePackSource({
 
 function EvidencePackGateChecks({
   copy,
+  language,
   pack
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly pack: DecisionEvidencePackProjection;
 }) {
   return (
@@ -162,7 +179,7 @@ function EvidencePackGateChecks({
             {pack.gateChecks.map((check) => (
               <li key={`${check.code}:${check.status}:${check.reason}`}>
                 {copy.research.gateCheckCodeLabels[check.code]}:{" "}
-                {copy.research.gateCheckStatusLabels[check.status]} — {check.reason}
+                {copy.research.gateCheckStatusLabels[check.status]} — {compactUserFacingText(check.reason, language)}
               </li>
             ))}
           </ul>
@@ -176,15 +193,17 @@ function EvidencePackGateChecks({
 
 function EvidencePackCard({
   copy,
+  language,
   pack
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly pack: DecisionEvidencePackProjection;
 }) {
   return (
     <article className="research-evidence-pack">
       <div className="research-evidence-matrix-heading">
-        <strong>{pack.claim}</strong>
+        <strong>{compactUserFacingText(pack.claim, language)}</strong>
         <span>{copy.research.gateStatus}: {copy.research.gateStatusLabels[pack.gateStatus]}</span>
         <span>
           {copy.research.sourceReliability}: {copy.research.sourceReliabilityLabels[pack.sourceReliability]}
@@ -193,27 +212,27 @@ function EvidencePackCard({
       <dl className="research-evidence-grid">
         <div>
           <dt>{copy.research.decisionContext}</dt>
-          <dd>{pack.decisionContext}</dd>
+          <dd>{compactUserFacingText(pack.decisionContext, language)}</dd>
         </div>
-        <EvidencePackSource copy={copy} pack={pack} />
-        <EvidencePackGateChecks copy={copy} pack={pack} />
+        <EvidencePackSource copy={copy} language={language} pack={pack} />
+        <EvidencePackGateChecks copy={copy} language={language} pack={pack} />
         {pack.knownRisk ? (
           <div>
             <dt>{copy.research.knownRisk}</dt>
-            <dd>{pack.knownRisk}</dd>
+            <dd>{compactUserFacingText(pack.knownRisk, language)}</dd>
           </div>
         ) : null}
         {pack.nextValidationAction ? (
           <div>
             <dt>{copy.research.nextValidationAction}</dt>
-            <dd>{pack.nextValidationAction}</dd>
+            <dd>{compactUserFacingText(pack.nextValidationAction, language)}</dd>
           </div>
         ) : null}
         {pack.limitationRefs.length ? (
           <div>
             <dt>{copy.research.limitationRefs}</dt>
             <dd>
-              <TextList items={pack.limitationRefs} />
+              <TextList items={pack.limitationRefs} language={language} />
             </dd>
           </div>
         ) : null}
@@ -224,10 +243,12 @@ function EvidencePackCard({
 
 function ResearchValidationSummary({
   copy,
+  language,
   knownRisks,
   nextValidationActions
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly knownRisks: readonly string[];
   readonly nextValidationActions: readonly string[];
 }) {
@@ -243,7 +264,7 @@ function ResearchValidationSummary({
           <div>
             <dt>{copy.research.knownRisks}</dt>
             <dd>
-              <TextList items={knownRisks} />
+              <TextList items={knownRisks} language={language} />
             </dd>
           </div>
         ) : null}
@@ -251,7 +272,7 @@ function ResearchValidationSummary({
           <div>
             <dt>{copy.research.nextValidationActions}</dt>
             <dd>
-              <TextList items={nextValidationActions} />
+              <TextList items={nextValidationActions} language={language} />
             </dd>
           </div>
         ) : null}
@@ -262,10 +283,12 @@ function ResearchValidationSummary({
 
 function EvidencePacksSection({
   copy,
-  evidencePacks
+  evidencePacks,
+  language
 }: {
   readonly copy: DecisionQueueCopy;
   readonly evidencePacks: readonly DecisionEvidencePackProjection[];
+  readonly language: AppLanguage;
 }) {
   if (!evidencePacks.length) {
     return null;
@@ -276,7 +299,7 @@ function EvidencePacksSection({
       <h3>{copy.research.evidencePacks}</h3>
       <div className="research-evidence-pack-list">
         {evidencePacks.map((pack) => (
-          <EvidencePackCard copy={copy} key={pack.evidencePackId} pack={pack} />
+          <EvidencePackCard copy={copy} key={pack.evidencePackId} language={language} pack={pack} />
         ))}
       </div>
     </section>
@@ -285,34 +308,41 @@ function EvidencePacksSection({
 
 function EvidenceMatrixCard({
   copy,
+  language,
   matrix
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly matrix: EvidenceMatrixProjection;
 }) {
+  const matrixTitle =
+    matrix.knownRisk ??
+    matrix.missingConEvidenceReason ??
+    (matrix.decisionBlocked ? copy.research.decisionBlocked : copy.research.decisionReady);
+
   return (
     <article className="research-evidence-matrix">
       <div className="research-evidence-matrix-heading">
-        <strong>{matrix.evidenceMatrixId}</strong>
+        <strong>{compactUserFacingText(matrixTitle, language)}</strong>
         <span>
           {copy.research.balanceStatus}: {copy.research.balanceStatusLabels[matrix.balanceStatus]}
         </span>
         <span>{matrix.decisionBlocked ? copy.research.decisionBlocked : copy.research.decisionReady}</span>
       </div>
       <dl className="research-evidence-grid">
-        <EvidenceItems copy={copy} items={matrix.proEvidence} label={copy.research.proEvidence} />
-        <EvidenceItems copy={copy} items={matrix.conEvidence} label={copy.research.conEvidence} />
-        <EvidenceItems copy={copy} items={matrix.uncertainties} label={copy.research.uncertainties} />
+        <EvidenceItems copy={copy} items={matrix.proEvidence} label={copy.research.proEvidence} language={language} />
+        <EvidenceItems copy={copy} items={matrix.conEvidence} label={copy.research.conEvidence} language={language} />
+        <EvidenceItems copy={copy} items={matrix.uncertainties} label={copy.research.uncertainties} language={language} />
         {matrix.missingConEvidenceReason ? (
           <div>
             <dt>{copy.research.missingConEvidenceReason}</dt>
-            <dd>{matrix.missingConEvidenceReason}</dd>
+            <dd>{compactUserFacingText(matrix.missingConEvidenceReason, language)}</dd>
           </div>
         ) : null}
         {matrix.knownRisk ? (
           <div>
             <dt>{copy.research.knownRisk}</dt>
-            <dd>{matrix.knownRisk}</dd>
+            <dd>{compactUserFacingText(matrix.knownRisk, language)}</dd>
           </div>
         ) : null}
         {matrix.additionalQuestions.length ? (
@@ -321,7 +351,7 @@ function EvidenceMatrixCard({
             <dd>
               <ul>
                 {uniqueTextItems(matrix.additionalQuestions).map((question) => (
-                  <li key={question}>{question}</li>
+                  <li key={question}>{compactUserFacingText(question, language)}</li>
                 ))}
               </ul>
             </dd>
@@ -329,6 +359,64 @@ function EvidenceMatrixCard({
         ) : null}
       </dl>
     </article>
+  );
+}
+
+function ResearchInsufficientSummary({
+  card,
+  copy,
+  language,
+  result,
+  task
+}: {
+  readonly card: ResearchReviewCardProjection | undefined;
+  readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
+  readonly result: ResearchResultProjection | undefined;
+  readonly task: ResearchTaskProjection;
+}) {
+  const isInsufficient =
+    task.status === "research_insufficient" ||
+    card?.state === "research_insufficient" ||
+    card?.terminalOutcome === "research_insufficient";
+
+  if (!isInsufficient) {
+    return null;
+  }
+
+  const checkedScope = result?.sourceUrl || result?.sourceTitle
+    ? userFacingText(result.sourceTitle ?? result.sourceUrl, language)
+    : copy.research.noPublicSourceConfirmed;
+  const weakReason =
+    card?.terminalRationale ??
+    result?.limitationNotes ??
+    result?.resultSummary ??
+    "판단에 쓸 공개 근거가 부족합니다.";
+  const visibleWeakReason =
+    compactUserFacingText(weakReason, language) || copy.research.defaultInsufficientReason;
+
+  return (
+    <aside className="research-insufficient-summary" aria-label={copy.research.insufficientSummaryTitle}>
+      <strong>{copy.research.insufficientSummaryTitle}</strong>
+      <dl className="research-evidence-grid">
+        <div>
+          <dt>{copy.research.insufficientSearchedFor}</dt>
+          <dd>{compactUserFacingText(task.objective, language)}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.insufficientCheckedScope}</dt>
+          <dd>{checkedScope}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.insufficientReason}</dt>
+          <dd>{visibleWeakReason}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.insufficientNextAction}</dt>
+          <dd>{copy.research.manualValidationFallback}</dd>
+        </div>
+      </dl>
+    </aside>
   );
 }
 
@@ -366,12 +454,14 @@ function VisibleChatGptResearchHandoff({
 
 function ImportedResearchResultPending({
   copy,
+  language,
   result
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly result: ResearchResultProjection;
 }) {
-  const sourceLabel = result.sourceTitle ?? result.sourceUrl ?? copy.research.unknown;
+  const sourceLabel = result.sourceTitle ?? result.sourceUrl ?? copy.research.noPublicSourceConfirmed;
   const sourceUrl = safeExternalUrl(result.sourceUrl);
   const sourceReliability = result.sourceReliability ?? "unknown";
 
@@ -385,10 +475,10 @@ function ImportedResearchResultPending({
           <dd>
             {sourceUrl ? (
               <a href={sourceUrl} rel="noreferrer" target="_blank">
-                {sourceLabel}
+                {userFacingText(sourceLabel, language)}
               </a>
             ) : (
-              sourceLabel
+              userFacingText(sourceLabel, language)
             )}
           </dd>
         </div>
@@ -398,24 +488,24 @@ function ImportedResearchResultPending({
         </div>
         <div>
           <dt>{copy.research.importedResultSummary}</dt>
-          <dd>{result.resultSummary}</dd>
+          <dd>{compactUserFacingText(result.resultSummary, language)}</dd>
         </div>
         {result.limitationNotes ? (
           <div>
             <dt>{copy.research.importedResultLimitations}</dt>
-            <dd>{result.limitationNotes}</dd>
+            <dd>{compactUserFacingText(result.limitationNotes, language)}</dd>
           </div>
         ) : null}
         {result.questionRef ? (
           <div>
             <dt>{copy.research.importedResultQuestionRef}</dt>
-            <dd>{result.questionRef}</dd>
+            <dd>{compactUserFacingText(result.questionRef, language)}</dd>
           </div>
         ) : null}
         {result.implicationScope ? (
           <div>
             <dt>{copy.research.importedResultImplicationScope}</dt>
-            <dd>{result.implicationScope}</dd>
+            <dd>{compactUserFacingText(result.implicationScope, language)}</dd>
           </div>
         ) : null}
       </dl>
@@ -425,6 +515,7 @@ function ImportedResearchResultPending({
 
 export function ResearchView({ controller }: ResearchViewProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const {
     cancelResearchRun,
     createOrReactivateAllowlist,
@@ -491,6 +582,9 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
+              const visibleSourceRefs = retainedSourceRefs
+                .map((sourceRef) => compactUserFacingText(sourceRef, language))
+                .filter(Boolean);
               const statusLabel = card
                 ? copy.research.reviewCardStateLabels[card.state]
                 : copy.research.taskStatusLabels[task.status];
@@ -517,10 +611,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 <article className="research-card" key={task.researchTaskId}>
                   <div className="research-card-main">
                     <header className="research-card-header">
-                      <h3>{headingLabel}</h3>
+                      <h3>{compactUserFacingText(headingLabel, language)}</h3>
                       <span className="research-status-badge">{statusLabel}</span>
                     </header>
-                    <p className="research-card-summary">{summaryLabel}</p>
+                    <p className="research-card-summary">{compactUserFacingText(summaryLabel, language)}</p>
                     <dl className="research-card-facts">
                       <div>
                         <dt>{copy.research.gateStatus}</dt>
@@ -544,13 +638,17 @@ export function ResearchView({ controller }: ResearchViewProps) {
                     {card?.blocksPlanning ? (
                       <p className="research-recovery">{copy.research.planningBlockedSuffix}</p>
                     ) : null}
-                    {card?.terminalRationale ? <p className="research-recovery">{copy.research.rationale}: {card.terminalRationale}</p> : null}
+                    {card?.terminalRationale ? (
+                      <p className="research-recovery">
+                        {copy.research.rationale}: {compactUserFacingText(card.terminalRationale, language)}
+                      </p>
+                    ) : null}
                     {recoveryActionLabels.length ? <p className="research-recovery">{recoveryActionLabels.join(" / ")}</p> : null}
-                    {retainedSourceRefs.length ? (
+                    {visibleSourceRefs.length ? (
                       <aside className="research-card-source-trace" aria-label={copy.research.sourceTrace}>
                         <p>{copy.research.sourceTrace}</p>
                         <ul>
-                          {retainedSourceRefs.map((sourceRef) => (
+                          {visibleSourceRefs.map((sourceRef) => (
                             <li key={sourceRef}>{sourceRef}</li>
                           ))}
                         </ul>
@@ -561,14 +659,21 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         <p>{copy.research.additionalQuestions}</p>
                         <ul>
                           {uniqueTextItems(card.additionalQuestions).map((question) => (
-                            <li key={question}>{question}</li>
+                            <li key={question}>{compactUserFacingText(question, language)}</li>
                           ))}
                         </ul>
                       </aside>
                     ) : null}
                     {pendingImportedResult ? (
-                      <ImportedResearchResultPending copy={copy} result={pendingImportedResult} />
+                      <ImportedResearchResultPending copy={copy} language={language} result={pendingImportedResult} />
                     ) : null}
+                    <ResearchInsufficientSummary
+                      card={card}
+                      copy={copy}
+                      language={language}
+                      result={latestResearchResultForTask(research.results, task.researchTaskId)}
+                      task={task}
+                    />
                   </div>
                   {canImportResearch ? (
                     <div className="answer-box research-import-box">
@@ -581,7 +686,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       <label className="research-import-field">
                         <span>{copy.research.importResult}</span>
                         <textarea
-                          aria-label={`${copy.research.importResearchAriaPrefix} ${task.objective}`}
+                          aria-label={`${copy.research.importResearchAriaPrefix} ${compactUserFacingText(task.objective, language, 120)}`}
                           value={researchDrafts[task.researchTaskId] ?? ""}
                           onChange={(event) =>
                             setResearchDrafts((current) => ({
@@ -631,14 +736,19 @@ export function ResearchView({ controller }: ResearchViewProps) {
         ) : (
           <p className="empty-state">{copy.research.noResearchTasks}</p>
         )}
-        <ResearchValidationSummary copy={copy} knownRisks={knownRisks} nextValidationActions={nextValidationActions} />
-        <EvidencePacksSection copy={copy} evidencePacks={evidencePacks} />
+        <ResearchValidationSummary
+          copy={copy}
+          knownRisks={knownRisks}
+          language={language}
+          nextValidationActions={nextValidationActions}
+        />
+        <EvidencePacksSection copy={copy} evidencePacks={evidencePacks} language={language} />
         {research?.evidenceMatrices.length ? (
           <section className="research-evidence-matrices" aria-label={copy.research.evidenceMatrix}>
             <h3>{copy.research.evidenceMatrix}</h3>
             <div className="research-evidence-matrix-list">
               {research.evidenceMatrices.map((matrix) => (
-                <EvidenceMatrixCard copy={copy} key={matrix.evidenceMatrixId} matrix={matrix} />
+                <EvidenceMatrixCard copy={copy} key={matrix.evidenceMatrixId} language={language} matrix={matrix} />
               ))}
             </div>
           </section>

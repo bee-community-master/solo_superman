@@ -1,12 +1,14 @@
-import type {
-  ResearchAllowlistGovernanceProjection,
-  ResearchAllowlistId,
-  ResearchDisclosureLogProjection,
-  ResearchRunControlProjection,
-  ResearchRunId
+import {
+  localizedUserFacingDecisionQueueText,
+  type ResearchAllowlistGovernanceProjection,
+  type ResearchAllowlistId,
+  type ResearchDisclosureLogProjection,
+  type ResearchRunControlProjection,
+  type ResearchRunId
 } from "@solo-superman/contracts";
 import { useState } from "react";
 import { researchRunStatusPath } from "../../shared/api/sidecar-routes";
+import { useAppLanguage, type AppLanguage } from "../../shared/i18n/app-language";
 import type { Phase15aOperationsViewModel } from "./decision-queue-view-model";
 import {
   joinPhase15aResearchLabels,
@@ -58,7 +60,7 @@ function researchRunProviderLabel(run: ResearchRunControlProjection["runs"][numb
   const attempt = run.provider?.attempt ?? "?";
   const adapterLabel = phase15aAdapterKindLabel(copy.phase15a, adapterKind);
 
-  return `${copy.phase15a.run} ${run.researchRunId} · ${adapterLabel} · ${copy.phase15a.attempt} ${attempt}`;
+  return `${adapterLabel} · ${copy.phase15a.attempt} ${attempt}`;
 }
 
 function researchRunRecoveryUrl(run: ResearchRunControlProjection["runs"][number]) {
@@ -67,6 +69,15 @@ function researchRunRecoveryUrl(run: ResearchRunControlProjection["runs"][number
 
 function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["status"], copy: ReturnType<typeof useDecisionQueueCopy>) {
   return status === "ready_for_1_5b" ? copy.phase15a.ready : copy.phase15a.needsReview;
+}
+
+function phase15aDisplayText(value: string, language: AppLanguage) {
+  return localizedUserFacingDecisionQueueText(value, language)
+    .replace(/\s*·\s*:\s*/gu, " · ")
+    .replace(/^\s*[·:;,-]+\s*/u, "")
+    .replace(/\s*[·:;,-]+\s*$/u, "")
+    .replace(/\s{2,}/gu, " ")
+    .trim();
 }
 
 export function Phase15aOperationsPanel({
@@ -85,6 +96,7 @@ export function Phase15aOperationsPanel({
   onRetryResearchRun
 }: Phase15aOperationsPanelProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const [maxConcurrentDrafts, setMaxConcurrentDrafts] = useState<Record<string, string>>({});
   const [maxSessionDrafts, setMaxSessionDrafts] = useState<Record<string, string>>({});
 
@@ -102,11 +114,11 @@ export function Phase15aOperationsPanel({
         <h2>{copy.phase15a.title}</h2>
         <span>{exitGateStatusLabel(operations.exitGate.status, copy)}</span>
       </div>
-      <p className="operations-summary">{operations.exitGate.label}</p>
+      <p className="operations-summary">{phase15aDisplayText(operations.exitGate.label, language)}</p>
       {operations.exitGate.blockers.length ? (
         <ul className="effect-list">
           {operations.exitGate.blockers.map((blocker) => (
-            <li key={blocker}>{blocker}</li>
+            <li key={blocker}>{phase15aDisplayText(blocker, language)}</li>
           ))}
         </ul>
       ) : null}
@@ -258,28 +270,37 @@ export function Phase15aOperationsPanel({
           {operations.staleOrFailureReasons.length ? (
             <ul className="effect-list">
               {operations.staleOrFailureReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
+                <li key={reason}>{phase15aDisplayText(reason, language)}</li>
               ))}
             </ul>
           ) : null}
           {researchOperations.runs?.runs.length ? (
             <div className="operations-cards">
-              {researchOperations.runs.runs.map((run) => (
+              {researchOperations.runs.runs.map((run, index) => {
+                const recoveryUrl = researchRunRecoveryUrl(run);
+                const recoveryLabel =
+                  recoveryUrl === copy.phase15a.refetchUnavailable
+                    ? copy.phase15a.refetchUnavailable
+                    : copy.phase15a.refreshRunStatus;
+
+                return (
                 <article className="operations-card" key={run.researchRunId}>
-                  <strong>{run.researchTaskId}</strong>
+                  <strong>{copy.phase15a.researchRunCards} {index + 1}</strong>
                   <span>{phase15aRunStatusLabel(copy.phase15a, run.status)}</span>
                   <small>{researchRunProviderLabel(run, copy)}</small>
                   <small>{copy.phase15a.sourceRefs}: {run.sourceRefs?.length ?? 0}</small>
                   <small>
                     {copy.phase15a.qualityGate}: {phase15aQualityGateStatusLabel(copy.phase15a, run.qualityGateStatus)}
                   </small>
-                  {run.qualityGateReviewReason ? <small>{run.qualityGateReviewReason}</small> : null}
+                  {run.qualityGateReviewReason ? (
+                    <small>{phase15aDisplayText(run.qualityGateReviewReason, language)}</small>
+                  ) : null}
                   {run.terminalReason ? (
                     <small>
                       {copy.phase15a.terminal}: {phase15aTerminalReasonLabel(copy.phase15a, run.terminalReason)}
                     </small>
                   ) : null}
-                  <small>{copy.phase15a.recovery}: {researchRunRecoveryUrl(run)}</small>
+                  <small>{copy.phase15a.recovery}: {recoveryLabel}</small>
                   <div className="card-actions">
                     <button
                       type="button"
@@ -308,7 +329,8 @@ export function Phase15aOperationsPanel({
                     ) : null}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="empty-state">{copy.phase15a.noResearchRuns}</p>
@@ -317,7 +339,7 @@ export function Phase15aOperationsPanel({
 
         <section>
           <h3>{copy.phase15a.qualityGateDisplay}</h3>
-          <p className="operations-summary">{operations.qualityGateLabel}</p>
+          <p className="operations-summary">{phase15aDisplayText(operations.qualityGateLabel, language)}</p>
         </section>
       </div>
     </section>

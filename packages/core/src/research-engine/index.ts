@@ -1285,8 +1285,8 @@ export function synthesizeEvidenceMatrix(input: SynthesizeEvidenceInput): Eviden
     balanceStatus === gateConfig.statuses.balanced
       ? undefined
       : balanceStatus === gateConfig.statuses.sourceQualityInsufficient
-        ? `Research source was insufficient for ${input.researchTask.objective}.`
-        : `Evidence remains ${balanceStatus} for ${input.researchTask.objective}.`;
+        ? `판단에 쓸 공개 근거가 부족합니다: ${input.researchTask.objective}`
+        : `근거 균형이 아직 ${balanceStatus}입니다: ${input.researchTask.objective}`;
 
   return {
     evidenceMatrixId: `evidence_matrix_${input.researchResult.researchResultId}_v${input.synthesisVersion}`,

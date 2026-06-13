@@ -429,6 +429,21 @@ function numericQuestionCountFromBody(value: unknown, fieldName: string) {
   return value;
 }
 
+function questionGenerationModeFromBody(value: unknown) {
+  if (value === undefined) {
+    return "live_preview" as const;
+  }
+
+  if (value === "live_preview" || value === "local_fallback") {
+    return value;
+  }
+
+  throw new ProductEngineServiceError(
+    "VALIDATION_FAILED",
+    "generationMode must be live_preview or local_fallback."
+  );
+}
+
 function domainKeywordExpansionsFromBody(value: unknown) {
   if (value === undefined) {
     return undefined;
@@ -3658,12 +3673,45 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         intakeGoal: stringContentFromBody(body.intakeGoal, "intakeGoal"),
         projectPurposeMode: projectPurposeModeFromBody(body.projectPurposeMode),
         businessCriticIntensity: optionalBusinessCriticIntensityFromBody(body.businessCriticIntensity),
+        generationMode: questionGenerationModeFromBody(body.generationMode),
         reviewAxes: optionalStringArrayFromBody(body.reviewAxes, "reviewAxes") ?? [],
         ambiguityDimensions: optionalStringArrayFromBody(body.ambiguityDimensions, "ambiguityDimensions") ?? [],
         language: typeof body.language === "string" ? body.language : undefined,
         initialQuestionCount: questionCountFromBody(body.initialQuestionCount),
         domainKeywordExpansions: domainKeywordExpansionsFromBody(body.domainKeywordExpansions)
       };
+      const questionSetContext = {
+        contextText: [request.rawIdea, request.intakeGoal].filter(Boolean).join("\n")
+      };
+
+      if (request.generationMode === "local_fallback") {
+        const fallbackQuestionSet = generatedQuestionSetLocalFallback({
+          rawIdea: request.rawIdea,
+          intakeGoal: request.intakeGoal,
+          businessCriticIntensity: request.businessCriticIntensity ?? null
+        });
+        const fallbackParsed = parseGeneratedAmbiguityQuestionSet(fallbackQuestionSet, questionSetContext);
+
+        if (fallbackParsed.ok) {
+          return {
+            status: "generated",
+            promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+            schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+            source: "local_fallback",
+            generatedQuestionSet: fallbackQuestionSet,
+            reason: "Solo Superman used a conservative local fallback question set so planning can start immediately."
+          } as const;
+        }
+
+        return {
+          status: "invalid",
+          promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+          schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+          source: "local_fallback",
+          validationIssues: fallbackParsed.issues,
+          reason: "Local fallback question set did not match the generated question JSON schema."
+        } as const;
+      }
       const projectConfig = loadSoloProjectConfig();
       const questionConfig = projectConfig.questionGeneration;
       const effectiveLanguage = request.language ?? questionConfig?.language;
@@ -3722,9 +3770,6 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         return generatedQuestionSetUnavailableResponse(generatedQuestionSetPreviewFailureReason(error));
       }
 
-      const questionSetContext = {
-        contextText: [request.rawIdea, request.intakeGoal].filter(Boolean).join("\n")
-      };
       const hasStructuredQuestionSet = Object.prototype.hasOwnProperty.call(preview.payload, "structuredBody");
       let parsed: ReturnType<typeof parseGeneratedAmbiguityQuestionSet>;
       let generatedQuestionSet: unknown;

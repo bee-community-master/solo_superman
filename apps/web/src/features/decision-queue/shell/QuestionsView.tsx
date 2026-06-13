@@ -48,6 +48,10 @@ function compactSourceTraceLabel(value: string) {
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
 }
 
+function questionDisplayText(value: string, language: AppLanguage) {
+  return localizedUserFacingDecisionQueueText(value, language).replace(/\s+/gu, " ").trim();
+}
+
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
   en: [
     "Research evidence summary",
@@ -362,6 +366,14 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
+  const queueRecoveryLabels = [
+    queueRecovery.label,
+    queueRecovery.activeBatchLabel,
+    queueRecovery.refetchLabel,
+    queueRecovery.sseLabel
+  ]
+    .map((label) => questionDisplayText(label, language))
+    .filter(Boolean);
   const nextQuestionLoopAction = questionLoopNextAction(copy, {
     activeQuestionCount: questionProgress.activeQuestionCount,
     blockedQuestionCount: questionProgress.blockedQuestionCount,
@@ -422,10 +434,9 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           <p>{nextQuestionLoopAction}</p>
         </section>
         <div className="queue-recovery">
-          <p>{queueRecovery.label}</p>
-          <small>{queueRecovery.activeBatchLabel}</small>
-          <small>{queueRecovery.refetchLabel}</small>
-          <small>{queueRecovery.sseLabel}</small>
+          {queueRecoveryLabels.map((label, index) =>
+            index === 0 ? <p key={label}>{label}</p> : <small key={label}>{label}</small>
+          )}
         </div>
         <section className="question-progress" aria-label={copy.questions.questionProgressTitle}>
           <div>
@@ -557,13 +568,13 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
                           <dl className="question-coaching-context">
                             {item.whyItMatters ? (
                               <div>
-                                <dt>{copy.questions.whyItMatters}</dt>
+                                <dt>{copy.questions.unansweredRisk}</dt>
                                 <dd><GeneratedQuestionText language={language} text={item.whyItMatters} /></dd>
                               </div>
                             ) : null}
                             {item.decisionItUnlocks ? (
                               <div>
-                                <dt>{copy.questions.decisionItUnlocks}</dt>
+                                <dt>{copy.questions.narrowedScope}</dt>
                                 <dd><GeneratedQuestionText language={language} text={item.decisionItUnlocks} /></dd>
                               </div>
                             ) : null}

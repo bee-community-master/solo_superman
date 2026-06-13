@@ -291,7 +291,8 @@ describe("Decision Queue view model phase15a", () => {
     expect(operations.allowlistPolicyLabel).toContain("2 동시 / 세션당 12");
     expect(operations.disclosureActivityLabel).toContain("안전한 자동 리서치 준비됨");
     expect(operations.disclosureActivityLabel).not.toContain("automatic_payload_ready");
-    expect(operations.runRecoveryLabel).toContain("/api/v1/projects/proj_phase15a_ui/research-runs");
+    expect(operations.runRecoveryLabel).toContain("상태 새로고침 가능");
+    expect(operations.runRecoveryLabel).not.toContain("/api/v1/projects/proj_phase15a_ui/research-runs");
     expect(operations.qualityGateLabel).toContain("검토 필요");
     expect(operations.qualityGateLabel).not.toContain("needs_review");
     expect(operations.staleOrFailureReasons).toEqual([

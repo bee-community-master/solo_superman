@@ -18,7 +18,7 @@ import type {
   ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
-import { renderEnglishMarkup } from "../test-rendering";
+import { renderMarkup } from "../test-rendering";
 import { ResearchView } from "./ResearchView";
 import { emptyProjectionState, emptyResearchOperationsState } from "./decision-queue-shell-model";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
@@ -254,7 +254,10 @@ function researchRunProjectionWithRuns(): ResearchRunControlProjection {
   };
 }
 
-function renderResearchView(controllerOverrides: Partial<DecisionQueueShellController> = {}) {
+function renderResearchView(
+  controllerOverrides: Partial<DecisionQueueShellController> = {},
+  language: Parameters<typeof renderMarkup>[1] = "en"
+) {
   const controller = {
     cancelResearchRun: vi.fn(),
     createOrReactivateAllowlist: vi.fn(),
@@ -305,7 +308,7 @@ function renderResearchView(controllerOverrides: Partial<DecisionQueueShellContr
     ...controllerOverrides
   } satisfies Partial<DecisionQueueShellController>;
 
-  return renderEnglishMarkup(<ResearchView controller={controller as DecisionQueueShellController} />);
+  return renderMarkup(<ResearchView controller={controller as DecisionQueueShellController} />, language);
 }
 
 describe("ResearchView", () => {
@@ -315,9 +318,9 @@ describe("ResearchView", () => {
     expect(markup).toContain("Start 2 ready public web runs");
     expect(markup).toContain("Ready public web batch plan");
     expect(markup).toContain("2 planned read-only research tasks will start within the active allowlist budget.");
-    expect(markup).toContain("Task IDs queued for this batch");
-    expect(markup).toContain("research_task_ready_batch_1");
-    expect(markup).toContain("research_task_ready_batch_2");
+    expect(markup).not.toContain("Task IDs queued for this batch");
+    expect(markup).not.toContain("research_task_ready_batch_1");
+    expect(markup).not.toContain("research_task_ready_batch_2");
     expect(markup).not.toContain("Start 3 ready public web runs");
     expect(markup).not.toContain("Source trace");
     expect(markup).not.toContain("Evidence matrix");
@@ -462,7 +465,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Unknown reliability");
     expect(markup).toContain("Pet care decisions may involve one household buyer");
     expect(markup).toContain("Source citations and counterexamples still need quality-gate review.");
-    expect(markup).toContain("visible_chatgpt_handoff:research_task_imported_handoff");
+    expect(markup).not.toContain("visible_chatgpt_handoff:research_task_imported_handoff");
     expect(markup).toContain("payer, caregiver, and clinic-contact roles");
     expect(markup).not.toContain(
       "Import research for Check whether pet lifecycle app buyers and daily users are the same people."
@@ -497,10 +500,12 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("research_task_ready_batch_1");
-    expect(markup).toContain("research_task_ready_batch_2");
-    expect(markup).toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_1/status");
-    expect(markup).toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_2/status");
+    expect(markup).toContain("Research run cards 1");
+    expect(markup).toContain("Research run cards 2");
+    expect(markup).not.toContain("research_task_ready_batch_1");
+    expect(markup).not.toContain("research_task_ready_batch_2");
+    expect(markup).not.toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_1/status");
+    expect(markup).not.toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_batch_2/status");
     expect(markup).not.toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_selected/status");
   });
 
@@ -575,6 +580,7 @@ describe("ResearchView", () => {
               retainedSourceRefs: [
                 "https://example.com/source-report",
                 "research_run_public_web_1",
+                "answer_public_web_1",
                 "question:pricing-evidence"
               ],
               additionalQuestions: [
@@ -611,7 +617,8 @@ describe("ResearchView", () => {
     expect(markup).not.toContain(">approved<");
     expect(markup).not.toContain(">risk_accepted<");
     expect(markup).toContain("Source trace");
-    expect(markup).toContain("research_run_public_web_1");
+    expect(markup).not.toContain("research_run_public_web_1");
+    expect(markup).not.toContain("answer_public_web_1");
     expect(markup).toContain("question:pricing-evidence");
     expect(markup.split("https://example.com/source-report")).toHaveLength(2);
   });
@@ -642,6 +649,62 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Needs more research: onboarding retention");
     expect(markup).not.toContain("추가 근거 필요: onboarding retention");
+  });
+
+  it("shows a compact insufficient public research summary when no public source URL is retained", () => {
+    const research = researchProjection();
+    const markup = renderResearchView({
+        projections: {
+          ...emptyProjectionState(),
+          research: {
+            ...research,
+            tasks: research.tasks.map((task) =>
+              task.researchTaskId === "research_task_reviewed"
+                ? {
+                    ...task,
+                    status: "research_insufficient" as const,
+                    objective: "Find decision evidence for: career transition planner alternatives."
+                  }
+                : task
+            ),
+            results: [
+              {
+                researchResultId: "research_result_no_source" as ResearchResultId,
+                researchTaskId: "research_task_reviewed" as ResearchTaskId,
+                resultSummary: "Evidence has 0 usable finding(s), below configured minimum 1.",
+                limitationNotes: "No public URL was retained from the browser search.",
+                importedAt: "2026-05-22T00:00:00.000Z"
+              }
+            ],
+            reviewCards: [
+              {
+                cardId: "research_reviewed_card" as QueueItemId,
+                researchTaskId: "research_task_reviewed" as ResearchTaskId,
+                cardType: "research_review",
+                title: "Needs more research: career alternatives",
+                state: "research_insufficient",
+                impact: "high",
+                availableOutcomes: ["risk_accepted", "research_insufficient"],
+                terminalOutcome: "research_insufficient",
+                terminalRationale: "Evidence has 0 usable finding(s), below configured minimum 1.",
+                blocksPlanning: true,
+                recoveryActions: ["mark_research_insufficient"]
+              }
+            ]
+          }
+        }
+      },
+      "ko"
+    );
+
+    expect(markup).toContain("이 공개 리서치만으로 부족한 이유");
+    expect(markup).toContain("검색한 것");
+    expect(markup).toContain("career transition planner alternatives");
+    expect(markup).toContain("확인한 범위");
+    expect(markup).toContain("공개 출처 URL을 확인하지 못했습니다.");
+    expect(markup).toContain("근거가 부족한 이유");
+    expect(markup).not.toContain("Evidence has 0 usable finding");
+    expect(markup).toContain("다음 수동 검증");
   });
 
   it("renders evidence matrices with pro, con, uncertainty, blocker, and follow-up details", () => {
@@ -687,11 +750,11 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("Evidence matrix");
-    expect(markup).toContain("matrix_pricing_counter_evidence");
+    expect(markup).not.toContain("matrix_pricing_counter_evidence");
     expect(markup).toContain("Balance status");
     expect(markup).toContain("Missing counter-evidence");
     expect(markup).not.toContain(">missing_con_evidence<");
-    expect(markup).toContain("Planning blocked");
+    expect(markup).toContain("Risk remains before planning handoff");
     expect(markup).toContain("Supporting signals");
     expect(markup).toContain("Founders report willingness to pay");
     expect(markup).toContain("Counterpoints / risks");

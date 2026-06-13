@@ -549,6 +549,17 @@ const EN_COPY = {
     intensityHelp: "Business mode needs an explicit review intensity before the first question set can be created.",
     running: "Running",
     createFirstBatch: "Create first questions",
+    initialQuestionGenerationTitle: "First question generation",
+    initialQuestionGenerationStatus: {
+      idle: "Waiting to start.",
+      generating: "Still creating the first planning question.",
+      delayed: "Live generation is taking longer than 30 seconds or is not ready. You can keep waiting, start with fallback questions, or retry.",
+      fallback: "Starting with fallback planning questions.",
+      retrying: "Retrying live question generation."
+    },
+    initialQuestionContinue: "Keep generating",
+    initialQuestionUseFallback: "Start with fallback questions",
+    initialQuestionRetry: "Retry",
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
@@ -643,6 +654,8 @@ const EN_COPY = {
     questionContextGoal: "Goal",
     questionContextQuestion: "Question",
     whyItMatters: "Why ask this",
+    unansweredRisk: "Risk if unanswered",
+    narrowedScope: "Scope narrowed by answering",
     decisionItUnlocks: "What this answer decides",
     nextValidation: "Next check",
     suggestedAnswers: "Suggested answer choices",
@@ -878,8 +891,8 @@ const EN_COPY = {
     limitationRefs: "Limitations",
     evidenceMatrix: "Evidence matrix",
     balanceStatus: "Balance status",
-    decisionBlocked: "Planning blocked",
-    decisionReady: "Planning not blocked",
+    decisionBlocked: "Risk remains before planning handoff",
+    decisionReady: "No planning handoff blocker",
     proEvidence: "Supporting signals",
     conEvidence: "Counterpoints / risks",
     uncertainties: "Uncertainties",
@@ -896,7 +909,16 @@ const EN_COPY = {
     importedResultQuestionRef: "Question or handoff reference",
     importedResultImplicationScope: "What this can decide",
     noResearchTasks: "No research tasks yet.",
-    planningBlockedSuffix: "blocks Planning-ready",
+    insufficientSummaryTitle: "Why this public research is not enough",
+    insufficientSearchedFor: "Searched for",
+    insufficientCheckedScope: "Checked scope",
+    insufficientReason: "Why evidence is still weak",
+    insufficientNextAction: "Next manual check",
+    noPublicSourceConfirmed: "No public source URL was confirmed.",
+    defaultInsufficientReason: "The current public evidence is not strong enough to support this planning decision.",
+    manualValidationFallback:
+      "Try narrower search terms and ask 3 target users which current alternative they would keep using.",
+    planningBlockedSuffix: "Risk remains before planning handoff",
     routeOutcomeLabels: {
       research_needed: "Research needed",
       missing_con_evidence: "Counter-evidence needed",
@@ -1594,8 +1616,10 @@ const EN_COPY = {
     disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
       `${logCount} research-use log(s); latest ${latestStatus}`,
     noDisclosureActivity: "No disclosure activity loaded.",
-    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
-      `${runCount} run(s); ${attentionCount} need review or recovery; refresh ${refetchUrl}`,
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) => {
+      void refetchUrl;
+      return `${runCount} run(s); ${attentionCount} need review or recovery; status refresh is available`;
+    },
     noRunStatus: "No research run status loaded.",
     qualityGatePending: "Quality check has not produced a visible result.",
     exitGateBlocked: "Evidence checks are not finished yet. Check the remaining items and recovery paths first.",
@@ -2071,6 +2095,17 @@ const JA_COPY: typeof EN_COPY = {
     intensityHelp: "事業検証では、最初の質問を作る前にレビューの強さを明示する必要があります。",
     running: "実行中",
     createFirstBatch: "最初の質問を作成",
+    initialQuestionGenerationTitle: "最初の質問生成",
+    initialQuestionGenerationStatus: {
+      idle: "開始待ちです。",
+      generating: "最初の計画質問をまだ生成しています。",
+      delayed: "ライブ質問生成に30秒以上かかっているか、まだ準備できていません。待ち続ける、フォールバック質問で始める、再試行を選べます。",
+      fallback: "フォールバックの計画質問で開始しています。",
+      retrying: "ライブ質問生成を再試行しています。"
+    },
+    initialQuestionContinue: "生成を続ける",
+    initialQuestionUseFallback: "フォールバック質問で開始",
+    initialQuestionRetry: "再試行",
     queue: "キュー",
     refreshQuestionList: "質問リストを更新",
     loadNextQuestions: "次の質問を読み込む",
@@ -2163,6 +2198,8 @@ const JA_COPY: typeof EN_COPY = {
     questionContextGoal: "目標",
     questionContextQuestion: "質問",
     whyItMatters: "なぜ重要か",
+    unansweredRisk: "答えない場合のリスク",
+    narrowedScope: "答えると絞れる範囲",
     decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
     suggestedAnswers: "回答候補",
@@ -2394,8 +2431,8 @@ const JA_COPY: typeof EN_COPY = {
     limitationRefs: "制約",
     evidenceMatrix: "エビデンスマトリクス",
     balanceStatus: "バランス状態",
-    decisionBlocked: "Planningブロック中",
-    decisionReady: "Planningブロックなし",
+    decisionBlocked: "計画引き継ぎ前にリスクが残っています",
+    decisionReady: "計画引き継ぎのブロックはありません",
     proEvidence: "確認できた手がかり",
     conEvidence: "別視点/反例",
     uncertainties: "不確実性",
@@ -2412,7 +2449,16 @@ const JA_COPY: typeof EN_COPY = {
     importedResultQuestionRef: "質問または引き継ぎ参照",
     importedResultImplicationScope: "この結果で判断できること",
     noResearchTasks: "リサーチタスクはまだありません。",
-    planningBlockedSuffix: "Planning-readyをブロック",
+    insufficientSummaryTitle: "この公開リサーチだけでは足りない理由",
+    insufficientSearchedFor: "検索したこと",
+    insufficientCheckedScope: "確認できた範囲",
+    insufficientReason: "根拠がまだ弱い理由",
+    insufficientNextAction: "次の手動検証",
+    noPublicSourceConfirmed: "公開URL付きの出典を確認できませんでした。",
+    defaultInsufficientReason: "この公開根拠だけでは、まだ計画判断を支えるには不十分です。",
+    manualValidationFallback:
+      "検索語をさらに絞り、対象ユーザー3人に今使っている代替手段を続ける理由を確認してください。",
+    planningBlockedSuffix: "計画引き継ぎ前にリスクが残っています",
     routeOutcomeLabels: {
       research_needed: "リサーチが必要",
       missing_con_evidence: "別視点の確認が必要",
@@ -3121,8 +3167,10 @@ const JA_COPY: typeof EN_COPY = {
     disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
       `${logCount} 件のリサーチ利用ログ · 最新 ${latestStatus}`,
     noDisclosureActivity: "リサーチ利用ログはまだ読み込まれていません。",
-    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
-      `${runCount} 件の実行 · ${attentionCount} 件は確認または復旧が必要 · 再読み込み ${refetchUrl}`,
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) => {
+      void refetchUrl;
+      return `${runCount} 件の実行 · ${attentionCount} 件は確認または復旧が必要 · 状態を再読み込みできます`;
+    },
     noRunStatus: "リサーチ実行状態はまだ読み込まれていません。",
     qualityGatePending: "品質確認はまだ表示できる結果を生成していません。",
     exitGateBlocked: "リサーチ確認はまだ完了していません。残り項目と復旧経路を先に確認してください。",
@@ -3598,6 +3646,17 @@ const KO_COPY: typeof EN_COPY = {
     intensityHelp: "사업 검증에서는 첫 질문을 만들기 전에 리뷰 강도를 명시해야 합니다.",
     running: "실행 중",
     createFirstBatch: "첫 질문 만들기",
+    initialQuestionGenerationTitle: "첫 질문 생성",
+    initialQuestionGenerationStatus: {
+      idle: "시작 대기 중입니다.",
+      generating: "첫 기획 질문을 계속 생성 중입니다.",
+      delayed: "라이브 질문 생성이 30초 이상 걸리거나 아직 준비되지 않았습니다. 계속 기다리거나, 폴백 질문으로 시작하거나, 다시 시도할 수 있습니다.",
+      fallback: "폴백 기획 질문으로 시작합니다.",
+      retrying: "라이브 질문 생성을 다시 시도합니다."
+    },
+    initialQuestionContinue: "계속 생성 중",
+    initialQuestionUseFallback: "폴백 질문으로 시작",
+    initialQuestionRetry: "재시도",
     queue: "큐",
     refreshQuestionList: "질문 목록 새로고침",
     loadNextQuestions: "다음 질문 불러오기",
@@ -3690,6 +3749,8 @@ const KO_COPY: typeof EN_COPY = {
     questionContextGoal: "목표",
     questionContextQuestion: "질문",
     whyItMatters: "왜 묻나요",
+    unansweredRisk: "답하지 않으면 생기는 리스크",
+    narrowedScope: "답하면 좁혀지는 범위",
     decisionItUnlocks: "이 답으로 정해지는 것",
     nextValidation: "다음 확인",
     suggestedAnswers: "추천 답변 선택지",
@@ -3833,7 +3894,7 @@ const KO_COPY: typeof EN_COPY = {
   },
   research: {
     research: "리서치",
-    unknown: "알 수 없음",
+    unknown: "공개 출처를 확인하지 못함",
     planResearchTask: "리서치 작업 계획",
     rationale: "근거",
     importResearchAriaPrefix: "리서치 가져오기",
@@ -3919,8 +3980,8 @@ const KO_COPY: typeof EN_COPY = {
     limitationRefs: "제약",
     evidenceMatrix: "근거 매트릭스",
     balanceStatus: "균형 상태",
-    decisionBlocked: "Planning 차단됨",
-    decisionReady: "Planning 차단 없음",
+    decisionBlocked: "지금 계획으로 넘기면 위험함",
+    decisionReady: "계획 인계 차단 없음",
     proEvidence: "확인된 단서",
     conEvidence: "다른 관점/반례",
     uncertainties: "불확실성",
@@ -3937,7 +3998,16 @@ const KO_COPY: typeof EN_COPY = {
     importedResultQuestionRef: "질문 또는 인계 참조",
     importedResultImplicationScope: "이 결과로 판단할 수 있는 범위",
     noResearchTasks: "아직 리서치 작업이 없습니다.",
-    planningBlockedSuffix: "Planning-ready 차단",
+    insufficientSummaryTitle: "이 공개 리서치만으로 부족한 이유",
+    insufficientSearchedFor: "검색한 것",
+    insufficientCheckedScope: "확인한 범위",
+    insufficientReason: "근거가 부족한 이유",
+    insufficientNextAction: "다음 수동 검증",
+    noPublicSourceConfirmed: "공개 출처 URL을 확인하지 못했습니다.",
+    defaultInsufficientReason: "현재 공개 근거만으로는 이 기획 판단을 뒷받침하기에 부족합니다.",
+    manualValidationFallback:
+      "검색어를 더 좁히고 타깃 사용자 3명에게 지금 쓰는 대체재를 계속 쓸 이유를 확인하세요.",
+    planningBlockedSuffix: "지금 만들면 위험한 이유가 남아 있습니다",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
       missing_con_evidence: "반례 확인 필요",
@@ -4646,8 +4716,10 @@ const KO_COPY: typeof EN_COPY = {
     disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
       `리서치 사용 기록 ${logCount}개 · 최신 ${latestStatus}`,
     noDisclosureActivity: "리서치 사용 기록이 아직 로드되지 않았습니다.",
-    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) =>
-      `실행 ${runCount}개 · 검토 또는 복구 필요 ${attentionCount}개 · 새로고침 ${refetchUrl}`,
+    runRecoveryLoaded: (runCount: number, attentionCount: number, refetchUrl: string) => {
+      void refetchUrl;
+      return `실행 ${runCount}개 · 검토 또는 복구 필요 ${attentionCount}개 · 상태 새로고침 가능`;
+    },
     noRunStatus: "리서치 실행 상태가 아직 로드되지 않았습니다.",
     qualityGatePending: "품질 확인이 아직 표시 가능한 결과를 만들지 않았습니다.",
     exitGateBlocked: "리서치 검토가 아직 끝나지 않았습니다. 남은 항목과 복구 경로를 먼저 확인하세요.",

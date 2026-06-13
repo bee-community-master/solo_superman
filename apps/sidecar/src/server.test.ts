@@ -2383,6 +2383,62 @@ describe("PR-02 sidecar health shell", () => {
     }
   });
 
+  it("returns local fallback questions without requiring live Codex runtime", async () => {
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: {},
+      accountReader: async () => ({
+        status: "missing",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status"
+      })
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너",
+          intakeGoal: "첫 고객, 첫 범위, 이번 주 성공 기준을 빨리 좁히고 싶다.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "strong",
+          generationMode: "local_fallback"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        data: {
+          status: "generated",
+          source: "local_fallback",
+          generatedQuestionSet: {
+            schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+            questions: expect.arrayContaining([
+              expect.objectContaining({
+                sectionRef: "Target Customer",
+                topicKey: "first_user_situation"
+              })
+            ])
+          }
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
   it("falls back to conservative open-text questions when live question JSON fails validation", async () => {
     const codexRuntimeAdapter = createCodexRuntimeAdapter({
       env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },

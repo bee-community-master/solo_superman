@@ -59,7 +59,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
           </div>
           <div>
             <h1>Solo Superman</h1>
-            <p>{projections.session?.projectId ?? copy.layout.localQueueFallback}</p>
+            <p>{projections.session?.projectPurposeModeLabel ?? copy.layout.localQueueFallback}</p>
           </div>
         </div>
         <nav className="phase-trail" aria-label={copy.layout.workflowSectionsAria}>

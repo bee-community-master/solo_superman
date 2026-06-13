@@ -111,6 +111,25 @@
   min-height: 42px;
 }
 
+.initial-question-generation-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--solo-border);
+  border-radius: 8px;
+  background: #ffffff;
+  margin: -4px 0 16px;
+  padding: 12px;
+}
+
+.initial-question-generation-panel p {
+  margin: 4px 0 0;
+  color: #506170;
+}
+
+.initial-question-generation-actions {
+  justify-content: start;
+}
+
 .start-panel label,
 .research-import-field,
 .mode-change-panel label {
@@ -581,11 +600,18 @@
 
 .research-validation-summary,
 .research-evidence-pack,
-.research-evidence-matrix {
+.research-evidence-matrix,
+.research-insufficient-summary {
   border: 1px solid var(--solo-soft-border);
   border-radius: 10px;
   background: #fbfffe;
   padding: 10px;
+}
+
+.research-insufficient-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .research-evidence-matrix-heading {

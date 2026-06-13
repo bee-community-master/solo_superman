@@ -1,4 +1,6 @@
 import type { Phase15bReadinessViewModel } from "./decision-queue-view-model";
+import { localizedUserFacingDecisionQueueText } from "@solo-superman/contracts";
+import { useAppLanguage, type AppLanguage } from "../../shared/i18n/app-language";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./shell/decision-queue-copy";
 
 type Phase15bReadinessRecord = Phase15bReadinessViewModel["records"][number];
@@ -22,6 +24,10 @@ function readinessRecordRows(record: Phase15bReadinessRecord, copy: DecisionQueu
   ];
 }
 
+function phase15bDisplayText(value: string, language: AppLanguage) {
+  return localizedUserFacingDecisionQueueText(value, language).replace(/\s+/gu, " ").trim();
+}
+
 export function Phase15bReadinessPanel({
   hasActiveProject,
   isBusy,
@@ -29,16 +35,25 @@ export function Phase15bReadinessPanel({
   onRefreshReadiness
 }: Phase15bReadinessPanelProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
+  const summaryText = phase15bDisplayText(readiness.label, language);
+  const noExecutionText = phase15bDisplayText(readiness.noExecutionLabel, language);
+  const exportText = phase15bDisplayText(readiness.exportLabel, language);
+  const visibleRowsByRecord = readiness.records.map((record) =>
+    readinessRecordRows(record, copy)
+      .map((row) => ({ ...row, value: phase15bDisplayText(row.value, language) }))
+      .filter((row) => row.value)
+  );
 
   return (
     <section className="panel">
       <div className="panel-heading">
         <h2>{copy.phase15b.title}</h2>
-        <span>{readiness.statusLabel}</span>
+        <span>{phase15bDisplayText(readiness.statusLabel, language)}</span>
       </div>
-      <p className="operations-summary">{readiness.label}</p>
-      <p className="operations-summary">{readiness.noExecutionLabel}</p>
-      <p className="operations-summary">{readiness.exportLabel}</p>
+      {summaryText ? <p className="operations-summary">{summaryText}</p> : null}
+      {noExecutionText ? <p className="operations-summary">{noExecutionText}</p> : null}
+      {exportText ? <p className="operations-summary">{exportText}</p> : null}
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveProject} onClick={onRefreshReadiness}>
           {copy.phase15b.refresh}
@@ -46,12 +61,12 @@ export function Phase15bReadinessPanel({
       </div>
       {readiness.records.length ? (
         <div className="operations-cards">
-          {readiness.records.map((record) => (
+          {readiness.records.map((record, recordIndex) => (
             <article className="operations-card readiness-card" key={record.hintId}>
-              <strong>{record.surfaceLabel}</strong>
+              <strong>{phase15bDisplayText(record.surfaceLabel, language)}</strong>
               <span>{copy.phase15b.safeExecutionNote}</span>
-              <small>{record.statusLabel}</small>
-              {readinessRecordRows(record, copy).map((row) => (
+              <small>{phase15bDisplayText(record.statusLabel, language)}</small>
+              {visibleRowsByRecord[recordIndex]?.map((row) => (
                 <small key={row.label}>
                   {row.label}: {row.value}
                 </small>
