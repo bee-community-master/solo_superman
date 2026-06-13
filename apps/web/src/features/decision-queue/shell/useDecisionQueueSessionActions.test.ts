@@ -30,6 +30,24 @@ import {
   useDecisionQueueSessionActions
 } from "./useDecisionQueueSessionActions";
 
+async function waitForCondition(condition: () => boolean) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  throw new Error("Timed out waiting for condition.");
+}
+
+function initialQueueFlowSubmitEvent() {
+  return { preventDefault: vi.fn() } as unknown as Parameters<
+    ReturnType<typeof useDecisionQueueSessionActions>["runInitialQueueFlow"]
+  >[0];
+}
+
 describe("nextQuestionBatchIdsForActivation", () => {
   it("uses queued next question ids and research follow-ups while ignoring non-question review cards", () => {
     const queue: DecisionQueueProjection = {
@@ -328,6 +346,7 @@ describe("useDecisionQueueSessionActions", () => {
     const draftInitialSpec = vi.fn(async () => commandResponse(3));
     const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
     const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
+    const setWorkflowError = vi.fn();
     const generateInitialQuestionSet = vi.fn(async () => ({
       status: "generated" as const,
       promptTemplateRef: "prompt-template:generated-ambiguity-questions:v1",
@@ -382,7 +401,7 @@ describe("useDecisionQueueSessionActions", () => {
         setResearchDrafts: vi.fn(),
         setResearchOperations: vi.fn(),
         setStatuses: vi.fn(),
-        setWorkflowError: vi.fn()
+        setWorkflowError
       });
 
       return null;
@@ -394,9 +413,7 @@ describe("useDecisionQueueSessionActions", () => {
       throw new Error("Session actions were not captured.");
     }
 
-    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
-      typeof actions.runInitialQueueFlow
-    >[0]);
+    await actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
 
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "allow_codex"
@@ -408,8 +425,9 @@ describe("useDecisionQueueSessionActions", () => {
       rawIdea: "A pet lifecycle management app",
       intakeGoal: "Use natural questions tailored to pet guardians.",
       projectPurposeMode: "business",
-      businessCriticIntensity: "balanced"
-    });
+      businessCriticIntensity: "balanced",
+      generationMode: "live_preview"
+    }, expect.objectContaining({ signal: expect.any(Object) }));
     expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", generatedQuestionSet);
   });
 
@@ -522,9 +540,7 @@ describe("useDecisionQueueSessionActions", () => {
       throw new Error("Session actions were not captured.");
     }
 
-    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
-      typeof actions.runInitialQueueFlow
-    >[0]);
+    await actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
 
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "manual_only"
@@ -536,9 +552,150 @@ describe("useDecisionQueueSessionActions", () => {
       idea: "A private journaling workflow",
       intake: "Keep public research disabled while Codex generates the first questions.",
       projectPurposeMode: "personal",
-      businessCriticIntensity: null
-    });
+      businessCriticIntensity: null,
+      generationMode: "live_preview"
+    }, expect.objectContaining({ signal: expect.any(Object) }));
     expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", generatedQuestionSet);
+  });
+
+  it("continues the first question flow with local fallback after the live request is abandoned", async () => {
+    const projectId = "proj_initial_question_fallback" as ProjectId;
+    const sessionId = "sess_initial_question_fallback" as SessionId;
+    const sessionProjection: SessionShellProjection = {
+      kind: "SessionShellProjection",
+      projectId,
+      sessionId,
+      version: 1 as ProjectionVersion,
+      phase: "intake",
+      projectPurposeMode: "business",
+      projectPurposeModeSelectionStatus: "confirmed",
+      projectPurposeModeLabel: "Business validation",
+      projectPurposeModeEffect: "Business mode keeps customer/scope/success questions active.",
+      businessCriticIntensity: "strong",
+      businessCriticIntensitySelectionStatus: "confirmed",
+      businessCriticIntensityLabel: "Strong critic",
+      businessCriticIntensityEffect: "Strong critic adds skeptical checks."
+    };
+    const queueProjection: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 5 as ProjectionVersion,
+      active: [],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const fallbackQuestionSet = {
+      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+      sourceSummary: "fallback",
+      questions: []
+    };
+    const commandResponse = <TProjection,>(
+      index: number,
+      immediateProjection?: TProjection
+    ) => ({
+      ok: true,
+      category: immediateProjection ? "accepted_with_projection" : "accepted",
+      commandId: `cmd_initial_fallback_${index}` as CommandId,
+      correlationId: `corr_initial_fallback_${index}` as CorrelationId,
+      stateVersionBefore: (index - 1) as StateVersion,
+      stateVersionAfter: index as StateVersion,
+      ...(immediateProjection ? { immediateProjection } : {})
+    } as CommandResponse<TProjection>);
+    const createProject = vi.fn(async () => commandResponse(1, sessionProjection));
+    const captureIntake = vi.fn(async () => commandResponse(2));
+    const draftInitialSpec = vi.fn(async () => commandResponse(3));
+    const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
+    const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
+    const setWorkflowError = vi.fn();
+    let liveSignal: AbortSignal | undefined;
+    const generateInitialQuestionSet = vi.fn(async (
+      input: Parameters<NonNullable<Parameters<typeof useDecisionQueueSessionActions>[0]["generateInitialQuestionSet"]>>[0],
+      options?: { readonly signal?: AbortSignal }
+    ) => {
+      if (input.generationMode === "local_fallback") {
+        return {
+          status: "generated" as const,
+          source: "local_fallback" as const,
+          generatedQuestionSet: fallbackQuestionSet
+        };
+      }
+
+      liveSignal = options?.signal;
+
+      return new Promise<undefined>(() => undefined);
+    });
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {},
+        appendCommand: async (_label, response) => response,
+        businessCriticIntensity: "strong",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          createProject,
+          captureIntake,
+          draftInitialSpec,
+          generateInitialQuestionSet,
+          analyzeAmbiguity,
+          activateQuestionBatch
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "AI career transition planner",
+        initialResearchAutomationPermission: "manual_only",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Start with the biggest planning bottleneck before counterexamples.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: emptyProjectionState(),
+        purposeModeChangeReason: "",
+        questionBatchSize: 1,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections: vi.fn(async () => undefined),
+        researchDrafts: {},
+        setAnswerDrafts: vi.fn(),
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    const runPromise = actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
+
+    await waitForCondition(() => generateInitialQuestionSet.mock.calls.length === 1);
+    actions.requestInitialQuestionFallback();
+    await runPromise;
+
+    expect(liveSignal?.aborted).toBe(true);
+    expect(generateInitialQuestionSet).toHaveBeenLastCalledWith(expect.objectContaining({
+      sessionId,
+      expectedStateVersion: 3,
+      generationMode: "local_fallback"
+    }), expect.objectContaining({ signal: expect.any(Object) }));
+    expect(setWorkflowError).not.toHaveBeenCalledWith(expect.any(String));
+    expect(analyzeAmbiguity).toHaveBeenCalledWith(sessionId, 3, "current_spec", fallbackQuestionSet);
   });
 
   it("submits an answer without waiting for background research starts to finish", async () => {

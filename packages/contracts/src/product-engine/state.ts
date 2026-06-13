@@ -9,6 +9,7 @@ import type {
   Phase25ResearchComparisonProjection,
   PlanningHandoffProjection,
   ResearchEvidenceProjection,
+  ResearchRouteOutcome,
   RuntimeActivityProjection,
   ServicePageUsePermissionProjection,
   SessionShellProjection
@@ -215,6 +216,9 @@ export interface AmbiguityIssueSnapshot {
   readonly summary: string;
   readonly whyItMatters?: string;
   readonly status: "open" | "answered" | "deferred" | "resolved";
+  readonly submittedAnswer?: string;
+  readonly submittedAnswerRef?: string;
+  readonly answerRouteOutcome?: ResearchRouteOutcome;
   readonly questionText?: string;
   readonly expectedAnswerType?: AmbiguityExpectedAnswerType;
   readonly answerSelectionMode?: AmbiguityAnswerSelectionMode;

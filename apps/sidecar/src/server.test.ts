@@ -60,6 +60,7 @@ import { hashBrowserActionPreview } from "./product-engine/browser-action-adapte
 import { hashFileDiffPreview } from "./product-engine/file-diff-adapter";
 import { hashShellCommandPreview } from "./product-engine/shell-command-adapter";
 import {
+  CodexRuntimeTimeoutError,
   CodexRuntimeUnavailableError,
   createCodexRuntimeAdapter,
   fixtureCodexPreviewOutput,
@@ -1527,6 +1528,36 @@ describe("PR-02 sidecar health shell", () => {
     expect(response.headers.get("access-control-allow-methods")).toContain("POST");
   });
 
+  it("keeps unexpected API route failures in the JSON error envelope", async () => {
+    const failingRuntimeApp = createSidecarApp({
+      localCapabilityToken,
+      migrationStatus: migratedStatus,
+      codexRuntimeAdapter: createCodexRuntimeAdapter({
+        env: {},
+        accountReader: async () => {
+          throw new Error("Codex status probe crashed.");
+        }
+      })
+    });
+    const response = await failingRuntimeApp.request("/api/v1/runtime/status", {
+      headers: authHeaders()
+    });
+    const body = await jsonBody(response);
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({
+      ok: false,
+      error: {
+        code: "RUNTIME_UNAVAILABLE",
+        message: "Sidecar route failed before it could complete the API response.",
+        details: {
+          errorName: "Error",
+          reason: "Codex status probe crashed."
+        }
+      }
+    });
+  });
+
   it("answers CORS preflight for localhost and IPv6 loopback frontend origins", async () => {
     for (const origin of ["http://localhost:55222", "http://[::1]:55222"]) {
       const response = await app.request("/api/v1/runtime/status", {
@@ -2284,6 +2315,314 @@ describe("PR-02 sidecar health shell", () => {
       expect(seenPrompt).toContain("Business critic intensity: balanced");
       expect(seenPrompt).toContain('businessCriticPressureKind "core_assumption_challenge"');
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("uses structured question-set payloads from live Codex preview output", async () => {
+    const generatedQuestionSet = generatedPetLifecycleQuestionSet();
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      livePreviewCreator: async (input) => ({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "question_generation",
+        artifactKind: "QuestionBatchArtifact",
+        applyPolicy: "auto_apply",
+        summary: "Generated structured question JSON ready",
+        payload: {
+          title: "Generated structured question JSON ready",
+          body: "Generated question set is available in structuredBody.",
+          targetObject: "generated_ambiguity_question_set",
+          sourceRefs: input.sourceRefs,
+          structuredBody: generatedQuestionSet
+        }
+      })
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A pet lifecycle management app for medical, food, daily, insurance, and funeral records"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "A pet lifecycle management app for medical, food, daily, insurance, and funeral records",
+          intakeGoal: "Ask domain-fit questions instead of founder/team-lead defaults.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "balanced"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        data: {
+          status: "generated",
+          source: "codex_runtime_preview",
+          generatedQuestionSet
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("returns local fallback questions without requiring live Codex runtime", async () => {
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: {},
+      accountReader: async () => ({
+        status: "missing",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status"
+      })
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너",
+          intakeGoal: "첫 고객, 첫 범위, 이번 주 성공 기준을 빨리 좁히고 싶다.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "strong",
+          generationMode: "local_fallback"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        data: {
+          status: "generated",
+          source: "local_fallback",
+          generatedQuestionSet: {
+            schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+            questions: expect.arrayContaining([
+              expect.objectContaining({
+                sectionRef: "Target Customer",
+                topicKey: "first_user_situation"
+              })
+            ])
+          }
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("falls back to conservative open-text questions when live question JSON fails validation", async () => {
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      livePreviewCreator: async (input) => ({
+        schemaVersion: CONTRACT_SCHEMA_VERSION,
+        turnPurpose: "question_generation",
+        artifactKind: "QuestionBatchArtifact",
+        applyPolicy: "auto_apply",
+        summary: "Invalid generated questions",
+        payload: {
+          title: "Invalid generated questions",
+          body: "Invalid body.",
+          targetObject: "generated_ambiguity_question_set",
+          sourceRefs: input.sourceRefs,
+          structuredBody: {
+            schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+            sourceSummary: "too shallow",
+            questions: []
+          }
+        }
+      })
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "이직과 퇴사를 고민하는 30대 직장인을 위한 AI 커리어 전환 플래너",
+          intakeGoal:
+            "직장인이 지금 회사에 남을지, 이직 준비를 할지, 퇴사를 감행할지 판단하도록 돕고 첫 고객과 성공 기준을 좁히고 싶다.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "balanced"
+        })
+      });
+      const body = await jsonBody(response);
+      const data = body.data as Readonly<Record<string, unknown>>;
+      const generatedQuestionSet = data.generatedQuestionSet as Readonly<Record<string, unknown>>;
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        status: "generated",
+        source: "local_fallback",
+        reason: expect.stringContaining("conservative open-text fallback")
+      });
+      expect(data.validationIssues).toEqual(expect.arrayContaining([expect.stringContaining("$.questions")]));
+      expect(generatedQuestionSet).toMatchObject({
+        schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+        questions: expect.arrayContaining([
+          expect.objectContaining({
+            sectionRef: "Target Customer",
+            expectedAnswerType: "text",
+            answerOptions: []
+          }),
+          expect.objectContaining({
+            sectionRef: "Current Alternatives",
+            ambiguityDimension: "assumption_pressure",
+            possibleRoutes: expect.arrayContaining(["research_needed", "missing_con_evidence"])
+          })
+        ])
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("returns JSON unavailable data instead of a non-JSON 500 when live question generation times out", async () => {
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      livePreviewCreator: async () => {
+        throw new CodexRuntimeTimeoutError(
+          "Codex live preview did not finish within 1000ms.",
+          1_000,
+          new Error("The operation was aborted")
+        );
+      }
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A career transition planner for thirty-something employees deciding whether to stay, switch jobs, or resign"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "A career transition planner for thirty-something employees deciding whether to stay, switch jobs, or resign",
+          intakeGoal: "Narrow the first customer, scope, willingness to pay, and success criteria.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "balanced"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        data: {
+          status: "unavailable",
+          source: "codex_runtime_unavailable",
+          reason: "Codex live preview did not finish within 1000ms."
+        }
+      });
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it("returns JSON unavailable data when live question generation fails before a usable preview artifact", async () => {
+    const codexRuntimeAdapter = createCodexRuntimeAdapter({
+      env: { SOLO_CODEX_SDK_LIVE_TURNS: "1" },
+      accountReader: async () => ({
+        status: "authenticated",
+        loginCommand: "codex auth login",
+        loginStatusCommand: "codex login status",
+        accountType: "chatgpt"
+      }),
+      livePreviewCreator: async () => {
+        throw new Error("Codex preview output schemaVersion does not match the internal contract.");
+      }
+    });
+    const { app: storageApp, storage } = await createMigratedStorageApp(codexRuntimeAdapter);
+
+    try {
+      const { sessionId } = await createProjectForTest(
+        storageApp,
+        "A career transition planner for thirty-something employees deciding whether to stay, switch jobs, or resign"
+      );
+      const response = await storageApp.request(`/api/v1/sessions/${sessionId}/questions/generate`, {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sessionId,
+          expectedStateVersion: 3,
+          rawIdea: "A career transition planner for thirty-something employees deciding whether to stay, switch jobs, or resign",
+          intakeGoal: "Narrow the first customer, scope, willingness to pay, and success criteria.",
+          projectPurposeMode: "business",
+          businessCriticIntensity: "balanced"
+        })
+      });
+      const body = await jsonBody(response);
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        ok: true,
+        data: {
+          status: "unavailable",
+          source: "codex_runtime_unavailable",
+          reason:
+            "Codex live preview failed before producing a usable question artifact: Codex preview output schemaVersion does not match the internal contract."
+        }
+      });
     } finally {
       await storage.close();
     }
@@ -7410,12 +7749,12 @@ describe("PR-02 sidecar health shell", () => {
       expect(activeItems).toHaveLength(1);
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
-        sectionRef: "Problem",
-        topicKey: "problem_pain_intensity",
+        sectionRef: "Target Customer",
+        topicKey: "buyer_user_split",
         severity: "high",
-        expectedAnswerType: "text",
-        answerOptions: [],
-        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
       const validationSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {

@@ -712,7 +712,7 @@ describe("Decision Queue view model readiness-panels", () => {
 
       expect(markup).toContain(`${readableActionType} readiness`);
       expect(markup).toContain(`${readableActionType} risk`);
-      expect(markup).toContain(`runtime_artifact_phase15b_${actionType}:${actionType}`);
+      expect(markup).not.toContain(`runtime_artifact_phase15b_${actionType}:${actionType}`);
     }
 
     expect(markup).toContain("Actual work has not been executed");

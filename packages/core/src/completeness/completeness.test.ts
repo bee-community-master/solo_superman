@@ -24,7 +24,7 @@ import {
   reduceProductEngineCommand,
   replayProductEngineEvents
 } from "../product-engine";
-import { buildConfidenceCompletionProjection } from "./index";
+import { buildConfidenceCompletionProjection, buildFounderBriefProjection } from "./index";
 
 const projectId = "proj_completeness_test" as ProjectId;
 const sessionId = "sess_completeness_test" as SessionId;
@@ -525,6 +525,83 @@ describe("PR-08 completeness scoring", () => {
         })
       ])
     );
+  });
+
+  it("blocks Planning-ready when research has support only and still needs counter-evidence", () => {
+    const state = {
+      ...completeState(),
+      researchState: {
+        ...completeState().researchState,
+        evidenceMatrices: [
+          ...["problem", "customer", "value", "validation", "mvp"].map((id) => matrix(id, "balanced")),
+          matrix("support_only_channel_claim", "needs_con_evidence")
+        ],
+        nextValidationActions: ["Find counterexamples before committing to the channel."]
+      }
+    };
+    const projection = buildConfidenceCompletionProjection(state, 13 as ProjectionVersion);
+
+    expect(projection.completionCandidate.status).toBe("not_ready");
+    expect(projection.scoreBreakdown.evidenceQuality).toBeLessThan(90);
+    expect(projection.gates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gateId: "evidence_balance",
+          passed: false,
+          blockingReason: expect.stringContaining("evidence matrix")
+        })
+      ])
+    );
+  });
+
+  it("adds discarded answered choices to Founder Brief sections", () => {
+    const state = {
+      ...completeState(),
+      openIssues: [
+        {
+          queueItemId: "queue_customer_choice" as QueueItemId,
+          sectionRef: "Target Customer",
+          topicKey: "primary_customer",
+          summary: "첫 고객 선택",
+          status: "answered" as const,
+          submittedAnswer: "노령·만성질환 반려동물 보호자를 먼저 검증합니다.",
+          submittedAnswerRef: "answer_customer_choice",
+          answerRouteOutcome: "research_needed" as const,
+          expectedAnswerType: "choice" as const,
+          answerOptions: [
+            {
+              id: "first_pet_guardian",
+              label: "첫 반려동물을 키우는 보호자",
+              value: "첫 반려동물을 키우는 보호자를 먼저 검증합니다.",
+              pro: "입문 보호자의 기록 관리 흐름을 먼저 봅니다.",
+              con: "노령·만성질환 케어는 별도 확인이 필요합니다."
+            },
+            {
+              id: "senior_pet_guardian",
+              label: "노령·만성질환 반려동물 보호자",
+              value: "노령·만성질환 반려동물 보호자를 먼저 검증합니다.",
+              pro: "진료, 약, 검사 이력을 먼저 봅니다.",
+              con: "일상 케어 반복 사용은 별도 확인이 필요합니다."
+            },
+            {
+              id: "insurance_pet_guardian",
+              label: "보험·의료비 관리가 필요한 보호자",
+              value: "보험·의료비 관리가 필요한 보호자를 먼저 검증합니다.",
+              pro: "영수증과 청구 서류 흐름을 먼저 봅니다.",
+              con: "보험이 없는 보호자 가치는 별도 확인이 필요합니다."
+            }
+          ]
+        }
+      ]
+    };
+    const completeness = buildConfidenceCompletionProjection(state, 13 as ProjectionVersion);
+    const brief = buildFounderBriefProjection(state, completeness, 14 as ProjectionVersion, now);
+    const discardedSection = brief.briefSections.find((section) => section.sectionId === "discarded_choices");
+
+    expect(discardedSection?.body).toContain("첫 반려동물을 키우는 보호자");
+    expect(discardedSection?.body).toContain("보험·의료비 관리가 필요한 보호자");
+    expect(discardedSection?.body).toContain("노령·만성질환 반려동물 보호자");
+    expect(discardedSection?.body).toContain("선택한 답변");
   });
 
   it("does not treat balanced evidence as a substitute for approved decisions", () => {

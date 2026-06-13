@@ -423,13 +423,13 @@ function matrixQualityScore(matrix: ProductEngineStateSnapshot["researchState"][
     case "balanced":
       return matrix.uncertainties.length || matrix.additionalQuestions.length ? 90 : 80;
     case "needs_con_evidence":
-      return matrix.knownRisk && matrix.additionalQuestions.length ? 70 : 60;
+      return matrix.knownRisk && matrix.additionalQuestions.length ? 45 : 35;
     case "missing_con_evidence":
       return matrix.knownRisk && matrix.additionalQuestions.length ? 50 : 40;
     case "blocked_by_con_evidence":
       return 35;
     case "source_quality_insufficient":
-      return 20;
+      return 5;
     case "unknown":
       return 0;
   }
@@ -438,6 +438,7 @@ function matrixQualityScore(matrix: ProductEngineStateSnapshot["researchState"][
 function evidenceGateBlocksCompletion(matrix: ProductEngineStateSnapshot["researchState"]["evidenceMatrices"][number]) {
   return (
     matrix.decisionBlocked ||
+    matrix.balanceStatus === "needs_con_evidence" ||
     matrix.balanceStatus === "missing_con_evidence" ||
     matrix.balanceStatus === "blocked_by_con_evidence" ||
     matrix.balanceStatus === "source_quality_insufficient"
@@ -759,6 +760,49 @@ function acceptedRiskDecisionRisks(state: ProductEngineStateSnapshot) {
     .map((decision) => `Accepted risk carried forward for ${decision.requiredDecisionRef}: ${decision.decisionId}`);
 }
 
+function normalizedAnswerChoiceMatchText(value: string | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣]+/giu, "")
+    .trim();
+}
+
+function answerMatchesChoice(answer: string, option: NonNullable<ProductEngineStateSnapshot["openIssues"][number]["answerOptions"]>[number]) {
+  const normalizedAnswer = normalizedAnswerChoiceMatchText(answer);
+  const candidates = [option.id, option.label, option.value]
+    .map(normalizedAnswerChoiceMatchText)
+    .filter((candidate) => candidate.length >= 2);
+
+  return candidates.some((candidate) => normalizedAnswer.includes(candidate));
+}
+
+function discardedChoiceSummaries(state: ProductEngineStateSnapshot) {
+  return state.openIssues
+    .filter((issue) => issue.status === "answered" && issue.submittedAnswer && issue.answerOptions?.length)
+    .flatMap((issue) => {
+      const answer = issue.submittedAnswer ?? "";
+      const options = issue.answerOptions ?? [];
+      const selected = options.filter((option) => answerMatchesChoice(answer, option));
+      const discarded = selected.length
+        ? options.filter((option) => !selected.some((selectedOption) => selectedOption.id === option.id))
+        : options;
+
+      if (!discarded.length) {
+        return [];
+      }
+
+      const scope = issue.sectionRef ?? issue.summary;
+      const selectedReason = selected.length
+        ? `선택한 답변 “${answer}” 때문에 ${selected.map((option) => option.label).join(", ")} 외 후보는 이번 판단에서 제외했습니다.`
+        : `사용자가 선택지 대신 “${answer}”라고 답해 기존 선택지는 아직 확정 후보로 쓰지 않습니다.`;
+
+      return [
+        `${scope}: 버린 선택지 - ${discarded.map((option) => option.label).join(", ")}. 이유: ${selectedReason}`
+      ];
+    })
+    .slice(0, 6);
+}
+
 function nextBestActions(state: ProductEngineStateSnapshot, cards: readonly TopRiskCardProjection[]) {
   const modeActions =
     !state.project.projectPurposeMode
@@ -896,7 +940,7 @@ function gateStatuses(
     },
     {
       gateId: "evidence_balance",
-      label: "No high-impact claim is missing con evidence",
+      label: "No research-backed planning claim is missing counter-evidence",
       passed: blockingEvidence === 0,
       ...(blockingEvidence === 0 ? {} : { blockingReason: `${blockingEvidence} evidence matrix/matrices block decisions.` })
     },
@@ -1159,6 +1203,7 @@ export function buildFounderBriefProjection(
     ...implementationNextActions
   ]);
   const decisions = uniqueStrings([...topDecisions, ...inferredDecisions]).slice(0, 6);
+  const discardedChoices = discardedChoiceSummaries(state);
   const briefSections = [
     {
       sectionId: "project_purpose_mode" as const,
@@ -1174,6 +1219,13 @@ export function buildFounderBriefProjection(
       sectionId: "top_decisions" as const,
       title: "Top decisions",
       body: decisions.length ? decisions.join("\n") : "No approved or evidence-backed decisions are closed yet."
+    },
+    {
+      sectionId: "discarded_choices" as const,
+      title: "Discarded choices and reasons",
+      body: discardedChoices.length
+        ? discardedChoices.join("\n")
+        : "No answered choice question has enough retained option history to explain discarded choices yet."
     },
     {
       sectionId: "implementation_progress" as const,

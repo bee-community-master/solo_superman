@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Codex, type CodexOptions, type ThreadOptions } from "@openai/codex-sdk";
 import {
+  AMBIGUITY_REDUCTION_DIMENSIONS,
+  AMBIGUITY_ROUTING_PATHS,
   BLOCKED_ACTION_TYPES,
+  BUSINESS_CRITIC_INTENSITIES,
+  CANONICAL_INITIAL_SPEC_SECTIONS,
   CODEX_APPLY_POLICY_BY_TURN_PURPOSE,
   CODEX_APPLY_POLICIES,
   CODEX_ARTIFACT_KIND_BY_TURN_PURPOSE,
@@ -122,8 +126,18 @@ export class CodexRuntimeUnavailableError extends Error {
   }
 }
 
+export class CodexRuntimeTimeoutError extends Error {
+  readonly timeoutMs: number;
+
+  constructor(message: string, timeoutMs: number, cause: unknown) {
+    super(message, { cause });
+    this.name = "CodexRuntimeTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 const CODEX_LOGIN_STATUS_TIMEOUT_MS = 5_000;
-const CODEX_PREVIEW_TURN_TIMEOUT_MS = 60_000;
+const CODEX_PREVIEW_TURN_TIMEOUT_MS = 180_000;
 const CODEX_PROCESS_OUTPUT_CAPTURE_LIMIT = 2_000;
 const CODEX_LOGIN_COMMAND = "codex auth login" as const;
 const CODEX_LOGIN_STATUS_COMMAND = "codex login status" as const;
@@ -969,7 +983,126 @@ function applyPolicyForTurnPurpose(turnPurpose: CodexTurnPurpose): CodexApplyPol
   return CODEX_APPLY_POLICY_BY_TURN_PURPOSE[turnPurpose];
 }
 
+const GENERATED_QUESTION_UNCERTAINTY_TYPES = [
+  "missing",
+  "vague",
+  "unsupported",
+  "conflict",
+  "decision_required",
+  "missing_con_evidence"
+] as const;
+const GENERATED_QUESTION_SEVERITIES = ["high", "medium", "low"] as const;
+const GENERATED_QUESTION_EXPECTED_ANSWER_TYPES = ["choice", "text", "rank", "evidence", "experiment"] as const;
+const GENERATED_QUESTION_SELECTION_MODES = ["single", "multiple", "ranked"] as const;
+const GENERATED_QUESTION_POSSIBLE_ROUTES = [
+  "question",
+  "research_needed",
+  "missing_con_evidence",
+  "decision_candidate",
+  "spec_update_candidate",
+  "conflict_detected",
+  "deferred",
+  "repeat_limit_reached"
+] as const;
+const GENERATED_QUESTION_BUSINESS_PRESSURE_KINDS = [
+  "balanced_con",
+  "core_assumption_challenge",
+  "investor_pressure_pass"
+] as const;
+
+function generatedQuestionAnswerOptionJsonSchema(): CodexJsonSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["id", "label", "value", "primaryDetail", "secondaryDetail"],
+    properties: {
+      id: { type: "string", minLength: 1 },
+      label: { type: "string", minLength: 1 },
+      value: { type: "string", minLength: 1 },
+      primaryDetail: { type: "string", minLength: 1 },
+      secondaryDetail: { type: "string", minLength: 1 }
+    }
+  };
+}
+
+function generatedQuestionJsonSchema(): CodexJsonSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "sectionRef",
+      "topicKey",
+      "uncertaintyType",
+      "severity",
+      "summary",
+      "whyItMatters",
+      "questionText",
+      "expectedAnswerType",
+      "answerSelectionMode",
+      "answerOptions",
+      "decisionItUnlocks",
+      "ambiguityDimension",
+      "ambiguityRoutingPath",
+      "businessCriticPressureKind",
+      "businessCriticIntensityMinimum",
+      "researchQuestion",
+      "possibleRoutes",
+      "suggestedResearchTask"
+    ],
+    properties: {
+      sectionRef: { type: "string", enum: [...CANONICAL_INITIAL_SPEC_SECTIONS] },
+      topicKey: { type: "string", minLength: 1 },
+      uncertaintyType: { type: "string", enum: [...GENERATED_QUESTION_UNCERTAINTY_TYPES] },
+      severity: { type: "string", enum: [...GENERATED_QUESTION_SEVERITIES] },
+      summary: { type: "string", minLength: 1 },
+      whyItMatters: { type: "string", minLength: 1 },
+      questionText: { type: "string", minLength: 1 },
+      expectedAnswerType: { type: "string", enum: [...GENERATED_QUESTION_EXPECTED_ANSWER_TYPES] },
+      answerSelectionMode: { type: "string", enum: [...GENERATED_QUESTION_SELECTION_MODES] },
+      answerOptions: {
+        type: "array",
+        items: generatedQuestionAnswerOptionJsonSchema()
+      },
+      decisionItUnlocks: { type: "string", minLength: 1 },
+      ambiguityDimension: { type: "string", enum: [...AMBIGUITY_REDUCTION_DIMENSIONS] },
+      ambiguityRoutingPath: { type: "string", enum: [...AMBIGUITY_ROUTING_PATHS] },
+      businessCriticPressureKind: { type: "string", enum: [...GENERATED_QUESTION_BUSINESS_PRESSURE_KINDS] },
+      businessCriticIntensityMinimum: { type: "string", enum: [...BUSINESS_CRITIC_INTENSITIES] },
+      researchQuestion: { type: "string", minLength: 1 },
+      possibleRoutes: {
+        type: "array",
+        minItems: 1,
+        items: { type: "string", enum: [...GENERATED_QUESTION_POSSIBLE_ROUTES] }
+      },
+      suggestedResearchTask: { type: "string", minLength: 1 }
+    }
+  };
+}
+
+function generatedAmbiguityQuestionSetJsonSchema(): CodexJsonSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["schemaVersion", "sourceSummary", "questions"],
+    properties: {
+      schemaVersion: { type: "string", const: "solo-superman-generated-ambiguity-questions.v1" },
+      sourceSummary: { type: "string", minLength: 1 },
+      questions: {
+        type: "array",
+        minItems: 3,
+        maxItems: 25,
+        items: generatedQuestionJsonSchema()
+      }
+    }
+  };
+}
+
 function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexJsonSchema {
+  const targetObject = input.requestedActionType ? "blocked_action" : input.targetObject;
+  const requiresStructuredBody =
+    !input.requestedActionType &&
+    input.turnPurpose === "question_generation" &&
+    input.targetObject === "generated_ambiguity_question_set";
   const blockedProperties = input.requestedActionType
     ? {
         blockedAction: {
@@ -993,33 +1126,42 @@ function codexPreviewPayloadJsonSchema(input: CodexRuntimePreviewInput): CodexJs
       "body",
       "targetObject",
       "sourceRefs",
+      ...(requiresStructuredBody ? ["structuredBody"] : []),
       ...(input.requestedActionType ? ["blockedAction", "phase15bUpgradeHints"] : [])
     ],
     additionalProperties: false,
     properties: {
       title: { type: "string", minLength: 1 },
       body: { type: "string", minLength: 1 },
-      targetObject: { type: "string", minLength: 1 },
+      targetObject: { type: "string", const: targetObject },
       sourceRefs: {
         type: "array",
         minItems: 1,
         items: { type: "string", minLength: 1 }
       },
+      ...(requiresStructuredBody
+        ? {
+            structuredBody: generatedAmbiguityQuestionSetJsonSchema()
+          }
+        : {}),
       ...blockedProperties
     }
   };
 }
 
 function codexPreviewOutputJsonSchema(input: CodexRuntimePreviewInput): CodexJsonSchema {
+  const artifactKind = input.requestedActionType ? "BlockedActionArtifact" : artifactKindForTurnPurpose(input.turnPurpose);
+  const applyPolicy = input.requestedActionType ? "blocked" : applyPolicyForTurnPurpose(input.turnPurpose);
+
   return {
     type: "object",
     additionalProperties: false,
     required: ["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy", "summary", "payload"],
     properties: {
       schemaVersion: { type: "string", const: CONTRACT_SCHEMA_VERSION },
-      turnPurpose: { type: "string", enum: [...CODEX_TURN_PURPOSES] },
-      artifactKind: { type: "string", enum: [...CODEX_ARTIFACT_KINDS] },
-      applyPolicy: { type: "string", enum: [...CODEX_APPLY_POLICIES] },
+      turnPurpose: { type: "string", const: input.turnPurpose },
+      artifactKind: { type: "string", const: artifactKind },
+      applyPolicy: { type: "string", const: applyPolicy },
       summary: { type: "string", minLength: 1 },
       payload: codexPreviewPayloadJsonSchema(input)
     }
@@ -1413,6 +1555,10 @@ function phase15bUpgradeHintsJsonSchema(): CodexJsonSchema {
 }
 
 function codexPreviewPrompt(input: CodexRuntimePreviewInput) {
+  const artifactKind = input.requestedActionType ? "BlockedActionArtifact" : artifactKindForTurnPurpose(input.turnPurpose);
+  const applyPolicy = input.requestedActionType ? "blocked" : applyPolicyForTurnPurpose(input.turnPurpose);
+  const targetObject = input.requestedActionType ? "blocked_action" : input.targetObject;
+
   return [
     "Create a Solo Superman Phase 1/1.5B runtime preview artifact.",
     "Return exactly one JSON object matching the provided output schema.",
@@ -1421,11 +1567,16 @@ function codexPreviewPrompt(input: CodexRuntimePreviewInput) {
     "",
     `schemaVersion: ${CONTRACT_SCHEMA_VERSION}`,
     `turnPurpose: ${input.turnPurpose}`,
+    `artifactKind: ${artifactKind}`,
+    `applyPolicy: ${applyPolicy}`,
     `contextHash: ${input.contextHash}`,
-    `targetObject: ${input.targetObject}`,
+    `targetObject: ${targetObject}`,
     `sourceRefs: ${JSON.stringify(input.sourceRefs)}`,
     input.requestedActionType ? `requestedActionType: ${input.requestedActionType}` : null,
     input.requestedActionReason ? `requestedActionReason: ${input.requestedActionReason}` : null,
+    input.turnPurpose === "question_generation" && input.targetObject === "generated_ambiguity_question_set"
+      ? "For this question_generation turn, payload.structuredBody MUST be the generated question set JSON object that matches the Prompt JSON shape; payload.body can be a short human-readable summary."
+      : null,
     "",
     "Prompt:",
     input.prompt
@@ -1861,6 +2012,7 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
   }
 
   const payloadRecord = payload as Readonly<Record<string, unknown>>;
+  const hasStructuredBody = hasOwnRecordKey(payloadRecord, "structuredBody");
 
   if (typeof payloadRecord.title !== "string" || payloadRecord.title.trim().length === 0) {
     throw new Error("Codex preview output payload.title is required.");
@@ -1917,6 +2069,7 @@ export function validateCodexPreviewOutput(value: unknown): CodexPreviewOutputEn
       body: payloadRecord.body.trim(),
       targetObject: payloadRecord.targetObject.trim(),
       sourceRefs,
+      ...(hasStructuredBody ? { structuredBody: payloadRecord.structuredBody } : {}),
       ...(blockedAction && typeof blockedAction === "object" && !Array.isArray(blockedAction)
         ? {
             blockedAction: {
@@ -2072,7 +2225,7 @@ async function runCodexSdkTurn(input: {
     return turn.finalResponse;
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(input.timeoutMessage(timeoutMs), { cause: error });
+      throw new CodexRuntimeTimeoutError(input.timeoutMessage(timeoutMs), timeoutMs, error);
     }
     throw error;
   } finally {

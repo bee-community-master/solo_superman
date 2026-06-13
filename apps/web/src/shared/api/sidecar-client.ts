@@ -158,6 +158,10 @@ export type DeleteServicePageUsePermissionArtifactsInput = DeleteServicePageUseP
 export type RecordImplementationStepLedgerInput = RecordImplementationStepLedgerRequest;
 export type GenerateInitialQuestionSetInput = GenerateInitialQuestionSetRequest;
 
+export interface SidecarRequestOptions {
+  readonly signal?: AbortSignal;
+}
+
 function shouldLogSidecarClientDiagnostics() {
   return typeof window !== "undefined";
 }
@@ -260,10 +264,11 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
     });
   }
 
-  async function postProjection<TProjection>(path: string, body?: unknown) {
+  async function postProjection<TProjection>(path: string, body?: unknown, options: SidecarRequestOptions = {}) {
     return request<TProjection>(path, {
       method: "POST",
       headers: body === undefined ? authHeaders(connection.localCapabilityToken) : jsonHeaders(connection.localCapabilityToken),
+      ...(options.signal ? { signal: options.signal } : {}),
       ...(body === undefined ? {} : { body: JSON.stringify(body) })
     });
   }
@@ -300,10 +305,11 @@ export function createSidecarClient({ connection, fetchImpl = fetch }: SidecarCl
       });
     },
 
-    generateInitialQuestionSet(input: GenerateInitialQuestionSetInput) {
+    generateInitialQuestionSet(input: GenerateInitialQuestionSetInput, options?: SidecarRequestOptions) {
       return postProjection<GenerateInitialQuestionSetResponse>(
         generatedInitialQuestionSetPath(input.sessionId),
-        input
+        input,
+        options
       );
     },
 

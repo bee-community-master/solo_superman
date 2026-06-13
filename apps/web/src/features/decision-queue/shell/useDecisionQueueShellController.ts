@@ -465,6 +465,9 @@ export function useDecisionQueueShellController() {
   });
 
   const {
+    initialQuestionGeneration,
+    requestInitialQuestionFallback,
+    retryInitialQuestionGeneration,
     runInitialQueueFlow,
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,
@@ -1527,6 +1530,9 @@ export function useDecisionQueueShellController() {
     refreshProjections,
     refetchQueueAfterSseNotification,
     refreshCommandStatus,
+    initialQuestionGeneration,
+    requestInitialQuestionFallback,
+    retryInitialQuestionGeneration,
     runInitialQueueFlow,
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,

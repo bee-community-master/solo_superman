@@ -1,4 +1,4 @@
-import { type Dispatch, type FormEvent, type SetStateAction, useCallback } from "react";
+import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import {
   type BusinessCriticIntensity,
   type ChatGptBrowserDelegationProjection,
@@ -88,9 +88,27 @@ interface DecisionQueueSessionActionsProps {
   readonly setResearchOperations: Dispatch<SetStateAction<ResearchOperationsState>>;
   readonly setStatuses: Dispatch<SetStateAction<readonly StatusEndpointDto[]>>;
   readonly setWorkflowError: Dispatch<SetStateAction<string | null>>;
-  readonly generateInitialQuestionSet?: (input: GeneratedInitialQuestionSetInput) => Promise<unknown | undefined>;
+  readonly generateInitialQuestionSet?: (
+    input: GeneratedInitialQuestionSetInput,
+    options?: { readonly signal?: AbortSignal }
+  ) => Promise<unknown | undefined>;
   readonly startReadyReadOnlyResearchRunsAfterAnswer?: () => Promise<void>;
   readonly onInitialQueueCreated?: () => void;
+}
+
+type InitialQuestionGenerationMode = "live_preview" | "local_fallback";
+type InitialQuestionGenerationAction = "fallback" | "retry";
+type InitialQuestionGenerationStatus = "idle" | "generating" | "delayed" | "fallback" | "retrying";
+type InitialQuestionGenerationAttemptStatus = Extract<
+  InitialQuestionGenerationStatus,
+  "generating" | "fallback" | "retrying"
+>;
+
+export interface InitialQuestionGenerationState {
+  readonly status: InitialQuestionGenerationStatus;
+  readonly delayed: boolean;
+  readonly canUseFallback: boolean;
+  readonly canRetry: boolean;
 }
 
 export interface GeneratedInitialQuestionSetInput {
@@ -100,11 +118,20 @@ export interface GeneratedInitialQuestionSetInput {
   readonly intake: string;
   readonly projectPurposeMode: ProjectPurposeMode;
   readonly businessCriticIntensity: BusinessCriticIntensity | null;
+  readonly generationMode?: InitialQuestionGenerationMode;
 }
 
 export const MIN_QUESTION_BATCH_SIZE = 1;
 export const MAX_QUESTION_BATCH_SIZE = 5;
 export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MIN_QUESTION_BATCH_SIZE;
+export const INITIAL_QUESTION_GENERATION_DELAY_MS = 30_000;
+
+const INITIAL_QUESTION_GENERATION_IDLE: InitialQuestionGenerationState = {
+  status: "idle",
+  delayed: false,
+  canUseFallback: false,
+  canRetry: false
+};
 
 export function boundedQuestionBatchSize(value: number) {
   if (!Number.isFinite(value)) {
@@ -127,10 +154,20 @@ function answerDraftsWithClearedItems(
 async function generateInitialQuestionSetForAnalysis(
   client: SidecarClient,
   input: GeneratedInitialQuestionSetInput,
-  override?: (input: GeneratedInitialQuestionSetInput) => Promise<unknown | undefined>
+  override?: (
+    input: GeneratedInitialQuestionSetInput,
+    options?: { readonly signal?: AbortSignal }
+  ) => Promise<unknown | undefined>,
+  options: {
+    readonly generationMode?: InitialQuestionGenerationMode;
+    readonly signal?: AbortSignal;
+  } = {}
 ) {
+  const generationMode = options.generationMode ?? input.generationMode ?? "live_preview";
+  const requestOptions = options.signal ? { signal: options.signal } : undefined;
+
   if (override) {
-    const generatedQuestionSet = await override(input);
+    const generatedQuestionSet = await override({ ...input, generationMode }, requestOptions);
 
     if (generatedQuestionSet === undefined) {
       throw new Error("Codex question generation did not return a generated question set.");
@@ -145,8 +182,9 @@ async function generateInitialQuestionSetForAnalysis(
     rawIdea: input.idea,
     intakeGoal: input.intake,
     projectPurposeMode: input.projectPurposeMode,
-    businessCriticIntensity: input.businessCriticIntensity
-  });
+    businessCriticIntensity: input.businessCriticIntensity,
+    generationMode
+  }, requestOptions);
 
   if (response.status !== "generated" || response.generatedQuestionSet === undefined) {
     throw new Error(response.reason ?? "Codex question generation is required before ambiguity analysis.");
@@ -242,6 +280,194 @@ export function useDecisionQueueSessionActions({
   onInitialQueueCreated
 }: DecisionQueueSessionActionsProps) {
   const { initialQueueStartBlockers, sessionActionErrors, sessionActionLabels, sessionActionReasons } = copy.questions;
+  const [initialQuestionGeneration, setInitialQuestionGeneration] = useState<InitialQuestionGenerationState>(
+    INITIAL_QUESTION_GENERATION_IDLE
+  );
+  const initialQuestionDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialQuestionAttemptRef = useRef(0);
+  const initialQuestionControlRef = useRef<{
+    readonly attemptId: number;
+    readonly abortController: AbortController;
+    readonly resolveAction: (action: InitialQuestionGenerationAction) => void;
+  } | null>(null);
+
+  const clearInitialQuestionDelayTimer = useCallback(() => {
+    if (initialQuestionDelayTimerRef.current) {
+      clearTimeout(initialQuestionDelayTimerRef.current);
+      initialQuestionDelayTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => {
+    clearInitialQuestionDelayTimer();
+    initialQuestionControlRef.current?.abortController.abort();
+    initialQuestionControlRef.current = null;
+  }, [clearInitialQuestionDelayTimer]);
+
+  const requestInitialQuestionFallback = useCallback(() => {
+    const control = initialQuestionControlRef.current;
+
+    if (!control) {
+      return;
+    }
+
+    control.resolveAction("fallback");
+    control.abortController.abort();
+    initialQuestionControlRef.current = null;
+    setInitialQuestionGeneration({
+      status: "fallback",
+      delayed: false,
+      canUseFallback: false,
+      canRetry: false
+    });
+  }, []);
+
+  const retryInitialQuestionGeneration = useCallback(() => {
+    const control = initialQuestionControlRef.current;
+
+    if (!control) {
+      return;
+    }
+
+    control.resolveAction("retry");
+    control.abortController.abort();
+    initialQuestionControlRef.current = null;
+    setInitialQuestionGeneration({
+      status: "retrying",
+      delayed: false,
+      canUseFallback: true,
+      canRetry: false
+    });
+  }, []);
+
+  const runInitialQuestionGenerationAttempt = useCallback(
+    async (
+      generationInput: GeneratedInitialQuestionSetInput,
+      generationMode: InitialQuestionGenerationMode,
+      status: InitialQuestionGenerationAttemptStatus
+    ): Promise<
+      | { readonly kind: "generated"; readonly generatedQuestionSet: unknown }
+      | { readonly kind: "action"; readonly action: InitialQuestionGenerationAction }
+    > => {
+      if (!client) {
+        throw new Error(initialQueueStartBlockers.sidecar_connection);
+      }
+
+      const attemptId = initialQuestionAttemptRef.current + 1;
+      initialQuestionAttemptRef.current = attemptId;
+      const abortController = new AbortController();
+      let resolveAction!: (action: InitialQuestionGenerationAction) => void;
+      const actionPromise = new Promise<InitialQuestionGenerationAction>((resolve) => {
+        resolveAction = resolve;
+      });
+
+      initialQuestionControlRef.current = {
+        attemptId,
+        abortController,
+        resolveAction
+      };
+      clearInitialQuestionDelayTimer();
+      setInitialQuestionGeneration({
+        status,
+        delayed: false,
+        canUseFallback: generationMode === "live_preview",
+        canRetry: generationMode === "live_preview"
+      });
+
+      if (generationMode === "live_preview") {
+        initialQuestionDelayTimerRef.current = setTimeout(() => {
+          if (initialQuestionControlRef.current?.attemptId !== attemptId) {
+            return;
+          }
+
+          setInitialQuestionGeneration({
+            status: "delayed",
+            delayed: true,
+            canUseFallback: true,
+            canRetry: true
+          });
+        }, INITIAL_QUESTION_GENERATION_DELAY_MS);
+      }
+
+      const generatedPromise = generateInitialQuestionSetForAnalysis(
+        client,
+        generationInput,
+        generateInitialQuestionSet,
+        {
+          generationMode,
+          signal: abortController.signal
+        }
+      ).then(
+        (generatedQuestionSet) => ({
+          kind: "generated" as const,
+          generatedQuestionSet
+        }),
+        (error) => ({
+          kind: "error" as const,
+          error
+        })
+      );
+      const result = await Promise.race([
+        generatedPromise,
+        actionPromise.then((action) => ({ kind: "action" as const, action }))
+      ]);
+
+      if (result.kind === "error" && generationMode === "live_preview") {
+        clearInitialQuestionDelayTimer();
+        if (initialQuestionControlRef.current?.attemptId === attemptId) {
+          setInitialQuestionGeneration({
+            status: "delayed",
+            delayed: true,
+            canUseFallback: true,
+            canRetry: true
+          });
+          const action = await actionPromise;
+          if (initialQuestionControlRef.current?.attemptId === attemptId) {
+            initialQuestionControlRef.current = null;
+          }
+          clearInitialQuestionDelayTimer();
+
+          return { kind: "action", action };
+        }
+      }
+
+      if (initialQuestionControlRef.current?.attemptId === attemptId) {
+        initialQuestionControlRef.current = null;
+      }
+      clearInitialQuestionDelayTimer();
+
+      if (result.kind === "error") {
+        throw result.error;
+      }
+
+      return result;
+    },
+    [clearInitialQuestionDelayTimer, client, generateInitialQuestionSet, initialQueueStartBlockers.sidecar_connection]
+  );
+
+  const generateInitialQuestionSetWithControls = useCallback(
+    async (generationInput: GeneratedInitialQuestionSetInput) => {
+      let nextMode: InitialQuestionGenerationMode = "live_preview";
+      let nextStatus: InitialQuestionGenerationAttemptStatus = "generating";
+
+      for (;;) {
+        const result = await runInitialQuestionGenerationAttempt(generationInput, nextMode, nextStatus);
+
+        if (result.kind === "generated") {
+          return result.generatedQuestionSet;
+        }
+
+        if (result.action === "fallback") {
+          nextMode = "local_fallback";
+          nextStatus = "fallback";
+        } else {
+          nextMode = "live_preview";
+          nextStatus = "retrying";
+        }
+      }
+    },
+    [runInitialQuestionGenerationAttempt]
+  );
 
   const enableInitialResearchSources = useCallback(
     async (activeClient: SidecarClient, projectId: ProjectId) => {
@@ -357,14 +583,14 @@ export function useDecisionQueueSessionActions({
           sessionActionLabels.draftInitialSpec,
           await client.draftInitialSpec(session.sessionId, commandResponseVersion(intakeResponse))
         );
-        const generatedQuestionSet = await generateInitialQuestionSetForAnalysis(client, {
+        const generatedQuestionSet = await generateInitialQuestionSetWithControls({
           sessionId: session.sessionId,
           expectedStateVersion: commandResponseVersion(draftResponse),
           idea,
           intake,
           projectPurposeMode,
           businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
-        }, generateInitialQuestionSet);
+        });
         const analyzeResponse = await appendCommand(
           sessionActionLabels.analyzeAmbiguity,
           await client.analyzeAmbiguity(
@@ -390,6 +616,9 @@ export function useDecisionQueueSessionActions({
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
+        clearInitialQuestionDelayTimer();
+        initialQuestionControlRef.current = null;
+        setInitialQuestionGeneration(INITIAL_QUESTION_GENERATION_IDLE);
         setIsBusy(false);
       }
     },
@@ -405,8 +634,9 @@ export function useDecisionQueueSessionActions({
       initialBusinessCriticIntensityReason,
       initialResearchAutomationPermission,
       client,
+      clearInitialQuestionDelayTimer,
       enableInitialResearchSources,
-      generateInitialQuestionSet,
+      generateInitialQuestionSetWithControls,
       idea,
       intake,
       isBusy,
@@ -1041,6 +1271,9 @@ export function useDecisionQueueSessionActions({
 
 
   return {
+    initialQuestionGeneration,
+    requestInitialQuestionFallback,
+    retryInitialQuestionGeneration,
     runInitialQueueFlow,
     changeProjectPurposeMode,
     changeBusinessCriticIntensity,

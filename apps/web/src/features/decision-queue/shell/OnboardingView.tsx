@@ -17,6 +17,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     chatGptLoginAcknowledged,
     codexLoginStart,
     idea,
+    initialQuestionGeneration,
     initialQueueStartBlockerMessages,
     initialResearchAutomationPermission,
     initialBusinessCriticIntensityReason,
@@ -24,6 +25,8 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     isBusy,
     projectPurposeMode,
     refreshRuntimeStatus,
+    requestInitialQuestionFallback,
+    retryInitialQuestionGeneration,
     runInitialQueueFlow,
     setBusinessCriticIntensity,
     setChatGptLoginAcknowledged,
@@ -71,6 +74,32 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             {isBusy ? copy.questions.running : copy.questions.createFirstBatch}
           </button>
         </section>
+        {initialQuestionGeneration.status !== "idle" ? (
+          <aside className="initial-question-generation-panel" aria-live="polite">
+            <div>
+              <strong>{copy.questions.initialQuestionGenerationTitle}</strong>
+              <p>{copy.questions.initialQuestionGenerationStatus[initialQuestionGeneration.status]}</p>
+            </div>
+            {initialQuestionGeneration.delayed ? (
+              <div className="card-actions initial-question-generation-actions">
+                <button
+                  type="button"
+                  disabled={!initialQuestionGeneration.canUseFallback}
+                  onClick={requestInitialQuestionFallback}
+                >
+                  {copy.questions.initialQuestionUseFallback}
+                </button>
+                <button
+                  type="button"
+                  disabled={!initialQuestionGeneration.canRetry}
+                  onClick={retryInitialQuestionGeneration}
+                >
+                  {copy.questions.initialQuestionRetry}
+                </button>
+              </div>
+            ) : null}
+          </aside>
+        ) : null}
         <div className="session-start-layout">
           <div className="session-input-column">
             <section className="start-guide goal-setup-guide" aria-label={copy.questions.firstRunAria}>

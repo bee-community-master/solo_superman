@@ -735,14 +735,44 @@ describe("PR-07 Codex runtime adapter contracts", () => {
       type: "object",
       required: expect.arrayContaining(["schemaVersion", "turnPurpose", "artifactKind", "applyPolicy"]),
       properties: {
+        turnPurpose: { type: "string", const: "spec_update_preview" },
+        artifactKind: { type: "string", const: "SpecUpdatePreviewArtifact" },
+        applyPolicy: { type: "string", const: "approval_required" },
         payload: {
           additionalProperties: false,
           required: ["title", "body", "targetObject", "sourceRefs"],
           properties: {
+            targetObject: { type: "string", const: "SpecVersion" },
             sourceRefs: {
               items: {
                 type: "string"
               }
+            }
+          }
+        }
+      }
+    });
+
+    const questionTurnOptions = adapter.buildPreviewTurnOptions({
+      turnPurpose: "question_generation",
+      contextHash: "ctx_question_generation",
+      prompt: "Generate structured questions.",
+      sourceRefs: ["session:demo", "state_version:3"],
+      targetObject: "generated_ambiguity_question_set"
+    });
+
+    expect(questionTurnOptions.prompt).toContain("payload.structuredBody MUST be the generated question set JSON object");
+    expect(questionTurnOptions.outputSchema).toMatchObject({
+      properties: {
+        turnPurpose: { type: "string", const: "question_generation" },
+        artifactKind: { type: "string", const: "QuestionBatchArtifact" },
+        applyPolicy: { type: "string", const: "auto_apply" },
+        payload: {
+          required: ["title", "body", "targetObject", "sourceRefs", "structuredBody"],
+          properties: {
+            targetObject: { type: "string", const: "generated_ambiguity_question_set" },
+            structuredBody: {
+              type: "object"
             }
           }
         }
@@ -765,9 +795,12 @@ describe("PR-07 Codex runtime adapter contracts", () => {
 
     expect(blockedTurnOptions.outputSchema).toMatchObject({
       properties: {
+        artifactKind: { type: "string", const: "BlockedActionArtifact" },
+        applyPolicy: { type: "string", const: "blocked" },
         payload: {
           required: expect.arrayContaining(["blockedAction", "phase15bUpgradeHints"]),
           properties: {
+            targetObject: { type: "string", const: "blocked_action" },
             blockedAction: {
               properties: {
                 suggestedSafeAlternative: {

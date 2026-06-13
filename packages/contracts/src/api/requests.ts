@@ -120,6 +120,7 @@ export interface GenerateInitialQuestionSetRequest extends ScaffoldRequestPlaceh
   readonly intakeGoal: string;
   readonly projectPurposeMode: ProjectPurposeMode;
   readonly businessCriticIntensity?: BusinessCriticIntensity | null;
+  readonly generationMode?: "live_preview" | "local_fallback";
   readonly reviewAxes?: readonly string[];
   readonly initialQuestionCount?: {
     readonly min?: number;
@@ -136,7 +137,7 @@ export interface GenerateInitialQuestionSetResponse {
   readonly status: GenerateInitialQuestionSetStatus;
   readonly promptTemplateRef: string;
   readonly schemaVersion: string;
-  readonly source: "codex_runtime_preview" | "codex_runtime_unavailable" | "codex_runtime_invalid_json";
+  readonly source: "codex_runtime_preview" | "codex_runtime_unavailable" | "codex_runtime_invalid_json" | "local_fallback";
   readonly generatedQuestionSet?: unknown;
   readonly validationIssues?: readonly string[];
   readonly reason?: string;

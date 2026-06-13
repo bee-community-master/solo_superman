@@ -91,6 +91,7 @@ describe("PR-08 founder-brief projection", () => {
       "project_purpose_mode",
       "problem_customer_value",
       "top_decisions",
+      "discarded_choices",
       "implementation_progress",
       "known_risks",
       "next_validation_actions"

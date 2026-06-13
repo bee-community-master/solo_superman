@@ -1,6 +1,8 @@
 import type { IfStopNowArtifactProjection } from "@solo-superman/contracts";
+import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import { Phase15bReadinessPanel } from "../Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "../PlanningHandoffPanel";
+import { decisionQueueDisplayText } from "../text-formatting";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -8,10 +10,20 @@ interface PlanningViewProps {
   readonly controller: DecisionQueueShellController;
 }
 
-function PlanningTextList({ ariaLabel, items }: { readonly ariaLabel?: string; readonly items: readonly string[] }) {
+function PlanningTextList({
+  ariaLabel,
+  items,
+  language
+}: {
+  readonly ariaLabel?: string;
+  readonly items: readonly string[];
+  readonly language: AppLanguage;
+}) {
+  const visibleItems = items.map((item) => decisionQueueDisplayText(item, language)).filter(Boolean);
+
   return (
     <ul aria-label={ariaLabel} className="effect-list">
-      {items.map((item, index) => (
+      {visibleItems.map((item, index) => (
         <li key={`${index}:${item}`}>{item}</li>
       ))}
     </ul>
@@ -20,25 +32,31 @@ function PlanningTextList({ ariaLabel, items }: { readonly ariaLabel?: string; r
 
 function IfStopNowArtifactCard({
   artifact,
-  copy
+  copy,
+  language
 }: {
   readonly artifact: IfStopNowArtifactProjection;
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
 }) {
   return (
     <section className="if-stop-now-artifact" aria-label={copy.planning.ifStopNowArtifact}>
-      <h4>{artifact.title || copy.planning.ifStopNowArtifact}</h4>
-      <p>{artifact.summary}</p>
+      <h4>{artifact.title ? decisionQueueDisplayText(artifact.title, language) : copy.planning.ifStopNowArtifact}</h4>
+      <p>{decisionQueueDisplayText(artifact.summary, language)}</p>
       {artifact.knownRisks.length ? (
         <div>
           <strong>{copy.planning.ifStopNowKnownRisks}</strong>
-          <PlanningTextList ariaLabel={copy.planning.ifStopNowKnownRisks} items={artifact.knownRisks} />
+          <PlanningTextList ariaLabel={copy.planning.ifStopNowKnownRisks} items={artifact.knownRisks} language={language} />
         </div>
       ) : null}
       {artifact.nextValidationActions.length ? (
         <div>
           <strong>{copy.planning.ifStopNowNextValidationActions}</strong>
-          <PlanningTextList ariaLabel={copy.planning.ifStopNowNextValidationActions} items={artifact.nextValidationActions} />
+          <PlanningTextList
+            ariaLabel={copy.planning.ifStopNowNextValidationActions}
+            items={artifact.nextValidationActions}
+            language={language}
+          />
         </div>
       ) : null}
     </section>
@@ -47,10 +65,12 @@ function IfStopNowArtifactCard({
 
 function FounderBriefRiskActions({
   copy,
+  language,
   knownRisks,
   nextValidationActions
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly knownRisks: readonly string[];
   readonly nextValidationActions: readonly string[];
 }) {
@@ -64,13 +84,17 @@ function FounderBriefRiskActions({
       {knownRisks.length ? (
         <div>
           <strong>{copy.planning.founderBriefKnownRisks}</strong>
-          <PlanningTextList ariaLabel={copy.planning.founderBriefKnownRisks} items={knownRisks} />
+          <PlanningTextList ariaLabel={copy.planning.founderBriefKnownRisks} items={knownRisks} language={language} />
         </div>
       ) : null}
       {nextValidationActions.length ? (
         <div>
           <strong>{copy.planning.founderBriefNextValidationActions}</strong>
-          <PlanningTextList ariaLabel={copy.planning.founderBriefNextValidationActions} items={nextValidationActions} />
+          <PlanningTextList
+            ariaLabel={copy.planning.founderBriefNextValidationActions}
+            items={nextValidationActions}
+            language={language}
+          />
         </div>
       ) : null}
     </section>
@@ -79,6 +103,7 @@ function FounderBriefRiskActions({
 
 export function PlanningView({ controller }: PlanningViewProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
   const {
     businessCriticIntensityChangeReason,
     changeBusinessCriticIntensity,
@@ -124,15 +149,15 @@ export function PlanningView({ controller }: PlanningViewProps) {
       <section className="panel spec-panel">
         <div className="panel-heading">
           <h2>{copy.planning.spec}</h2>
-          <span>{sessionStatusLabel}</span>
+          <span>{decisionQueueDisplayText(sessionStatusLabel, language)}</span>
         </div>
         {projections.spec?.title ? (
           <div className="spec-outline">
-            <h3>{projections.spec.title}</h3>
+            <h3>{decisionQueueDisplayText(projections.spec.title, language)}</h3>
             {projections.spec.sections?.length ? (
               <ol>
                 {projections.spec.sections.map((section) => (
-                  <li key={section}>{section}</li>
+                  <li key={section}>{decisionQueueDisplayText(section, language)}</li>
                 ))}
               </ol>
             ) : null}
@@ -261,6 +286,42 @@ export function PlanningView({ controller }: PlanningViewProps) {
           <h2>{copy.planning.progress}</h2>
           <span>{confidence?.readinessLabel ?? copy.planning.pending}</span>
         </div>
+        {topRiskCards.length ? (
+          <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
+            <h3>{copy.planning.whyBuildNowRisky}</h3>
+            <ol className="top-risk-card-list">
+              {topRiskCards.map((risk) => (
+                <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
+                  <div className="top-risk-card-heading">
+                    <strong>{decisionQueueDisplayText(risk.title, language)}</strong>
+                    <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
+                  </div>
+                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${decisionQueueDisplayText(risk.title, language)}`}>
+                    {copy.planning.riskNextValidation}: {decisionQueueDisplayText(risk.nextValidationAction, language)}
+                  </p>
+                  <small>
+                    {copy.planning.riskSourceRefs}: {
+                      risk.sourceRefs.map((ref) => decisionQueueDisplayText(ref, language)).filter(Boolean).join(", ") ||
+                      copy.planning.riskNoSourceRefs
+                    }
+                  </small>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : (
+          <p className="empty-state">{copy.planning.noRiskProjection}</p>
+        )}
+        {nextBestActions.length ? (
+          <section className="confidence-next-actions" aria-label={copy.planning.thisWeekValidationActions}>
+            <h3>{copy.planning.thisWeekValidationActions}</h3>
+            <PlanningTextList
+              ariaLabel={copy.planning.thisWeekValidationActions}
+              items={nextBestActions}
+              language={language}
+            />
+          </section>
+        ) : null}
         <div className="score">{confidence?.compositeScore ?? 0}</div>
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
           {copy.planning.scoreCompleteness}
@@ -286,52 +347,29 @@ export function PlanningView({ controller }: PlanningViewProps) {
               ))}
             </dl>
             <div className="completion-candidate-summary">
-              <strong>{copy.planning.completionCandidate}: {confidence.completionCandidate.summary}</strong>
+              <strong>
+                {copy.planning.completionCandidate}: {decisionQueueDisplayText(confidence.completionCandidate.summary, language)}
+              </strong>
               {confidence.completionCandidate.gateFailures.length ? (
                 <div className="confidence-gate-failures">
                   <span>{copy.planning.confidenceGateFailures}</span>
-                  <ul className="effect-list" aria-label={copy.planning.confidenceGateFailures}>
-                    {confidence.completionCandidate.gateFailures.map((failure) => (
-                      <li key={failure}>{failure}</li>
-                    ))}
-                  </ul>
+                  <PlanningTextList
+                    ariaLabel={copy.planning.confidenceGateFailures}
+                    items={confidence.completionCandidate.gateFailures}
+                    language={language}
+                  />
                 </div>
               ) : (
                 <p>{copy.planning.confidenceGatesReady}</p>
               )}
             </div>
-            {nextBestActions.length ? (
-              <div className="confidence-next-actions">
-                <strong>{copy.planning.nextBestActions}</strong>
-                <PlanningTextList ariaLabel={copy.planning.nextBestActions} items={nextBestActions} />
-              </div>
-            ) : null}
-            <IfStopNowArtifactCard artifact={confidence.completionCandidate.ifStopNowArtifact} copy={copy} />
+            <IfStopNowArtifactCard
+              artifact={confidence.completionCandidate.ifStopNowArtifact}
+              copy={copy}
+              language={language}
+            />
           </section>
         ) : null}
-        {topRiskCards.length ? (
-          <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
-            <h3>{copy.planning.topRiskCards}</h3>
-            <ol className="top-risk-card-list">
-              {topRiskCards.map((risk) => (
-                <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
-                  <div className="top-risk-card-heading">
-                    <strong>{risk.title}</strong>
-                    <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
-                  </div>
-                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${risk.title}`}>
-                    {copy.planning.riskNextValidation}: {risk.nextValidationAction}
-                  </p>
-                  <small>
-                    {copy.planning.riskSourceRefs}: {risk.sourceRefs.length ? risk.sourceRefs.join(", ") : copy.planning.riskNoSourceRefs}
-                  </small>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : (
-          <p className="empty-state">{copy.planning.noRiskProjection}</p>
-        )}
       </section>
 
       <section className="panel founder-brief-panel">
@@ -346,12 +384,13 @@ export function PlanningView({ controller }: PlanningViewProps) {
           <div className="spec-outline">
             {projections.founderBrief.briefSections.map((section) => (
               <section key={section.sectionId}>
-                <h3>{section.title}</h3>
-                <p>{section.body}</p>
+                <h3>{decisionQueueDisplayText(section.title, language)}</h3>
+                <p>{decisionQueueDisplayText(section.body, language)}</p>
               </section>
             ))}
             <FounderBriefRiskActions
               copy={copy}
+              language={language}
               knownRisks={projections.founderBrief.knownRisks}
               nextValidationActions={projections.founderBrief.nextValidationActions}
             />

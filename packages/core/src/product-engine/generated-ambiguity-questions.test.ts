@@ -296,6 +296,80 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     ]);
   });
 
+  it("puts the clearest customer/scope/success bottleneck first instead of preserving model order", () => {
+    const questionSet = validGeneratedQuestionSet();
+    const customerQuestion = questionSet.questions[0]!;
+    const problemQuestion = questionSet.questions[1]!;
+    const pressureQuestion = questionSet.questions[2]!;
+    const successQuestion = {
+      ...customerQuestion,
+      sectionRef: "Success Criteria",
+      topicKey: "pet_success_metric",
+      uncertaintyType: "missing",
+      severity: "high",
+      summary: "첫 성공 기준이 비어 있음",
+      questionText: "반려동물 기록 앱이 첫 주에 성공했다고 볼 행동 지표는 무엇인가요?",
+      expectedAnswerType: "text",
+      answerOptions: [],
+      decisionItUnlocks: "첫 주 검증 기준과 실패 시 중단 기준을 정합니다.",
+      ambiguityDimension: "success_criteria",
+      ambiguityRoutingPath: "human_judgment",
+      possibleRoutes: ["question", "decision_candidate"]
+    };
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...questionSet,
+        questions: [
+          pressureQuestion,
+          { ...customerQuestion, severity: "medium" },
+          successQuestion,
+          problemQuestion
+        ]
+      },
+      {
+        contextText: "반려동물 기록 앱의 첫 고객, 첫 범위, 성공 기준을 좁히는 기획"
+      }
+    );
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.questions[0]?.topicKey).toBe("pet_success_metric");
+  });
+
+  it("falls back to an open-text question when generated choices are generic planning placeholders", () => {
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      generatedQuestionSetWithFirstOptions([
+        {
+          id: "early_user",
+          label: "초기 사용자",
+          value: "초기 사용자를 먼저 검증합니다.",
+          primaryDetail: "가장 먼저 만날 대상을 정합니다.",
+          secondaryDetail: "구체적인 도메인 맥락은 아직 남아 있습니다."
+        },
+        {
+          id: "customer_a",
+          label: "고객 후보 A",
+          value: "고객 후보 A를 먼저 검증합니다.",
+          primaryDetail: "첫 세그먼트를 임시로 둡니다.",
+          secondaryDetail: "실제 보호자 상황은 아직 남아 있습니다."
+        },
+        {
+          id: "option_a",
+          label: "옵션 A",
+          value: "옵션 A를 먼저 검증합니다.",
+          primaryDetail: "첫 방향을 임시로 둡니다.",
+          secondaryDetail: "실제 선택 기준은 아직 남아 있습니다."
+        }
+      ])
+    );
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.questions[0]).toMatchObject({
+      topicKey: "pet_guardian_segment",
+      expectedAnswerType: "text"
+    });
+    expect(parsed.questions[0]?.answerOptions).toBeUndefined();
+  });
+
   it("preserves explicit generated business critic pressure metadata", () => {
     const questionSet = validGeneratedQuestionSet();
     const parsed = parseGeneratedAmbiguityQuestionSet({
@@ -312,7 +386,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     });
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.questions[2]).toMatchObject({
+    expect(parsed.questions.find((question) => question.topicKey === "pet_switching_reason")).toMatchObject({
       businessCriticPressureKind: "core_assumption_challenge",
       businessCriticIntensityMinimum: "strong"
     });
@@ -367,7 +441,11 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     );
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.questions[0]?.answerOptions?.map((option) => option.label)).toEqual([
+    expect(
+      parsed.questions
+        .find((question) => question.topicKey === "healthcare_record_user_segment")
+        ?.answerOptions?.map((option) => option.label)
+    ).toEqual([
       "만성질환 환자",
       "가족 건강 보호자",
       "진료 전후 기록 사용자"
@@ -383,7 +461,11 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     );
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.questions[0]?.answerOptions?.map((option) => option.label)).toEqual([
+    expect(
+      parsed.questions
+        .find((question) => question.topicKey === "founder_interview_segment")
+        ?.answerOptions?.map((option) => option.label)
+    ).toEqual([
       "유료 인터뷰를 준비하는 창업자",
       "막연한 아이디어를 정리하는 창업자",
       "근거 추적 스펙을 원하는 창업자"
@@ -795,6 +877,8 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     );
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.questions[1]?.ambiguityRoutingPath).toBe("current_research");
+    expect(parsed.questions.find((question) => question.topicKey === "pet_record_pain")?.ambiguityRoutingPath).toBe(
+      "current_research"
+    );
   });
 });

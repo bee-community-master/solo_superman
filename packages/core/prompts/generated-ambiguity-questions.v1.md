@@ -59,11 +59,15 @@ JSON shape:
 }
 
 Rules:
-- Generate {{minimumQuestionCount}}-{{maximumQuestionCount}} questions in priority order. The first question must be the weakest execution-changing judgment, not a generic business onboarding question.
+- Generate {{minimumQuestionCount}}-{{maximumQuestionCount}} questions in priority order. The first question must be the clearest planning bottleneck among customer, scope, or success criteria. If those are tied, use severity and uncertainty to choose the one that most changes what the user should build or validate next.
+- Act like an interview coach for detailed planning, not a form generator. A good question breaks one planning judgment into a smaller decision, narrows the spec after it is answered, and makes the next action obvious.
 - Before writing questions, internally derive domainSignals with actors, users/buyers, artifacts/data objects, jobs/situations, pains, constraints, channels, and explicit exclusions from the idea/intake. Do not output this scratchpad except as a short domain-specific sourceSummary.
 - Internally score goal, scope/non-goals, decision_authority, success_criteria, constraints, assumption_pressure, and context for clarity and execution risk. Use the configured Ambiguity dimension priority when multiple weak dimensions remain.
 - Use the review-axis metadata to decide what to ask first: first customer segment, buyer/user split, problem intensity, value proposition, first validation, risks, and open uncertainty are examples, not a fixed list.
 - Do not ask from a prefixed template. Generate questions from the specific idea, its missing judgments, and the provided review axes.
+- In whyItMatters, include the risk of not answering this question in user-facing language.
+- In decisionItUnlocks, state what part of the plan becomes narrower and what range will be narrowed next.
+- Across the set, create a three-depth planning loop: core judgment questions, answer-validation questions, and scope-narrowing questions. Do not increase count by repeating shallow questions.
 - Apply an Idea-Fit Gate before returning JSON: every question and every answer option must be anchored in actors, jobs, situations, artifacts/data objects, pains, constraints, channels, or explicit exclusions that appear in the idea/intake. If a candidate cannot point back to the idea, discard it.
 - Business validation mode is not a license to ask generic startup questions. Business questions must still mention the actual domain actors and artifacts, such as pet guardians and medical/insurance records for a pet lifecycle idea, or merchants/customers and reservations/orders for a local commerce idea.
 - Prefer the weakest execution-changing dimension. If tied, prioritize goal, scope/non-goals, decision authority, and success criteria before lower-impact context.
@@ -82,7 +86,7 @@ Rules:
 - If business critic intensity is investor_grade, include at least one core-assumption challenge and at least one investor pressure pass with businessCriticPressureKind "investor_pressure_pass" and businessCriticIntensityMinimum "investor_grade".
 - Mark human_judgment when the user must choose a value, priority, excluded scope, decision owner, or success threshold. Mark existing_fact_check when existing local docs/data can answer it. Mark current_research only when market, policy, price, competitor, public community/review, or user evidence may have changed.
 - For current_research questions, possibleRoutes must include "research_needed".
-- For current_research, researchQuestion and suggestedResearchTask must name: a concrete source area, the public/current evidence to inspect, what evidence would weaken the assumption, and what remaining human judgment cannot be answered by research. Do not emit generic tasks like "do more research" or "additional research needed".
+- For current_research, researchQuestion and suggestedResearchTask must name: a concrete source area, the public/current evidence to inspect, what evidence would weaken or reverse the current decision, and what remaining human judgment cannot be answered by research. Do not emit generic tasks like "do more research" or "additional research needed".
 - Include 3-5 answerOptions only for choice, rank, evidence, or experiment questions.
 - For text/open narrative questions, omit answerOptions or return an empty array.
 - If you cannot derive 3-5 mutually exclusive concrete answer choices from the idea itself, make the question expectedAnswerType "text" and return answerOptions: []. Do not fill the gap with generic business personas or meta actions.

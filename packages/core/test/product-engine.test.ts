@@ -723,11 +723,12 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.queueProjection.active.every((item) => item.cardType === "question")).toBe(true);
     expect(state.queueProjection.active).toEqual([
       expect.objectContaining({
-        sectionRef: "Problem",
-        topicKey: "problem_pain_intensity",
+        sectionRef: "Target Customer",
+        topicKey: "buyer_user_split",
         severity: "high",
-        expectedAnswerType: "text",
-        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       })
     ]);
     expect(state.queueProjection.next).toEqual([]);
@@ -927,20 +928,24 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(state.openIssues).toHaveLength(3);
     expect(state.openIssues.map((issue) => issue.topicKey)).toEqual([
-      "pet_lifecycle_first_guardian_focus",
       "pet_lifecycle_information_fragmentation",
+      "pet_lifecycle_first_guardian_focus",
       "pet_lifecycle_switching_reason"
     ]);
-    expect(state.openIssues[0]?.questionText).toContain("반려동물");
+    expect(state.openIssues[0]?.questionText).toContain("보호자");
     expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
-    expect(state.openIssues[0]?.sourceRef).toBe("generated_question:pet_lifecycle_first_guardian_focus");
+    expect(state.openIssues[0]?.sourceRef).toBe("generated_question:pet_lifecycle_information_fragmentation");
     expect(state.openIssues[0]).toMatchObject({
-      ambiguityDimension: "scope",
-      ambiguityRoutingPath: "human_judgment",
+      ambiguityDimension: "success_criteria",
+      ambiguityRoutingPath: "current_research",
       researchQuestion:
-        "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?"
+        "보호자들이 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾는 반복 불편을 보여주는 공개 사례와 부족한 반례는 무엇인가?"
     });
-    expect(state.openIssues[0]?.answerOptions?.map((option) => option.label)).toEqual([
+    expect(
+      state.openIssues
+        .find((issue) => issue.topicKey === "pet_lifecycle_first_guardian_focus")
+        ?.answerOptions?.map((option) => option.label)
+    ).toEqual([
       "첫 반려동물을 키우는 보호자",
       "노령·만성질환 반려동물 보호자",
       "여러 마리를 함께 키우는 가구",
@@ -981,10 +986,10 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(answer.accepted).toBe(true);
     expect(researchTask).toMatchObject({
-      objective: expect.stringContaining("보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지")
+      objective: expect.stringContaining("보호자 유형별로 의료·보험·일상 기록 관리 니즈")
     });
     expect(String(researchTask?.objective)).toContain("Ambiguity dimension: scope");
-    expect(String(researchTask?.objective)).toContain("Do not replace the user's choice with research");
+    expect(String(researchTask?.objective)).toContain("Find decision evidence");
   });
 
   it("rejects ambiguity analysis when generated questions are missing", () => {
@@ -1235,7 +1240,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(activeQuestionContextText).toContain("Help one user automate a repeated local workflow.");
     expect(activeTitles).not.toContain("A focused personal workflow helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local workflow.");
-    expect(activeTitles).toContain("개인 local 작업 흐름은 어떤 순서로 진행되나요?");
+    expect(activeTitles).toContain("개인 작업 흐름 첫 버전은 화면 UI가 필요한가요, 아니면 로컬 화면으로 충분한가요?");
     expect(activeTitles).not.toContain("A focused personal 일 처리 흐름 helper");
     expect(activeTitles).not.toContain("Help one user automate a repeated local 일 처리 흐름.");
     expect(activeTitles).not.toMatch(/(?:작업 흐름|일 처리 흐름)[는가를와]/u);
@@ -1519,11 +1524,18 @@ describe("PR-04 ProductEngine reducer", () => {
     );
   });
 
-  it("keeps queued_next limited to elevated business critic pressure for explicit stronger starts", () => {
+  it("starts explicit stronger business review with a planning bottleneck before counter-evidence pressure", () => {
     const strongState = stateWithActiveQuestionBatch("strong").state;
     const investorGradeState = stateWithActiveQuestionBatch("investor_grade").state;
 
-    expect(strongState.queueProjection.active.some((item) => item.businessCriticPressureKind === "core_assumption_challenge")).toBe(true);
+    expect(strongState.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionRef: "Target Customer"
+        })
+      ])
+    );
+    expect(strongState.queueProjection.active.some((item) => item.businessCriticPressureKind === "core_assumption_challenge")).toBe(false);
     expect(strongState.queueProjection.next).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1537,7 +1549,14 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(
       investorGradeState.queueProjection.active.some((item) => item.businessCriticPressureKind === "core_assumption_challenge")
-    ).toBe(true);
+    ).toBe(false);
+    expect(investorGradeState.queueProjection.active).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sectionRef: "Target Customer"
+        })
+      ])
+    );
     expect(investorGradeState.queueProjection.next).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -2789,7 +2808,7 @@ describe("PR-04 ProductEngine reducer", () => {
         expect.objectContaining({
           cardType: "follow_up_question",
           state: "active",
-          title: expect.stringContaining("founder teams with repeated manual planning pain"),
+          title: expect.stringContaining("타깃 고객 판단"),
           answerOptions: []
         })
       ],
@@ -2799,7 +2818,6 @@ describe("PR-04 ProductEngine reducer", () => {
         })
       ]
     });
-    expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).toContain("[민감한 값 숨김]");
     expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).not.toContain("sk-secret-answer-value");
     expect(answer.accepted).toBe(true);
     expect(broaderResearchAnswer.accepted).toBe(true);
@@ -2859,42 +2877,42 @@ describe("PR-04 ProductEngine reducer", () => {
       "wider sources"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
-    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noMoreSourcesAnswer.accepted).toBe(true);
-    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noNeedToFindMoreSourcesAnswer.accepted).toBe(true);
-    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noNeedToCollectMoreEvidenceAnswer.accepted).toBe(true);
-    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noMoreEnglishResearchAnswer.accepted).toBe(true);
-    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(doNotNeedMoreResearchAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(doNotNeedMoreEvidenceAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(moreResearchNotNeededAnswer.accepted).toBe(true);
-    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
@@ -2952,7 +2970,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatCount: 1,
           repeatLimit: 16,
           expectedAnswerType: "text",
-          questionText: expect.stringContaining("paid founder urgency"),
+          questionText: expect.stringContaining("타깃 고객 판단"),
           possibleRoutes: expect.arrayContaining(["question", "research_needed"])
         })
       ])
@@ -3104,9 +3122,10 @@ describe("PR-04 ProductEngine reducer", () => {
       expect.stringContaining("branch:2"),
       expect.stringContaining("branch:3")
     ]);
-    expect(followUpIssues[0]?.questionText).toContain("노령·만성질환 반려동물 보호자");
-    expect(followUpIssues[1]?.questionText).toContain("보험·의료비 지불의향");
-    expect(followUpIssues[2]?.questionText).toContain("장례와 생애 후반 정보");
+    expect(followUpIssues.every((issue) => issue.questionText?.includes("타깃 고객 판단"))).toBe(true);
+    expect(followUpIssues[0]?.questionText).not.toContain("노령·만성질환 반려동물 보호자");
+    expect(followUpIssues[1]?.questionText).not.toContain("보험·의료비 지불의향");
+    expect(followUpIssues[2]?.questionText).not.toContain("장례와 생애 후반 정보");
     expect(followUpIssues.every((issue) => issue.questionContext?.idea === activeItem.questionContext?.idea)).toBe(true);
     expect(followUpIssues.every((issue) => issue.questionContext?.goal === activeItem.questionContext?.goal)).toBe(true);
     expect((answer.immediateProjection as DecisionQueueProjection).progress).toMatchObject({

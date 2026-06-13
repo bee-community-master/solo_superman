@@ -41,4 +41,24 @@ describe("Decision Queue display text", () => {
     expect(text).toContain("현재 공개 근거");
     expect(text).toContain("반례");
   });
+
+  it("removes internal ids and rewrites weak evidence gates for display", () => {
+    const text = localizedUserFacingDecisionQueueText(
+      "Research source was insufficient for research_task_abc123. Evidence has 0 usable finding(s), below configured minimum 1. Resolve the high-impact research-updated queue card before Planning-ready.",
+      "ko"
+    );
+
+    expect(text).toContain("판단에 쓸 공개 근거가 부족합니다");
+    expect(text).toContain("이번 검색에서 판단에 쓸 수 있는 공개 근거를 찾지 못했습니다");
+    expect(text).toContain("중요 리서치 카드를 먼저 해결하세요");
+    expect(text).not.toContain("research_task_abc123");
+    expect(text).not.toContain("Planning-ready");
+    expect(text).not.toContain("Evidence has 0 usable");
+
+    const refText = localizedUserFacingDecisionQueueText(
+      "answer_ab12 proj_demo sess_demo cmd_demo corr_demo research_run_public_web_1",
+      "ko"
+    );
+    expect(refText).toBe("");
+  });
 });

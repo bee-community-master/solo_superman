@@ -640,9 +640,9 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain('class="question-coaching-context"');
-    expect(markup).toContain("Why ask this");
+    expect(markup).toContain("Risk if unanswered");
     expect(markup).toContain("If the painful workflow is unclear");
-    expect(markup).toContain("What this answer decides");
+    expect(markup).toContain("Scope narrowed by answering");
     expect(markup).toContain("Locks the first workflow slice");
     expect(markup).toContain("Current");
     expect(markup).not.toContain(">active<");

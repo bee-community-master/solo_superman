@@ -401,55 +401,55 @@ const FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS = [
 ] as const satisfies readonly AmbiguityAnswerOption[];
 
 const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
-  text: "방금 답한 “{answer}”를 더 안전하게 판단하려면, 반례나 한계를 더 찾아야 할까요? 아니면 현재 단서로 조건부 진행해도 될까요?",
+  text: "답변 검증 질문: 방금 답한 “{answer}”를 더 안전하게 판단하려면, 반례나 한계를 더 찾아야 할까요? 아니면 현재 단서로 조건부 진행해도 될까요?",
   expectedAnswerType: "evidence",
   answerSelectionMode: "single"
 } as const satisfies FollowUpQuestionTemplate;
 
 const FOLLOW_UP_QUESTION_TEMPLATES = [
   {
-    text: "방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+    text: "답변 검증 질문: 방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
     expectedAnswerType: "text"
   },
   {
-    text: "방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
+    text: "범위 축소 질문: 방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   },
   {
-    text: "방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.",
+    text: "핵심 판단 질문: 방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
   },
   {
-    text: "이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
+    text: "범위 축소 질문: 이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "multiple",
     optionTopicKey: "mvp_validation_scope"
   },
   {
-    text: "이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
+    text: "답변 검증 질문: 이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+    text: "범위 축소 질문: 이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
     expectedAnswerType: "text"
   },
   {
-    text: "이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+    text: "답변 검증 질문: 이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
+    text: "범위 축소 질문: 이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
     expectedAnswerType: "rank",
     answerSelectionMode: "ranked"
   },
   {
-    text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+    text: "핵심 판단 질문: 이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
     expectedAnswerType: "text"
   }
 ] as const satisfies readonly FollowUpQuestionTemplate[];
@@ -2457,22 +2457,82 @@ function isElevatedBusinessCriticQueueItem(item: QueueItemProjection) {
   return isElevatedBusinessCriticPressureKind(item.businessCriticPressureKind);
 }
 
+const FIRST_PLANNING_BOTTLENECK_TOPIC_KEYS = new Set([
+  "first_user_situation",
+  "primary_customer_narrowing",
+  "buyer_user_split",
+  "first_version_scope",
+  "mvp_validation_scope",
+  "success_metric_measurability",
+  "this_week_success_signal",
+  "personal_success_criteria"
+]);
+
+function firstPlanningBottleneckRank(issue: AmbiguityIssueSnapshot) {
+  if (issue.topicKey && FIRST_PLANNING_BOTTLENECK_TOPIC_KEYS.has(issue.topicKey)) {
+    if (issue.sectionRef === "Target Customer" || /customer|user|buyer/iu.test(issue.topicKey)) {
+      return 0;
+    }
+
+    if (issue.sectionRef === "MVP Scope" || /scope|version|mvp/iu.test(issue.topicKey)) {
+      return 1;
+    }
+
+    if (issue.sectionRef === "Success Criteria" || /success|metric|signal/iu.test(issue.topicKey)) {
+      return 2;
+    }
+  }
+
+  if (issue.sectionRef === "Target Customer") {
+    return 0;
+  }
+
+  if (issue.sectionRef === "MVP Scope") {
+    return 1;
+  }
+
+  if (issue.sectionRef === "Success Criteria") {
+    return 2;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function isFirstPlanningBottleneckIssue(issue: AmbiguityIssueSnapshot) {
+  return Number.isFinite(firstPlanningBottleneckRank(issue));
+}
+
+function hasAnsweredFirstPlanningBottleneckIssue(issues: readonly AmbiguityIssueSnapshot[]) {
+  return issues.some((issue) => issue.status === "answered" && isFirstPlanningBottleneckIssue(issue));
+}
+
 function ambiguityIssueSeverityRank(issue: AmbiguityIssueSnapshot) {
   return issue.severity ? AMBIGUITY_SEVERITY_PRIORITY[issue.severity] : 3;
 }
 
-function defaultQuestionBatchIssues(openIssues: readonly AmbiguityIssueSnapshot[]) {
+function defaultQuestionBatchIssues(
+  openIssues: readonly AmbiguityIssueSnapshot[],
+  allIssues: readonly AmbiguityIssueSnapshot[] = openIssues
+) {
+  const hasAnsweredPlanningBottleneck = hasAnsweredFirstPlanningBottleneckIssue(allIssues);
   const prioritizedIssues = openIssues
     .map((issue, index) => ({ issue, index }))
     .sort(
       (left, right) =>
+        (hasAnsweredPlanningBottleneck
+          ? 0
+          : firstPlanningBottleneckRank(left.issue) - firstPlanningBottleneckRank(right.issue)) ||
         ambiguityIssueSeverityRank(left.issue) - ambiguityIssueSeverityRank(right.issue) || left.index - right.index
     )
     .map(({ issue }) => issue);
   const selectedIssues = prioritizedIssues.slice(0, DEFAULT_QUESTION_BATCH_SIZE);
   const requiredCoreChallenge = prioritizedIssues.find(isCoreAssumptionChallengeIssue);
 
-  if (requiredCoreChallenge && !selectedIssues.some(isCoreAssumptionChallengeIssue)) {
+  if (
+    hasAnsweredPlanningBottleneck &&
+    requiredCoreChallenge &&
+    !selectedIssues.some(isCoreAssumptionChallengeIssue)
+  ) {
     return [...selectedIssues.slice(0, DEFAULT_QUESTION_BATCH_SIZE - 1), requiredCoreChallenge];
   }
 
@@ -2900,17 +2960,78 @@ function followUpAnswerOptions(template: FollowUpQuestionTemplate) {
   return template.answerOptions ?? answerOptionsForQuestion(template.optionTopicKey, template.expectedAnswerType) ?? [];
 }
 
-function followUpQuestionText(answer: string, template: FollowUpQuestionTemplate) {
-  return template.text.replace("{answer}", compactAnswerExcerpt(answer));
+function answerJudgmentLabel(
+  sourceQuestion: AmbiguityIssueSnapshot,
+  routeOutcome: ResearchRouteOutcome
+) {
+  if (sourceQuestion.sectionRef === "Target Customer" || /customer|user|buyer/iu.test(sourceQuestion.topicKey ?? "")) {
+    return "타깃 고객 판단";
+  }
+
+  if (sourceQuestion.sectionRef === "MVP Scope" || /scope|version|mvp|slice/iu.test(sourceQuestion.topicKey ?? "")) {
+    return "첫 버전 범위 판단";
+  }
+
+  if (sourceQuestion.sectionRef === "Success Criteria" || /success|metric|signal/iu.test(sourceQuestion.topicKey ?? "")) {
+    return "성공 신호 판단";
+  }
+
+  if (
+    routeOutcome === "missing_con_evidence" ||
+    sourceQuestion.uncertaintyType === "missing_con_evidence" ||
+    sourceQuestion.sectionRef === "Evidence Status" ||
+    /alternative|counter|con_evidence|switching|payment_hesitation|evidence_balance/iu.test(
+      sourceQuestion.topicKey ?? ""
+    )
+  ) {
+    return "대체재 반례 판단";
+  }
+
+  if (routeOutcome === "research_needed") {
+    return "근거 확인 판단";
+  }
+
+  if (routeOutcome === "conflict_review") {
+    return "상충 근거 판단";
+  }
+
+  return `${plainUserFacingDecisionQueueText(sourceQuestion.sectionRef ?? "스펙")} 판단`;
+}
+
+function followUpQuestionText(answerLabel: string, template: FollowUpQuestionTemplate) {
+  return template.text.replace("{answer}", answerLabel);
+}
+
+function routeOutcomePlanningAction(routeOutcome: ResearchRouteOutcome) {
+  switch (routeOutcome) {
+    case "missing_con_evidence":
+      return "반례/대체재 리서치와 known risk 후보로 보내야 합니다.";
+    case "conflict_review":
+      return "상충 근거를 비교한 뒤 스펙 반영 또는 방향 전환을 결정해야 합니다.";
+    case "research_needed":
+      return "스펙 확정 전에 공개 근거 또는 사용자 행동 신호를 확인해야 합니다.";
+  }
+}
+
+function planningChangeSummaryForAnswer(input: {
+  readonly sourceQuestion: AmbiguityIssueSnapshot;
+  readonly routeOutcome: ResearchRouteOutcome;
+}) {
+  const section = input.sourceQuestion.sectionRef ?? "현재 스펙";
+  const answer = answerJudgmentLabel(input.sourceQuestion, input.routeOutcome);
+  const routeAction = routeOutcomePlanningAction(input.routeOutcome);
+
+  return `기획 변화: ${section} 판단이 “${answer}” 쪽으로 좁혀졌습니다. 다음에는 ${routeAction}`;
 }
 
 function followUpSuggestedResearchTask(
   sourceQuestion: AmbiguityIssueSnapshot,
-  answer: string,
   routeOutcome: ResearchRouteOutcome
 ) {
+  const answerLabel = answerJudgmentLabel(sourceQuestion, routeOutcome);
+
   if (routeOutcome === "missing_con_evidence") {
-    return `답변 “${compactAnswerExcerpt(answer)}”를 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
+    return `${answerLabel}을 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
   }
 
   const researchTarget = sourceQuestion.researchQuestion ?? sourceQuestion.suggestedResearchTask;
@@ -2919,7 +3040,7 @@ function followUpSuggestedResearchTask(
     return undefined;
   }
 
-  return `답변 “${compactAnswerExcerpt(answer)}” 기준으로 ${plainUserFacingDecisionQueueText(researchTarget)}`;
+  return `${answerLabel} 기준으로 ${plainUserFacingDecisionQueueText(researchTarget)}`;
 }
 
 const MAX_IMMEDIATE_FOLLOW_UP_BRANCHES = 3;
@@ -3025,11 +3146,16 @@ function createFollowUpIssuesForAnswer(input: {
         ? `${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}`
         : `${sessionId}:${sourceQuestion.queueItemId}:${answerRef}:${nextRepeatCount}:${branchIndex}:${branchAnswer}`
     )}` as QueueItemId;
-    const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, branchAnswer, routeOutcome);
+    const suggestedResearchTask = followUpSuggestedResearchTask(sourceQuestion, routeOutcome);
     const followUpTemplate = followUpQuestionTemplate(routeOutcome, nextRepeatCount);
     const expectedAnswerType = followUpTemplate.expectedAnswerType;
     const answerSelectionMode = followUpAnswerSelectionMode(followUpTemplate);
     const answerOptions = followUpAnswerOptions(followUpTemplate);
+    const planningChangeSummary = planningChangeSummaryForAnswer({
+      sourceQuestion,
+      routeOutcome
+    });
+    const answerLabel = answerJudgmentLabel(sourceQuestion, routeOutcome);
 
     return [{
       queueItemId: followUpId,
@@ -3053,15 +3179,15 @@ function createFollowUpIssuesForAnswer(input: {
         ? `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`
         : `이전 답변의 ${branchIndex + 1}번째 판단 가지를 더 구체화해야 함: ${sourceQuestion.summary}`,
       whyItMatters:
-        "답변이 다음 질문, 리서치, 구현 범위로 이어지려면 판단 기준과 반례를 더 좁혀야 합니다.",
+        `${planningChangeSummary} 답하지 않으면 이 판단은 스펙 반영, 추가 리서치, known risk, 검증 액션 중 어디로 갈지 흐려집니다.`,
       status: "open" as const,
-      questionText: followUpQuestionText(branchAnswer, followUpTemplate),
+      questionText: followUpQuestionText(answerLabel, followUpTemplate),
       expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions,
       decisionItUnlocks:
-        sourceQuestion.decisionItUnlocks ??
-        "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다.",
+        `${sourceQuestion.decisionItUnlocks ?? "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다."} 이 후속 답변은 다음 범위를 한 단계 더 좁힙니다.`,
+      nextValidationAction: planningChangeSummary,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: nextRepeatCount,
       repeatLimit,
@@ -4595,7 +4721,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
 
   const selectedIssues = selectedQueueItemIds
     ? selectedQueueItemIds.map((queueItemId) => openIssues.find((issue) => issue.queueItemId === queueItemId))
-    : defaultQuestionBatchIssues(openIssues);
+    : defaultQuestionBatchIssues(openIssues, state.openIssues);
 
   if (selectedIssues.some((issue) => issue === undefined)) {
     return reject("ActivateQuestionBatch queueItemIds must reference open ambiguity issues.");
@@ -4626,6 +4752,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     confirmedMode === "business" &&
     state.project.businessCriticIntensity &&
     businessCriticIntensityRank(state.project.businessCriticIntensity) >= businessCriticIntensityRank("strong") &&
+    hasAnsweredFirstPlanningBottleneckIssue(state.openIssues) &&
     openIssues.some(isCoreAssumptionChallengeIssue) &&
     !candidateIssues.some(isCoreAssumptionChallengeIssue)
   ) {
@@ -4969,7 +5096,10 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
     issue.queueItemId === queueItemId
       ? {
           ...issue,
-          status: "answered" as const
+          status: "answered" as const,
+          submittedAnswer: answer,
+          submittedAnswerRef: answerRef,
+          answerRouteOutcome: routeOutcome
         }
       : issue
   );
@@ -11485,6 +11615,14 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
     case "AnswerSubmitted": {
       const projection = projectionPayload(event.payload, state.queueProjection);
       const queueItemId = typeof event.payload.queueItemId === "string" ? event.payload.queueItemId : null;
+      const submittedAnswer = typeof event.payload.answer === "string" ? event.payload.answer : undefined;
+      const submittedAnswerRef = typeof event.payload.answerRef === "string" ? event.payload.answerRef : undefined;
+      const answerRouteOutcome: ResearchRouteOutcome | undefined =
+        event.payload.answerRouteOutcome === "missing_con_evidence" ||
+        event.payload.answerRouteOutcome === "conflict_review" ||
+        event.payload.answerRouteOutcome === "research_needed"
+          ? event.payload.answerRouteOutcome
+          : undefined;
       const followUpIssue = objectPayload<AmbiguityIssueSnapshot>(event.payload, "followUpIssue");
       const followUpIssues = Array.isArray(event.payload.followUpIssues)
         ? (event.payload.followUpIssues.filter((issue) =>
@@ -11498,7 +11636,10 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
             issue.queueItemId === queueItemId
               ? {
                   ...issue,
-                  status: "answered" as const
+                  status: "answered" as const,
+                  ...(submittedAnswer ? { submittedAnswer } : {}),
+                  ...(submittedAnswerRef ? { submittedAnswerRef } : {}),
+                  ...(answerRouteOutcome ? { answerRouteOutcome } : {})
                 }
               : issue
           )

@@ -51,6 +51,12 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
       }
     },
     idea: "",
+    initialQuestionGeneration: {
+      status: "idle",
+      delayed: false,
+      canUseFallback: false,
+      canRetry: false
+    },
     initialBusinessCriticIntensityReason: "",
     initialQueueStartBlockerMessages: [],
     initialResearchAutomationPermission: "allow_codex",
@@ -59,6 +65,8 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     projectPurposeMode: null,
     projections: emptyProjectionState(),
     refreshRuntimeStatus: vi.fn(),
+    requestInitialQuestionFallback: vi.fn(),
+    retryInitialQuestionGeneration: vi.fn(),
     runInitialQueueFlow: vi.fn(),
     setBusinessCriticIntensity: vi.fn(),
     setChatGptLoginAcknowledged: vi.fn(),
@@ -113,6 +121,23 @@ describe("OnboardingView", () => {
     expect(markup).toContain("Business review intensity");
     expect(markup.indexOf("Project purpose")).toBeLessThan(markup.indexOf("Business review intensity"));
     expect(markup.indexOf("Business review intensity")).toBeLessThan(markup.indexOf("Research setup"));
+  });
+
+  it("shows fallback and retry choices when first question generation is delayed", () => {
+    const markup = renderOnboardingView({
+      isBusy: true,
+      initialQuestionGeneration: {
+        status: "delayed",
+        delayed: true,
+        canUseFallback: true,
+        canRetry: true
+      }
+    });
+
+    expect(markup).toContain("Live generation is taking longer than 30 seconds or is not ready");
+    expect(markup).not.toContain("Keep generating");
+    expect(markup).toContain("Start with fallback questions");
+    expect(markup).toContain("Retry");
   });
 
   it("shows the ChatGPT login gate only when visible ChatGPT research is selected", () => {

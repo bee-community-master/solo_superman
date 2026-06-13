@@ -1,5 +1,7 @@
 import type { Phase15bReadinessViewModel } from "./decision-queue-view-model";
+import { useAppLanguage } from "../../shared/i18n/app-language";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./shell/decision-queue-copy";
+import { decisionQueueDisplayText } from "./text-formatting";
 
 type Phase15bReadinessRecord = Phase15bReadinessViewModel["records"][number];
 
@@ -29,16 +31,25 @@ export function Phase15bReadinessPanel({
   onRefreshReadiness
 }: Phase15bReadinessPanelProps) {
   const copy = useDecisionQueueCopy();
+  const { language } = useAppLanguage();
+  const summaryText = decisionQueueDisplayText(readiness.label, language);
+  const noExecutionText = decisionQueueDisplayText(readiness.noExecutionLabel, language);
+  const exportText = decisionQueueDisplayText(readiness.exportLabel, language);
+  const visibleRowsByRecord = readiness.records.map((record) =>
+    readinessRecordRows(record, copy)
+      .map((row) => ({ ...row, value: decisionQueueDisplayText(row.value, language) }))
+      .filter((row) => row.value)
+  );
 
   return (
     <section className="panel">
       <div className="panel-heading">
         <h2>{copy.phase15b.title}</h2>
-        <span>{readiness.statusLabel}</span>
+        <span>{decisionQueueDisplayText(readiness.statusLabel, language)}</span>
       </div>
-      <p className="operations-summary">{readiness.label}</p>
-      <p className="operations-summary">{readiness.noExecutionLabel}</p>
-      <p className="operations-summary">{readiness.exportLabel}</p>
+      {summaryText ? <p className="operations-summary">{summaryText}</p> : null}
+      {noExecutionText ? <p className="operations-summary">{noExecutionText}</p> : null}
+      {exportText ? <p className="operations-summary">{exportText}</p> : null}
       <div className="card-actions panel-actions">
         <button type="button" disabled={isBusy || !hasActiveProject} onClick={onRefreshReadiness}>
           {copy.phase15b.refresh}
@@ -46,12 +57,12 @@ export function Phase15bReadinessPanel({
       </div>
       {readiness.records.length ? (
         <div className="operations-cards">
-          {readiness.records.map((record) => (
+          {readiness.records.map((record, recordIndex) => (
             <article className="operations-card readiness-card" key={record.hintId}>
-              <strong>{record.surfaceLabel}</strong>
+              <strong>{decisionQueueDisplayText(record.surfaceLabel, language)}</strong>
               <span>{copy.phase15b.safeExecutionNote}</span>
-              <small>{record.statusLabel}</small>
-              {readinessRecordRows(record, copy).map((row) => (
+              <small>{decisionQueueDisplayText(record.statusLabel, language)}</small>
+              {visibleRowsByRecord[recordIndex]?.map((row) => (
                 <small key={row.label}>
                   {row.label}: {row.value}
                 </small>

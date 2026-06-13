@@ -132,6 +132,8 @@ const USER_FACING_GENERATED_QUESTION_JARGON_PATTERN =
   /\b(?:primary\s+customer|planning-ready|high-impact\s+gate|quality-gate|pro\/con|MVP|paid\s+intent|proxy|validation\s+experiment)\b/iu;
 const INITIAL_META_ANSWER_OPTION_PATTERN =
   /^(?:진행|진행한다|보류|보류한다|더\s*설명|추가\s*설명|추가\s*리서치|리서치\s*필요|검증\s*후\s*결정|모름|알\s*수\s*없음)$/iu;
+const GENERIC_PLANNING_ANSWER_OPTION_PATTERN =
+  /^(?:초기\s*(?:사용자|고객)|일반\s*(?:사용자|고객)|모든\s*(?:사용자|고객)|첫\s*(?:사용자|고객)|고객\s*후보\s*[a-z가-힣0-9]?|사용자\s*후보\s*[a-z가-힣0-9]?|세그먼트\s*[a-z가-힣0-9]?|옵션\s*[a-z가-힣0-9]?|선택지\s*[a-z가-힣0-9]?|기능\s*[a-z가-힣0-9]?)$/iu;
 const GENERIC_RESEARCH_TASK_PATTERN =
   /^(?:추가\s*리서치(?:가)?\s*(?:필요|하기|진행)?|자료\s*더\s*찾기|근거\s*더\s*찾기|리서치\s*필요|do\s+more\s+research|additional\s+research\s+needed|research\s+needed)$/iu;
 const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =
@@ -265,6 +267,10 @@ function optionTextHasDisallowedGenericPersona(optionText: string, contextText: 
   return GENERIC_PERSONA_GUARDS.some(
     (guard) => guard.personaPattern.test(optionText) && !guard.allowedContextPattern.test(normalizedContext)
   );
+}
+
+function isGenericPlanningAnswerOption(option: AmbiguityAnswerOption) {
+  return GENERIC_PLANNING_ANSWER_OPTION_PATTERN.test(option.label);
 }
 
 function issue(issues: string[], path: string, message: string) {
@@ -587,18 +593,43 @@ function parseGeneratedQuestion(
     issues
   );
   const rawOptions = Array.isArray(value.answerOptions) ? value.answerOptions : [];
-  const answerOptions = rawOptions
+  const parsedAnswerOptions = rawOptions
     .slice(0, 10)
     .map((option, optionIndex) => parseAnswerOption(option, `${path}.answerOptions[${optionIndex}]`, optionIndex, issues))
     .filter((option): option is AmbiguityAnswerOption => option !== null);
-  const requiresOptions = expectedAnswerType !== "text";
+  const answerOptionsWithoutGenericPlanning = parsedAnswerOptions.filter(
+    (option) => !isGenericPlanningAnswerOption(option)
+  );
+  const hasGenericPlanningOptions = parsedAnswerOptions.length !== answerOptionsWithoutGenericPlanning.length;
+  const shouldFallbackToOpenText =
+    expectedAnswerType !== "text" &&
+    hasGenericPlanningOptions &&
+    answerOptionsWithoutGenericPlanning.length < 3;
+  const effectiveExpectedAnswerType = shouldFallbackToOpenText ? "text" : expectedAnswerType;
+  const effectiveAnswerSelectionMode = shouldFallbackToOpenText ? undefined : answerSelectionMode;
+  const answerOptions = shouldFallbackToOpenText ? [] : answerOptionsWithoutGenericPlanning;
+  const requiresOptions = effectiveExpectedAnswerType !== "text";
 
   if (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) {
     issue(issues, `${path}.answerOptions`, "must include 3-5 options for non-text generated questions");
   }
-  if (!requiresOptions && rawOptions.length > 0) {
+  if (!requiresOptions && rawOptions.length > 0 && !shouldFallbackToOpenText) {
     issue(issues, `${path}.answerOptions`, "must be omitted or empty for open text questions");
   }
+
+  const hasInvalidCurrentResearchTask =
+    ambiguityRoutingPath === "current_research" &&
+    (!researchQuestion ||
+      !suggestedResearchTask ||
+      isGenericResearchTask(suggestedResearchTask) ||
+      !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
+      !researchTaskHasSkepticalCue(suggestedResearchTask) ||
+      !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
+      !routes.includes("research_needed"));
+  const hasInvalidNonResearchTask =
+    ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask);
+  const hasInvalidRequiredAnswerOptions = requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5);
+  const hasInvalidOpenTextAnswerOptions = !requiresOptions && rawOptions.length > 0 && !shouldFallbackToOpenText;
 
   if (
     !ALLOWED_SECTIONS.has(sectionRef) ||
@@ -618,17 +649,10 @@ function parseGeneratedQuestion(
     questionHasMultipleDecisionAxes(question) ||
     !routes.length ||
     routes.some((route) => !ALLOWED_ROUTES.has(route)) ||
-    (ambiguityRoutingPath === "current_research" &&
-      (!researchQuestion ||
-        !suggestedResearchTask ||
-        isGenericResearchTask(suggestedResearchTask) ||
-        !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
-        !researchTaskHasSkepticalCue(suggestedResearchTask) ||
-        !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
-        !routes.includes("research_needed"))) ||
-    (ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask)) ||
-    (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) ||
-    (!requiresOptions && rawOptions.length > 0)
+    hasInvalidCurrentResearchTask ||
+    hasInvalidNonResearchTask ||
+    hasInvalidRequiredAnswerOptions ||
+    hasInvalidOpenTextAnswerOptions
   ) {
     return null;
   }
@@ -641,8 +665,8 @@ function parseGeneratedQuestion(
     summary,
     whyItMatters,
     question,
-    expectedAnswerType,
-    ...(answerSelectionMode ? { answerSelectionMode } : {}),
+    expectedAnswerType: effectiveExpectedAnswerType,
+    ...(effectiveAnswerSelectionMode ? { answerSelectionMode: effectiveAnswerSelectionMode } : {}),
     ...(answerOptions.length ? { answerOptions } : {}),
     decisionItUnlocks,
     ambiguityDimension,
@@ -674,6 +698,97 @@ function generatedQuestionSetIssues(questions: readonly GeneratedAmbiguityQuesti
   }
 
   return issues;
+}
+
+const PLANNING_BOTTLENECK_AXIS_RANK = {
+  customer: 0,
+  scope: 1,
+  success: 2
+} as const;
+const PLANNING_BOTTLENECK_SEVERITY_RANK: Record<AmbiguityIssueSeverity, number> = {
+  high: 0,
+  medium: 1,
+  low: 2
+};
+const PLANNING_BOTTLENECK_UNCERTAINTY_RANK: Record<AmbiguityIssueUncertaintyType, number> = {
+  missing: 0,
+  vague: 1,
+  decision_required: 2,
+  unsupported: 3,
+  conflict: 4,
+  missing_con_evidence: 5
+};
+
+function planningBottleneckAxis(question: GeneratedAmbiguityQuestionSeed) {
+  const text = [
+    question.sectionRef,
+    question.topicKey,
+    question.summary,
+    question.question,
+    question.decisionItUnlocks,
+    question.ambiguityDimension
+  ].join(" ");
+
+  if (question.sectionRef === "Target Customer") {
+    return "customer" as const;
+  }
+
+  if (question.sectionRef === "MVP Scope" || question.ambiguityDimension === "scope") {
+    return "scope" as const;
+  }
+
+  if (question.sectionRef === "Success Criteria" || question.ambiguityDimension === "success_criteria") {
+    return "success" as const;
+  }
+
+  if (
+    /(?:customer|segment|persona|buyer|user|고객|세그먼트|구매자|사용자\s*유형|고객\s*후보|보호자\s*유형|환자\s*유형|누구|어떤\s*(?:고객|사용자|보호자|환자|사람|대상|유형)|먼저\s*(?:쓸|검증할|만날|집중할))/iu.test(text)
+  ) {
+    return "customer" as const;
+  }
+
+  if (/(?:범위|기능|첫\s*구현|어디까지|무엇을\s*(?:만들|넣|뺄)|scope|feature|mvp|build\s*slice)/iu.test(text)) {
+    return "scope" as const;
+  }
+
+  if (/(?:성공\s*기준|성공했는지|지표|측정|완료\s*조건|success|metric|measure|criteria)/iu.test(text)) {
+    return "success" as const;
+  }
+
+  return null;
+}
+
+function generatedQuestionPlanningBottleneckRank(
+  question: GeneratedAmbiguityQuestionSeed,
+  originalIndex: number
+) {
+  const axis = planningBottleneckAxis(question);
+
+  return {
+    axisPriority: axis ? 0 : 1,
+    severityPriority: PLANNING_BOTTLENECK_SEVERITY_RANK[question.severity],
+    uncertaintyPriority: PLANNING_BOTTLENECK_UNCERTAINTY_RANK[question.uncertaintyType],
+    axisRank: axis ? PLANNING_BOTTLENECK_AXIS_RANK[axis] : Number.MAX_SAFE_INTEGER,
+    originalIndex
+  };
+}
+
+function sortGeneratedQuestionsByPlanningBottleneck(
+  questions: readonly GeneratedAmbiguityQuestionSeed[]
+) {
+  return questions
+    .map((question, originalIndex) => ({
+      question,
+      rank: generatedQuestionPlanningBottleneckRank(question, originalIndex)
+    }))
+    .sort((left, right) =>
+      left.rank.axisPriority - right.rank.axisPriority ||
+      left.rank.severityPriority - right.rank.severityPriority ||
+      left.rank.uncertaintyPriority - right.rank.uncertaintyPriority ||
+      left.rank.axisRank - right.rank.axisRank ||
+      left.rank.originalIndex - right.rank.originalIndex
+    )
+    .map(({ question }) => question);
 }
 
 export function parseGeneratedAmbiguityQuestionSet(
@@ -728,7 +843,7 @@ export function parseGeneratedAmbiguityQuestionSet(
   return {
     ok: issues.length === 0,
     issues,
-    questions: issues.length === 0 ? questions : []
+    questions: issues.length === 0 ? sortGeneratedQuestionsByPlanningBottleneck(questions) : []
   };
 }
 
