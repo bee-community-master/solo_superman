@@ -136,7 +136,7 @@ describe("OnboardingView", () => {
     });
 
     expect(markup).toContain("Live generation is taking longer than 30 seconds or is not ready");
-    expect(markup).toContain("Keep generating");
+    expect(markup).not.toContain("Keep generating");
     expect(markup).toContain("Start with fallback questions");
     expect(markup).toContain("Retry");
   });
