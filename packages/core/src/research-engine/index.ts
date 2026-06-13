@@ -777,12 +777,18 @@ function additionalQuestionForEvidenceGap(input: {
       : "공개 리서치에서 유의미한 근거를 찾지 못했습니다";
     const promptSentence =
       "공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다. 어떤 조건이 확인되면 이 방향을 진행하거나 보류하시겠습니까?";
+    const failureMeaning =
+      "리서치 실패가 의미하는 것: 수요가 없다는 결론이 아니라, 공개 검색어/출처 범위/비공개 사용자 맥락만으로는 아직 결정할 수 없다는 뜻입니다.";
+    const manualAction =
+      "다음 수동 검증 액션: 검색어를 바꿔 공개 리포트·커뮤니티·대체재 리뷰를 확인하거나, 타깃 사용자 3명에게 현재 대체 행동과 지불 의향을 직접 확인하세요.";
     const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
 
     return [
       `근거 공백: ${topic}${koreanObjectParticleFor(topic)} 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.`,
       "",
       `한계/불확실성: ${uncertaintySummary}`,
+      failureMeaning,
+      manualAction,
       "",
       promptSentence,
       "",

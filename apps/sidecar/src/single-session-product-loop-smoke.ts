@@ -435,7 +435,7 @@ async function persistPlanningReadyCompletenessProjection(input: {
       { gateId: "confidence_axes", label: "Most confidence axes are 75 or higher", passed: true },
       { gateId: "ambiguity_dimension_floor", label: "Core ambiguity dimensions are 75 or higher", passed: true },
       { gateId: "question_debt", label: "No high-risk open questions remain", passed: true },
-      { gateId: "evidence_balance", label: "No high-impact claim is missing con evidence", passed: true },
+      { gateId: "evidence_balance", label: "No research-backed planning claim is missing counter-evidence", passed: true },
       { gateId: "research_queue_cards", label: "No high-impact Research-updated Queue cards remain unresolved", passed: true },
       { gateId: "required_decisions", label: "Required decisions are approved or explicitly carried as known risks", passed: true },
       { gateId: "blocking_incidents", label: "No unresolved blocking runtime or operation incident is hidden", passed: true },

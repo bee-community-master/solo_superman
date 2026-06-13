@@ -192,7 +192,12 @@ describe("web_search_readonly background research adapter", () => {
       ])
     });
     expect(result.summary).toContain("Research objective:");
+    expect(result.summary).toContain("이 결정을 뒤집거나 좁힐 공개 근거/반례 찾기");
+    expect(result.summary).toContain("Decision reversal target:");
+    expect(result.summary).toContain("Evidence classification:");
     expect(result.summary).toContain("Usable findings:");
+    expect(result.summary).toContain("Source utility checks:");
+    expect(result.summary).toContain("user_behavior_signal=yes");
     expect(result.summary).toContain("Founder workflow reviews compare pricing");
     expect(result.summary).not.toContain("quality-gate review");
     expect(result.summary).not.toContain("snippet retained for review");
@@ -294,6 +299,7 @@ describe("web_search_readonly background research adapter", () => {
 
     expect(plan.queries.length).toBeGreaterThanOrEqual(2);
     expect(plan.queries.length).toBeLessThanOrEqual(4);
+    expect(plan.researchObjective).toContain("이 결정을 뒤집거나 좁힐 공개 근거/반례 찾기");
     expect(plan.queries.every((query) => query.length <= 220)).toBe(true);
     expect(joinedQueries).toContain("이혼 준비");
     expect(joinedQueries).toContain("재무");
@@ -498,6 +504,8 @@ describe("web_search_readonly background research adapter", () => {
     expect(result.summary).toContain("Usable findings:");
     expect(result.summary).toContain("usable finding 없음");
     expect(result.summary).toContain("source_quality_insufficient");
+    expect(result.summary).toContain("리서치 실패가 의미하는 것");
+    expect(result.summary).toContain("Manual validation action:");
     expect(result.summary).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
     expect(result.summary).not.toContain("인류의 기원");
     expect(result.summary).not.toContain("PC 초기화");

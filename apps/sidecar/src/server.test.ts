@@ -7410,12 +7410,12 @@ describe("PR-02 sidecar health shell", () => {
       expect(activeItems).toHaveLength(1);
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
-        sectionRef: "Problem",
-        topicKey: "problem_pain_intensity",
+        sectionRef: "Target Customer",
+        topicKey: "buyer_user_split",
         severity: "high",
-        expectedAnswerType: "text",
-        answerOptions: [],
-        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
       const validationSession = await storageApp.request(`/api/v1/projects/${projectId}/sessions/${sessionId}`, {

@@ -746,6 +746,7 @@ const EN_COPY = {
     pending: "pending",
     scoreCompleteness: "Score completeness",
     noRiskProjection: "No risk summary yet.",
+    whyBuildNowRisky: "Why building now is risky",
     confidenceMap: "Confidence Map",
     confidenceMapHelp: "Shows the score drivers and readiness gates behind the current Planning score.",
     scoreBreakdownLabels: {
@@ -763,6 +764,7 @@ const EN_COPY = {
     confidenceGateFailures: "Readiness gate blockers",
     confidenceGatesReady: "All readiness gates are passing.",
     nextBestActions: "Next best actions",
+    thisWeekValidationActions: "This week's validation actions",
     ifStopNowArtifact: "If stop now",
     ifStopNowKnownRisks: "If-stop-now known risks",
     ifStopNowNextValidationActions: "If-stop-now next validation actions",
@@ -2264,6 +2266,7 @@ const JA_COPY: typeof EN_COPY = {
     pending: "保留中",
     scoreCompleteness: "完成度を採点",
     noRiskProjection: "リスク予測はまだありません。",
+    whyBuildNowRisky: "今作ると危ない理由",
     confidenceMap: "信頼度マップ",
     confidenceMapHelp: "現在の Planning スコアの根拠になるスコア要因と準備ゲートを表示します。",
     scoreBreakdownLabels: {
@@ -2281,6 +2284,7 @@ const JA_COPY: typeof EN_COPY = {
     confidenceGateFailures: "準備ゲートのブロッカー",
     confidenceGatesReady: "すべての準備ゲートを通過しています。",
     nextBestActions: "次の最善アクション",
+    thisWeekValidationActions: "今週の検証アクション",
     ifStopNowArtifact: "今止める場合",
     ifStopNowKnownRisks: "今止める場合の既知リスク",
     ifStopNowNextValidationActions: "今止める場合の次の検証アクション",
@@ -3789,6 +3793,7 @@ const KO_COPY: typeof EN_COPY = {
     pending: "대기 중",
     scoreCompleteness: "완성도 채점",
     noRiskProjection: "아직 리스크 예측이 없습니다.",
+    whyBuildNowRisky: "지금 만들면 위험한 이유",
     confidenceMap: "신뢰도 맵",
     confidenceMapHelp: "현재 Planning 점수의 근거가 되는 점수 요인과 준비 게이트를 보여줍니다.",
     scoreBreakdownLabels: {
@@ -3806,6 +3811,7 @@ const KO_COPY: typeof EN_COPY = {
     confidenceGateFailures: "준비 게이트 차단 항목",
     confidenceGatesReady: "모든 준비 게이트를 통과했습니다.",
     nextBestActions: "다음 최선 작업",
+    thisWeekValidationActions: "이번 주 검증 액션",
     ifStopNowArtifact: "지금 멈춘다면",
     ifStopNowKnownRisks: "지금 멈출 때의 알려진 리스크",
     ifStopNowNextValidationActions: "지금 멈출 때의 다음 검증 액션",

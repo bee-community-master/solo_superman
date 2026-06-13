@@ -124,7 +124,16 @@ interface ReviewedPublicWebSource {
   readonly source: WebSearchReadOnlySourceResult;
   readonly finding: string | null;
   readonly findingLabel: "supports" | "weakens" | "uncertain" | null;
+  readonly sourceUtility?: SourceUtilityCheck;
   readonly rejectReason?: string;
+}
+
+interface SourceUtilityCheck {
+  readonly score: number;
+  readonly institutionality: "strong" | "medium" | "weak";
+  readonly freshness: "current" | "dated" | "unknown";
+  readonly sampleContext: boolean;
+  readonly userBehaviorSignal: boolean;
 }
 
 function defaultNow() {
@@ -552,7 +561,10 @@ export function planPublicWebSearchQueries(
     queries: queries.length ? queries : [truncateText(combined, MAX_QUERY_CHARS)],
     coreTerms,
     intentTerms,
-    researchObjective: truncateText(objective || context || fallbackContext, 360),
+    researchObjective: truncateText(
+      `이 결정을 뒤집거나 좁힐 공개 근거/반례 찾기: ${objective || context || fallbackContext}`,
+      360
+    ),
     language
   };
 }
@@ -657,6 +669,45 @@ function findingFromSource(source: WebSearchReadOnlySourceResult) {
       : null;
 }
 
+function sourceUtilityCheck(source: WebSearchReadOnlySourceResult): SourceUtilityCheck {
+  const haystack = sourceHaystack(source);
+  const hostname = (() => {
+    try {
+      return new URL(source.url).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  const institutionality =
+    /(?:\.gov$|\.go\.kr$|\.edu$|\.ac\.kr$|\.or\.kr$|kosis\.kr$|statista\.com$|mckinsey\.com$|gartner\.com$|pewresearch\.org$)/iu.test(hostname)
+      ? "strong"
+      : /(?:\.org$|\.or\.|research|institute|association|협회|연구원|공단|공사|agency)/iu.test(haystack)
+        ? "medium"
+        : "weak";
+  const freshness = /(?:202[4-6]|[1-9]\s*(?:days?|weeks?|months?)\s*ago|[1-9]\s*(?:일|주|개월)\s*전|최근|latest|updated)/iu.test(haystack)
+    ? "current"
+    : /(?:201\d|202[0-3]|오래된|archived|archive)/iu.test(haystack)
+      ? "dated"
+      : "unknown";
+  const sampleContext =
+    /(?:조사|통계|리포트|보고서|사례|표본|응답자|인터뷰|설문|survey|sample|respondents?|interviews?|case\s*study|report|statistics?)/iu.test(haystack);
+  const userBehaviorSignal =
+    /(?:후기|리뷰|가입|결제|구매|재방문|반복\s*사용|대체재|가격|상담|willingness\s*to\s*pay|paid|subscription|pricing|purchase|repeat\s*use|reviews?|alternatives?)/iu.test(haystack);
+  const score =
+    (institutionality === "strong" ? 1 : 0) +
+    (freshness === "current" ? 1 : 0) +
+    (sampleContext ? 1 : 0) +
+    (userBehaviorSignal ? 1 : 0);
+
+  return {
+    score,
+    institutionality,
+    freshness,
+    sampleContext,
+    userBehaviorSignal
+  };
+}
+
 function reviewPublicWebSources(
   sources: readonly WebSearchReadOnlySourceResult[],
   plan: PlannedPublicWebSearchQueries
@@ -682,9 +733,20 @@ function reviewPublicWebSources(
     return {
       source,
       finding,
-      findingLabel: findingLabelForSource(source)
+      findingLabel: findingLabelForSource(source),
+      sourceUtility: sourceUtilityCheck(source)
     };
   });
+}
+
+function sourceUtilityLine(review: ReviewedPublicWebSource) {
+  const utility = review.sourceUtility;
+
+  if (!utility) {
+    return `- ${review.source.title}: score 0/4 (rejected or insufficient source context)`;
+  }
+
+  return `- ${review.source.title}: score ${utility.score}/4 (institutionality=${utility.institutionality}, freshness=${utility.freshness}, sample_context=${utility.sampleContext ? "yes" : "no"}, user_behavior_signal=${utility.userBehaviorSignal ? "yes" : "no"})`;
 }
 
 function summaryForSources(
@@ -704,18 +766,37 @@ function summaryForSources(
         `- [${review.findingLabel}] ${review.finding} — ${review.source.title} ${review.source.url}`
       )
     : ["- usable finding 없음"];
+  const supportCount = usableSources.filter((review) => review.findingLabel === "supports").length;
+  const counterCount = usableSources.filter((review) => review.findingLabel === "weakens").length;
+  const undecidableCount = usableSources.filter((review) => review.findingLabel === "uncertain").length;
   const summary = [
     "Research objective:",
     plan.researchObjective,
+    "Decision reversal target:",
+    "이 결과는 자료를 많이 모으는 것이 아니라 현재 결정을 뒤집거나 범위를 줄일 수 있는 근거를 찾는 데 쓰입니다.",
     "Queries used:",
     ...queries.map((query) => `- ${query}`),
+    "Evidence classification:",
+    `- support_evidence: ${supportCount}`,
+    `- counter_or_alternative: ${counterCount}`,
+    `- still_undecidable: ${undecidableCount}`,
     "Usable findings:",
     ...findingLines,
+    "Source utility checks:",
+    ...(usableSources.length ? usableSources.map(sourceUtilityLine) : ["- score 0/4: usable source-linked finding이 없어 기관성/최신성/표본 맥락/행동 신호를 평가하지 못했습니다."]),
     "Rejected noise:",
     `- count: ${rejectedSources.length}`,
     ...rejectedReasons.map((reason) => `- ${reason}`),
     "Limitations:",
     ...(usableSources.length ? limitationLines : ["- source_quality_insufficient: usable source-linked finding이 없어 공개 검색 결과만으로 판단하지 않습니다.", ...limitationLines]),
+    "리서치 실패가 의미하는 것:",
+    usableSources.length
+      ? "출처가 있어도 반례 수와 소스 유틸리티 점수가 약하면 Planning-ready 근거로 바로 쓰지 않습니다."
+      : "공개 검색에서 유의미한 출처를 못 찾았다는 것은 수요가 없다는 뜻이 아니라, 검색어/출처 범위/비공개 사용자 맥락을 수동으로 다시 검증해야 한다는 뜻입니다.",
+    "Manual validation action:",
+    usableSources.length
+      ? "약한 출처는 기관 리포트, 공개 리뷰, 가격/가입 행동 신호, 직접 인터뷰 중 하나로 보강합니다."
+      : "검색어를 바꿔 공개 리포트/커뮤니티/대체재 리뷰를 수동 확인하거나, 타깃 사용자 3명에게 현재 대체 행동과 지불 의향을 직접 확인합니다.",
     "Human decision needed:",
     usableSources.length
       ? "finding은 품질 게이트 검토 뒤 스펙/질문 판단에 연결해야 합니다."

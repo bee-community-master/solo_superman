@@ -182,6 +182,7 @@ describe("PlanningView", () => {
     });
 
     expect(markup).toContain("Top 3 Risk Cards");
+    expect(markup).toContain("Why building now is risky");
     expect(markup).toContain("Customer urgency still unproven");
     expect(markup).toContain("Severity: high");
     expect(markup).toContain("Next validation action: Interview five target users about current workaround urgency.");
@@ -190,6 +191,7 @@ describe("PlanningView", () => {
     expect(markup).toContain("Implementation scope may be too broad");
     expect(markup).toContain("Source refs: no source refs");
     expect(markup).not.toContain("Pricing signal is stale");
+    expect(markup.indexOf("Why building now is risky")).toBeLessThan(markup.indexOf(">58<"));
   });
 
   it("renders the Confidence Map with score drivers and blocked completion gates", () => {
@@ -213,7 +215,7 @@ describe("PlanningView", () => {
     expect(markup).toContain("Completion candidate: More risk validation is needed.");
     expect(markup).toContain("Readiness gate blockers");
     expect(markup).toContain("Top risks remain open.");
-    expect(markup).toContain("Next best actions");
+    expect(markup).toContain("This week&#x27;s validation actions");
     expect(markup).toContain("Validate the top risks before creating a Planning-ready handoff.");
     expect(markup).toContain("Prepare a Build Slice Plan after the unresolved gates are closed.");
     expect(markup).toContain("If stop now");

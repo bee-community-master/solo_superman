@@ -190,6 +190,8 @@ describe("Decision-linked research quality gate", () => {
     expect(matrix.proEvidence).toEqual([]);
     expect(matrix.conEvidence).toEqual([]);
     expect(serializedQuestion).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다");
+    expect(serializedQuestion).toContain("리서치 실패가 의미하는 것");
+    expect(serializedQuestion).toContain("다음 수동 검증 액션");
     expect(serializedQuestion).not.toContain("enc");
     expect(serializedQuestion).not.toContain("인류");
     expect(serializedQuestion).not.toContain("support.microsoft");
@@ -222,7 +224,7 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion).not.toContain("Original ambiguity");
     expect(serializedQuestion).not.toContain("User answer to account for");
     expect(serializedQuestion).not.toContain("Use this divorce financial planning checklist");
-    expect(serializedQuestion.length).toBeLessThan(700);
+    expect(serializedQuestion.length).toBeLessThan(950);
   });
 
   it("strips English research objective metadata before localizing source-quality follow-ups", () => {

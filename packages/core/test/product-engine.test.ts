@@ -723,11 +723,12 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(state.queueProjection.active.every((item) => item.cardType === "question")).toBe(true);
     expect(state.queueProjection.active).toEqual([
       expect.objectContaining({
-        sectionRef: "Problem",
-        topicKey: "problem_pain_intensity",
+        sectionRef: "Target Customer",
+        topicKey: "buyer_user_split",
         severity: "high",
-        expectedAnswerType: "text",
-        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       })
     ]);
     expect(state.queueProjection.next).toEqual([]);
@@ -927,20 +928,24 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(state.openIssues).toHaveLength(3);
     expect(state.openIssues.map((issue) => issue.topicKey)).toEqual([
-      "pet_lifecycle_first_guardian_focus",
       "pet_lifecycle_information_fragmentation",
+      "pet_lifecycle_first_guardian_focus",
       "pet_lifecycle_switching_reason"
     ]);
-    expect(state.openIssues[0]?.questionText).toContain("반려동물");
+    expect(state.openIssues[0]?.questionText).toContain("보호자");
     expect(state.openIssues[0]?.questionText).not.toContain("primary customer");
-    expect(state.openIssues[0]?.sourceRef).toBe("generated_question:pet_lifecycle_first_guardian_focus");
+    expect(state.openIssues[0]?.sourceRef).toBe("generated_question:pet_lifecycle_information_fragmentation");
     expect(state.openIssues[0]).toMatchObject({
-      ambiguityDimension: "scope",
-      ambiguityRoutingPath: "human_judgment",
+      ambiguityDimension: "success_criteria",
+      ambiguityRoutingPath: "current_research",
       researchQuestion:
-        "보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지 확인할 공개 단서와 반례는 무엇인가?"
+        "보호자들이 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾는 반복 불편을 보여주는 공개 사례와 부족한 반례는 무엇인가?"
     });
-    expect(state.openIssues[0]?.answerOptions?.map((option) => option.label)).toEqual([
+    expect(
+      state.openIssues
+        .find((issue) => issue.topicKey === "pet_lifecycle_first_guardian_focus")
+        ?.answerOptions?.map((option) => option.label)
+    ).toEqual([
       "첫 반려동물을 키우는 보호자",
       "노령·만성질환 반려동물 보호자",
       "여러 마리를 함께 키우는 가구",
@@ -957,7 +962,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(activate.accepted).toBe(true);
     expect(activate.nextState.queueProjection.active.map((item) => item.title)).toEqual([
-      "반려동물의 전생애 정보를 한 곳에서 관리하는 앱을 가장 먼저 테스트할 보호자 유형은 누구로 좁히겠습니까?"
+      "보호자가 병원 기록, 급여 정보, 보험 서류, 일상 메모를 따로 찾느라 가장 자주 겪는 불편은 무엇인가요?"
     ]);
     eventDrafts.push(activate.events[0]);
     state = replayProductEngineEvents(
@@ -981,10 +986,10 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(answer.accepted).toBe(true);
     expect(researchTask).toMatchObject({
-      objective: expect.stringContaining("보호자 유형별로 의료·보험·일상 기록 관리 니즈가 실제로 어떻게 다른지")
+      objective: expect.stringContaining("병원 기록, 급여 정보, 보험 서류, 일상 메모")
     });
-    expect(String(researchTask?.objective)).toContain("Ambiguity dimension: scope");
-    expect(String(researchTask?.objective)).toContain("Do not replace the user's choice with research");
+    expect(String(researchTask?.objective)).toContain("Ambiguity dimension: success_criteria");
+    expect(String(researchTask?.objective)).toContain("Collect current public evidence");
   });
 
   it("rejects ambiguity analysis when generated questions are missing", () => {
@@ -2859,42 +2864,42 @@ describe("PR-04 ProductEngine reducer", () => {
       "wider sources"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
-    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noMoreSourcesAnswer.accepted).toBe(true);
-    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noNeedToFindMoreSourcesAnswer.accepted).toBe(true);
-    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noNeedToCollectMoreEvidenceAnswer.accepted).toBe(true);
-    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(noMoreEnglishResearchAnswer.accepted).toBe(true);
-    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(doNotNeedMoreResearchAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(doNotNeedMoreEvidenceAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );
     expect(moreResearchNotNeededAnswer.accepted).toBe(true);
-    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Find decision evidence for:");
+    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
     expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
       "Broaden research"
     );

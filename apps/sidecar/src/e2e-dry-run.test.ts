@@ -3414,12 +3414,12 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(activeItems).toHaveLength(1);
       expect(firstQuestion).toMatchObject({
         cardType: "question",
-        sectionRef: "Problem",
-        topicKey: "problem_pain_intensity",
+        sectionRef: "Target Customer",
+        topicKey: "buyer_user_split",
         severity: "high",
-        expectedAnswerType: "text",
-        answerOptions: [],
-        possibleRoutes: expect.arrayContaining(["question", "research_needed"])
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
       const answer = await postJson(app, `/api/v1/questions/${firstQuestion.queueItemId as string}/answers`, {

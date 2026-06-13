@@ -261,6 +261,35 @@ export function PlanningView({ controller }: PlanningViewProps) {
           <h2>{copy.planning.progress}</h2>
           <span>{confidence?.readinessLabel ?? copy.planning.pending}</span>
         </div>
+        {topRiskCards.length ? (
+          <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
+            <h3>{copy.planning.whyBuildNowRisky}</h3>
+            <ol className="top-risk-card-list">
+              {topRiskCards.map((risk) => (
+                <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
+                  <div className="top-risk-card-heading">
+                    <strong>{risk.title}</strong>
+                    <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
+                  </div>
+                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${risk.title}`}>
+                    {copy.planning.riskNextValidation}: {risk.nextValidationAction}
+                  </p>
+                  <small>
+                    {copy.planning.riskSourceRefs}: {risk.sourceRefs.length ? risk.sourceRefs.join(", ") : copy.planning.riskNoSourceRefs}
+                  </small>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : (
+          <p className="empty-state">{copy.planning.noRiskProjection}</p>
+        )}
+        {nextBestActions.length ? (
+          <section className="confidence-next-actions" aria-label={copy.planning.thisWeekValidationActions}>
+            <h3>{copy.planning.thisWeekValidationActions}</h3>
+            <PlanningTextList ariaLabel={copy.planning.thisWeekValidationActions} items={nextBestActions} />
+          </section>
+        ) : null}
         <div className="score">{confidence?.compositeScore ?? 0}</div>
         <button type="button" disabled={isBusy || !projections.session} onClick={() => void scoreCompleteness()}>
           {copy.planning.scoreCompleteness}
@@ -300,38 +329,9 @@ export function PlanningView({ controller }: PlanningViewProps) {
                 <p>{copy.planning.confidenceGatesReady}</p>
               )}
             </div>
-            {nextBestActions.length ? (
-              <div className="confidence-next-actions">
-                <strong>{copy.planning.nextBestActions}</strong>
-                <PlanningTextList ariaLabel={copy.planning.nextBestActions} items={nextBestActions} />
-              </div>
-            ) : null}
             <IfStopNowArtifactCard artifact={confidence.completionCandidate.ifStopNowArtifact} copy={copy} />
           </section>
         ) : null}
-        {topRiskCards.length ? (
-          <section className="top-risk-card-stack" aria-label={copy.planning.topRiskCards}>
-            <h3>{copy.planning.topRiskCards}</h3>
-            <ol className="top-risk-card-list">
-              {topRiskCards.map((risk) => (
-                <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
-                  <div className="top-risk-card-heading">
-                    <strong>{risk.title}</strong>
-                    <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
-                  </div>
-                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${risk.title}`}>
-                    {copy.planning.riskNextValidation}: {risk.nextValidationAction}
-                  </p>
-                  <small>
-                    {copy.planning.riskSourceRefs}: {risk.sourceRefs.length ? risk.sourceRefs.join(", ") : copy.planning.riskNoSourceRefs}
-                  </small>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : (
-          <p className="empty-state">{copy.planning.noRiskProjection}</p>
-        )}
       </section>
 
       <section className="panel founder-brief-panel">
