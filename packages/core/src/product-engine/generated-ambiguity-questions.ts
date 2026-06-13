@@ -617,6 +617,20 @@ function parseGeneratedQuestion(
     issue(issues, `${path}.answerOptions`, "must be omitted or empty for open text questions");
   }
 
+  const hasInvalidCurrentResearchTask =
+    ambiguityRoutingPath === "current_research" &&
+    (!researchQuestion ||
+      !suggestedResearchTask ||
+      isGenericResearchTask(suggestedResearchTask) ||
+      !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
+      !researchTaskHasSkepticalCue(suggestedResearchTask) ||
+      !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
+      !routes.includes("research_needed"));
+  const hasInvalidNonResearchTask =
+    ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask);
+  const hasInvalidRequiredAnswerOptions = requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5);
+  const hasInvalidOpenTextAnswerOptions = !requiresOptions && rawOptions.length > 0 && !shouldFallbackToOpenText;
+
   if (
     !ALLOWED_SECTIONS.has(sectionRef) ||
     !topicKey ||
@@ -635,17 +649,10 @@ function parseGeneratedQuestion(
     questionHasMultipleDecisionAxes(question) ||
     !routes.length ||
     routes.some((route) => !ALLOWED_ROUTES.has(route)) ||
-    (ambiguityRoutingPath === "current_research" &&
-      (!researchQuestion ||
-        !suggestedResearchTask ||
-        isGenericResearchTask(suggestedResearchTask) ||
-        !researchTaskHasSourceSeekingCue(suggestedResearchTask) ||
-        !researchTaskHasSkepticalCue(suggestedResearchTask) ||
-        !researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask) ||
-        !routes.includes("research_needed"))) ||
-    (ambiguityRoutingPath !== "current_research" && isGenericResearchTask(suggestedResearchTask)) ||
-    (requiresOptions && (answerOptions.length < 3 || answerOptions.length > 5)) ||
-    (!requiresOptions && rawOptions.length > 0 && !shouldFallbackToOpenText)
+    hasInvalidCurrentResearchTask ||
+    hasInvalidNonResearchTask ||
+    hasInvalidRequiredAnswerOptions ||
+    hasInvalidOpenTextAnswerOptions
   ) {
     return null;
   }
