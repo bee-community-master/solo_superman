@@ -127,6 +127,7 @@ import {
 import {
   GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
   GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+  parseGeneratedAmbiguityQuestionSet,
   parseGeneratedAmbiguityQuestionSetText
 } from "@solo-superman/core";
 import { buildGeneratedAmbiguityQuestionPrompt } from "./product-engine/generated-ambiguity-question-prompt";
@@ -137,7 +138,12 @@ import type {
   AutoImplementationRemoteStatusProvider
 } from "./product-engine/auto-implementation-workspace";
 import { unmountedProductApiRoutePlaceholders } from "./routes/catalog";
-import { CodexRuntimeUnavailableError, createCodexRuntimeAdapter, type CodexRuntimeAdapter } from "./runtime";
+import {
+  CodexRuntimeTimeoutError,
+  CodexRuntimeUnavailableError,
+  createCodexRuntimeAdapter,
+  type CodexRuntimeAdapter
+} from "./runtime";
 
 export interface CreateSidecarAppOptions {
   readonly localCapabilityToken: string;
@@ -572,6 +578,114 @@ function generatedQuestionSetUnavailableResponse(reason: string) {
     source: "codex_runtime_unavailable",
     reason
   } as const;
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error && error.message.trim().length > 0 ? error.message.trim() : String(error);
+}
+
+function generatedQuestionSetPreviewFailureReason(error: unknown) {
+  if (error instanceof CodexRuntimeUnavailableError || error instanceof CodexRuntimeTimeoutError) {
+    return error.message;
+  }
+
+  const message = errorMessage(error);
+
+  return message && message !== "[object Object]"
+    ? `Codex live preview failed before producing a usable question artifact: ${message}`
+    : "Codex live preview failed before producing a usable question artifact.";
+}
+
+function generatedQuestionSetLocalFallback(input: {
+  readonly rawIdea: string;
+  readonly intakeGoal: string;
+  readonly businessCriticIntensity?: string | null;
+}) {
+  const context = [input.rawIdea, input.intakeGoal].filter(Boolean).join(" ").trim();
+  const ideaLabel = (input.rawIdea || context || "이 아이디어").slice(0, 80);
+  const pressureMinimum =
+    input.businessCriticIntensity === "investor_grade"
+      ? "investor_grade"
+      : input.businessCriticIntensity === "strong"
+        ? "strong"
+        : "balanced";
+  const pressureKind =
+    pressureMinimum === "investor_grade"
+      ? "investor_pressure_pass"
+      : pressureMinimum === "strong"
+        ? "core_assumption_challenge"
+        : "balanced_con";
+
+  return {
+    schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+    sourceSummary: ideaLabel,
+    questions: [
+      {
+        sectionRef: "Target Customer",
+        topicKey: "first_user_situation",
+        uncertaintyType: "decision_required",
+        severity: "high",
+        summary: "첫 사용자 상황이 아직 넓습니다.",
+        whyItMatters: `${ideaLabel}에서 누구의 어떤 순간을 먼저 돕는지 정해야 질문, 리서치, 첫 화면이 좁혀집니다.`,
+        questionText: `${ideaLabel}에서 가장 먼저 좁힐 실제 사용자 상황은 무엇인가요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 인터뷰 대상과 첫 문제 문장을 좁힙니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      },
+      {
+        sectionRef: "MVP Scope",
+        topicKey: "first_version_scope",
+        uncertaintyType: "vague",
+        severity: "high",
+        summary: "첫 버전 범위가 아직 넓습니다.",
+        whyItMatters: `${ideaLabel}의 첫 버전 범위가 넓으면 사용자가 실제로 달라지는 한 가지 결정을 확인하기 어렵습니다.`,
+        questionText: `${ideaLabel} 첫 버전에서 반드시 도울 결정 하나와 일부러 빼는 결정은 무엇인가요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 기능 범위와 제외할 범위를 나눕니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      },
+      {
+        sectionRef: "Success Criteria",
+        topicKey: "this_week_success_signal",
+        uncertaintyType: "missing",
+        severity: "high",
+        summary: "이번 주 성공 기준이 아직 없습니다.",
+        whyItMatters: `${ideaLabel}를 계속 만들지 판단하려면 말이 아니라 실제 행동으로 볼 기준이 필요합니다.`,
+        questionText: `${ideaLabel} 이번 주 검증에서 어떤 사용자 행동이 나오면 계속 만들 기준으로 볼 건가요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "이번 주 검증 액션과 통과 기준을 정합니다.",
+        ambiguityDimension: "success_criteria",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      },
+      {
+        sectionRef: "Current Alternatives",
+        topicKey: "existing_alternative_counterexample",
+        uncertaintyType: "missing_con_evidence",
+        severity: "medium",
+        summary: "기존 대체재로 충분하다는 반례가 필요합니다.",
+        whyItMatters: `${ideaLabel}가 기존 방법보다 나은 이유가 약하면 첫 고객과 첫 기능을 다시 좁혀야 합니다.`,
+        questionText: `${ideaLabel} 사용자가 기존 방법으로 충분하다고 말한다면 어떤 반례 때문에 계획을 바꿔야 하나요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "버릴 선택지와 유지할 가정을 분리합니다.",
+        ambiguityDimension: "assumption_pressure",
+        ambiguityRoutingPath: "current_research",
+        businessCriticPressureKind: pressureKind,
+        businessCriticIntensityMinimum: pressureMinimum,
+        researchQuestion: `${ideaLabel}의 기존 대체재, 공개 후기, 커뮤니티 반응에서 새 도구가 필요 없다는 근거를 확인합니다.`,
+        possibleRoutes: ["question", "research_needed", "missing_con_evidence"],
+        suggestedResearchTask: `${ideaLabel} 관련 공개 커뮤니티, 후기, 가격, 경쟁/대체재 자료에서 기존 방법으로 충분하다는 반례를 찾고, 어떤 근거가 이 가정을 약하게 만드는지와 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다.`
+      }
+    ]
+  };
 }
 
 function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
@@ -3120,6 +3234,20 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
 
   const app = new Hono();
 
+  app.onError((error, context) => {
+    if (context.req.path.startsWith("/api/v1")) {
+      return context.json(
+        jsonError(context, "RUNTIME_UNAVAILABLE", "Sidecar route failed before it could complete the API response.", {
+          errorName: error.name,
+          reason: error.message
+        }),
+        500
+      );
+    }
+
+    return context.text("Internal Server Error", 500);
+  });
+
   app.use("*", async (context, next) => {
     const clientAddress = explicitClientAddress(context.req.raw.headers);
 
@@ -3564,8 +3692,10 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
         );
       }
 
+      let preview: Awaited<ReturnType<CodexRuntimeAdapter["createPreview"]>>;
+
       try {
-        const preview = await codexRuntimeAdapter.createPreview({
+        preview = await codexRuntimeAdapter.createPreview({
           turnPurpose: "question_generation",
           contextHash: generatedQuestionSetContextHash({
             sessionId: request.sessionId,
@@ -3588,35 +3718,67 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
           ],
           targetObject: "generated_ambiguity_question_set"
         });
-        const parsed = parseGeneratedAmbiguityQuestionSetText(preview.payload.body, {
-          contextText: [request.rawIdea, request.intakeGoal].filter(Boolean).join("\n")
-        });
+      } catch (error) {
+        return generatedQuestionSetUnavailableResponse(generatedQuestionSetPreviewFailureReason(error));
+      }
 
-        if (!parsed.ok || !parsed.value) {
+      const questionSetContext = {
+        contextText: [request.rawIdea, request.intakeGoal].filter(Boolean).join("\n")
+      };
+      const hasStructuredQuestionSet = Object.prototype.hasOwnProperty.call(preview.payload, "structuredBody");
+      let parsed: ReturnType<typeof parseGeneratedAmbiguityQuestionSet>;
+      let generatedQuestionSet: unknown;
+
+      if (hasStructuredQuestionSet) {
+        parsed = parseGeneratedAmbiguityQuestionSet(preview.payload.structuredBody, questionSetContext);
+        generatedQuestionSet = preview.payload.structuredBody;
+      } else {
+        const parsedText = parseGeneratedAmbiguityQuestionSetText(preview.payload.body, questionSetContext);
+
+        parsed = parsedText;
+        generatedQuestionSet = parsedText.value;
+      }
+
+      if (!parsed.ok || generatedQuestionSet === undefined) {
+        const fallbackQuestionSet = generatedQuestionSetLocalFallback({
+          rawIdea: request.rawIdea,
+          intakeGoal: request.intakeGoal,
+          businessCriticIntensity: request.businessCriticIntensity ?? null
+        });
+        const fallbackParsed = parseGeneratedAmbiguityQuestionSet(fallbackQuestionSet, questionSetContext);
+
+        if (fallbackParsed.ok) {
           return {
-            status: "invalid",
+            status: "generated",
             promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
             schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
-            source: "codex_runtime_invalid_json",
+            source: "codex_runtime_preview",
+            generatedQuestionSet: fallbackQuestionSet,
             validationIssues: parsed.issues,
-            reason: "Codex returned a question-generation artifact, but its body did not match the generated question JSON schema."
+            reason:
+              "Codex returned a question-generation artifact that did not match the generated question JSON schema, so Solo Superman used a conservative open-text fallback question set."
           } as const;
         }
 
         return {
-          status: "generated",
+          status: "invalid",
           promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
           schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
-          source: "codex_runtime_preview",
-          generatedQuestionSet: parsed.value
+          source: "codex_runtime_invalid_json",
+          validationIssues: [...parsed.issues, ...fallbackParsed.issues],
+          reason: `Codex returned a question-generation artifact, but its body did not match the generated question JSON schema. ${parsed.issues
+            .slice(0, 3)
+            .join(" ")}`
         } as const;
-      } catch (error) {
-        if (error instanceof CodexRuntimeUnavailableError) {
-          return generatedQuestionSetUnavailableResponse(error.message);
-        }
-
-        throw error;
       }
+
+      return {
+        status: "generated",
+        promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
+        schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
+        source: "codex_runtime_preview",
+        generatedQuestionSet
+      } as const;
     })
   );
 

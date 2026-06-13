@@ -119,6 +119,7 @@ export interface CodexPreviewArtifactPayload {
   readonly body: string;
   readonly targetObject: string;
   readonly sourceRefs: readonly string[];
+  readonly structuredBody?: unknown;
   readonly blockedAction?: BlockedActionSummary;
   readonly phase15bUpgradeHints?: Phase15bUpgradeHints;
 }
