@@ -3797,7 +3797,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
             status: "generated",
             promptTemplateRef: GENERATED_AMBIGUITY_QUESTION_PROMPT_TEMPLATE_REF,
             schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
-            source: "codex_runtime_preview",
+            source: "local_fallback",
             generatedQuestionSet: fallbackQuestionSet,
             validationIssues: parsed.issues,
             reason:

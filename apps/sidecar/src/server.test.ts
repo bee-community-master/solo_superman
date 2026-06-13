@@ -2497,7 +2497,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(response.status).toBe(200);
       expect(data).toMatchObject({
         status: "generated",
-        source: "codex_runtime_preview",
+        source: "local_fallback",
         reason: expect.stringContaining("conservative open-text fallback")
       });
       expect(data.validationIssues).toEqual(expect.arrayContaining([expect.stringContaining("$.questions")]));
