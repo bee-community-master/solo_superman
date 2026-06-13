@@ -42,6 +42,12 @@ async function waitForCondition(condition: () => boolean) {
   throw new Error("Timed out waiting for condition.");
 }
 
+function initialQueueFlowSubmitEvent() {
+  return { preventDefault: vi.fn() } as unknown as Parameters<
+    ReturnType<typeof useDecisionQueueSessionActions>["runInitialQueueFlow"]
+  >[0];
+}
+
 describe("nextQuestionBatchIdsForActivation", () => {
   it("uses queued next question ids and research follow-ups while ignoring non-question review cards", () => {
     const queue: DecisionQueueProjection = {
@@ -407,9 +413,7 @@ describe("useDecisionQueueSessionActions", () => {
       throw new Error("Session actions were not captured.");
     }
 
-    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
-      typeof actions.runInitialQueueFlow
-    >[0]);
+    await actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
 
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "allow_codex"
@@ -536,9 +540,7 @@ describe("useDecisionQueueSessionActions", () => {
       throw new Error("Session actions were not captured.");
     }
 
-    await actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
-      typeof actions.runInitialQueueFlow
-    >[0]);
+    await actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
 
     expect(createProject).toHaveBeenCalledWith(expect.objectContaining({
       initialResearchAutomationPermission: "manual_only"
@@ -680,9 +682,7 @@ describe("useDecisionQueueSessionActions", () => {
       throw new Error("Session actions were not captured.");
     }
 
-    const runPromise = actions.runInitialQueueFlow({ preventDefault: vi.fn() } as unknown as Parameters<
-      typeof actions.runInitialQueueFlow
-    >[0]);
+    const runPromise = actions.runInitialQueueFlow(initialQueueFlowSubmitEvent());
 
     await waitForCondition(() => generateInitialQuestionSet.mock.calls.length === 1);
     actions.requestInitialQuestionFallback();
