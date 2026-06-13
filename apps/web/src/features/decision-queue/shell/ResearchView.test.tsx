@@ -800,7 +800,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Decide whether to continue the paid founder interview workflow.");
     expect(markup).toContain("Founder interview pricing notes");
     expect(markup).toContain('href="https://example.com/pricing-notes"');
-    expect(markup).toContain("https://example.com/pricing-notes");
+    expect(markup).not.toContain(">https://example.com/pricing-notes<");
     expect(markup).toContain("Gate checks");
     expect(markup).toContain("Source reliability: Passed");
     expect(markup).toContain("The retained source is specific to the target founder workflow.");
@@ -829,7 +829,7 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("javascript:alert(1)");
+    expect(markup).toContain("No public source URL was confirmed.");
     expect(markup).not.toContain('href="javascript:alert(1)"');
   });
 });

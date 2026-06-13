@@ -142,8 +142,8 @@ function EvidencePackSource({
   readonly language: AppLanguage;
   readonly pack: DecisionEvidencePackProjection;
 }) {
-  const sourceLabel = pack.sourceTitle ?? pack.sourceUrl ?? copy.research.noPublicSourceConfirmed;
   const sourceUrl = safeExternalUrl(pack.sourceUrl);
+  const sourceLabel = pack.sourceTitle ?? (sourceUrl ? copy.research.evidencePackSource : copy.research.noPublicSourceConfirmed);
 
   return (
     <div>
@@ -384,8 +384,8 @@ function ResearchInsufficientSummary({
     return null;
   }
 
-  const checkedScope = result?.sourceUrl || result?.sourceTitle
-    ? userFacingText(result.sourceTitle ?? result.sourceUrl, language)
+  const checkedScope = result?.sourceTitle || result?.sourceUrl
+    ? userFacingText(result.sourceTitle ?? copy.research.evidencePackSource, language)
     : copy.research.noPublicSourceConfirmed;
   const weakReason =
     card?.terminalRationale ??
@@ -461,8 +461,8 @@ function ImportedResearchResultPending({
   readonly language: AppLanguage;
   readonly result: ResearchResultProjection;
 }) {
-  const sourceLabel = result.sourceTitle ?? result.sourceUrl ?? copy.research.noPublicSourceConfirmed;
   const sourceUrl = safeExternalUrl(result.sourceUrl);
+  const sourceLabel = result.sourceTitle ?? (sourceUrl ? copy.research.evidencePackSource : copy.research.noPublicSourceConfirmed);
   const sourceReliability = result.sourceReliability ?? "unknown";
 
   return (
