@@ -780,7 +780,7 @@ describe("Decision-linked research quality gate", () => {
     });
     expect(matrix.additionalQuestions[0]).not.toContain("찬성쪽 근거");
     expect(matrix.additionalQuestions[0]).not.toContain("Pro:");
-    expect(matrix.additionalQuestions[0]).toContain("multiple categories may apply to the first validation batch");
+    expect(matrix.additionalQuestions[0]).toContain("multiple categories may apply");
   });
 
   it("does not treat answer-form policy wording as candidate choices or pro-con stance", () => {

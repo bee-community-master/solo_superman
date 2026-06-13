@@ -3933,7 +3933,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             recoveryActions: expect.arrayContaining(["retry_synthesis", "import_manual_result", "defer_as_known_risk"])
           })
         ]),
-        knownRisks: expect.arrayContaining([expect.stringContaining("Research source was insufficient")])
+        knownRisks: expect.arrayContaining([expect.stringContaining("판단에 쓸 공개 근거가 부족합니다")])
       });
     } finally {
       await storage.close();

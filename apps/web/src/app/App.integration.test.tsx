@@ -93,6 +93,45 @@ async function renderApp() {
   mountedRoot = root;
 }
 
+function createMemoryStorage(): Storage {
+  const values = new Map<string, string>();
+
+  return {
+    get length() {
+      return values.size;
+    },
+    clear() {
+      values.clear();
+    },
+    getItem(key: string) {
+      return values.get(key) ?? null;
+    },
+    key(index: number) {
+      return Array.from(values.keys())[index] ?? null;
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value);
+    }
+  };
+}
+
+function ensureLocalStorage() {
+  if (window.localStorage) {
+    return window.localStorage;
+  }
+
+  const localStorage = createMemoryStorage();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: localStorage
+  });
+
+  return localStorage;
+}
+
 function bodyText() {
   return document.body.textContent ?? "";
 }
@@ -104,8 +143,9 @@ const previousReactActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
 beforeEach(() => {
   reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   document.body.innerHTML = "";
-  window.localStorage.clear();
-  window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, "en");
+  const localStorage = ensureLocalStorage();
+  localStorage.clear();
+  localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, "en");
   sidecarClientMocks.createSidecarClient.mockReset();
   sidecarClientMocks.discoverSidecarConnection.mockReset();
   sidecarClientMocks.getRuntimeStatus.mockReset();
@@ -147,9 +187,10 @@ describe("App integration", () => {
       expect(sidecarClientMocks.createSidecarClient).toHaveBeenCalledWith({ connection: TEST_CONNECTION });
       expect(sidecarClientMocks.getRuntimeStatus).toHaveBeenCalledTimes(1);
       expect(bodyText()).toContain("Solo Superman");
+      expect(bodyText()).toContain("Local service connected");
       expect(bodyText()).toContain("Idea summary");
       expect(bodyText()).toContain("Create first questions");
-      expect(bodyText()).toContain("vite_env");
+      expect(bodyText()).not.toContain("vite_env");
     });
   });
 
