@@ -55,6 +55,21 @@ function safeExternalUrl(value: string | undefined) {
   }
 }
 
+function researchSourceDisplay(input: {
+  readonly sourceTitle: string | undefined;
+  readonly sourceUrl: string | undefined;
+  readonly copy: DecisionQueueCopy;
+}) {
+  const sourceUrl = safeExternalUrl(input.sourceUrl);
+  const sourceLabel =
+    input.sourceTitle ?? (sourceUrl ? input.copy.research.evidencePackSource : input.copy.research.noPublicSourceConfirmed);
+
+  return {
+    sourceLabel,
+    sourceUrl
+  };
+}
+
 function userFacingText(value: string | undefined, language: AppLanguage) {
   return value ? localizedUserFacingDecisionQueueText(value, language) : "";
 }
@@ -142,8 +157,11 @@ function EvidencePackSource({
   readonly language: AppLanguage;
   readonly pack: DecisionEvidencePackProjection;
 }) {
-  const sourceUrl = safeExternalUrl(pack.sourceUrl);
-  const sourceLabel = pack.sourceTitle ?? (sourceUrl ? copy.research.evidencePackSource : copy.research.noPublicSourceConfirmed);
+  const { sourceLabel, sourceUrl } = researchSourceDisplay({
+    sourceTitle: pack.sourceTitle,
+    sourceUrl: pack.sourceUrl,
+    copy
+  });
 
   return (
     <div>
@@ -461,8 +479,11 @@ function ImportedResearchResultPending({
   readonly language: AppLanguage;
   readonly result: ResearchResultProjection;
 }) {
-  const sourceUrl = safeExternalUrl(result.sourceUrl);
-  const sourceLabel = result.sourceTitle ?? (sourceUrl ? copy.research.evidencePackSource : copy.research.noPublicSourceConfirmed);
+  const { sourceLabel, sourceUrl } = researchSourceDisplay({
+    sourceTitle: result.sourceTitle,
+    sourceUrl: result.sourceUrl,
+    copy
+  });
   const sourceReliability = result.sourceReliability ?? "unknown";
 
   return (
