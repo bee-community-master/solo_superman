@@ -1,17 +1,13 @@
 import type { IfStopNowArtifactProjection } from "@solo-superman/contracts";
-import { localizedUserFacingDecisionQueueText } from "@solo-superman/contracts";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import { Phase15bReadinessPanel } from "../Phase15bReadinessPanel";
 import { PlanningHandoffPanel } from "../PlanningHandoffPanel";
+import { decisionQueueDisplayText } from "../text-formatting";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
 interface PlanningViewProps {
   readonly controller: DecisionQueueShellController;
-}
-
-function planningDisplayText(value: string, language: AppLanguage) {
-  return localizedUserFacingDecisionQueueText(value, language).replace(/\s+/gu, " ").trim();
 }
 
 function PlanningTextList({
@@ -23,7 +19,7 @@ function PlanningTextList({
   readonly items: readonly string[];
   readonly language: AppLanguage;
 }) {
-  const visibleItems = items.map((item) => planningDisplayText(item, language)).filter(Boolean);
+  const visibleItems = items.map((item) => decisionQueueDisplayText(item, language)).filter(Boolean);
 
   return (
     <ul aria-label={ariaLabel} className="effect-list">
@@ -45,8 +41,8 @@ function IfStopNowArtifactCard({
 }) {
   return (
     <section className="if-stop-now-artifact" aria-label={copy.planning.ifStopNowArtifact}>
-      <h4>{artifact.title ? planningDisplayText(artifact.title, language) : copy.planning.ifStopNowArtifact}</h4>
-      <p>{planningDisplayText(artifact.summary, language)}</p>
+      <h4>{artifact.title ? decisionQueueDisplayText(artifact.title, language) : copy.planning.ifStopNowArtifact}</h4>
+      <p>{decisionQueueDisplayText(artifact.summary, language)}</p>
       {artifact.knownRisks.length ? (
         <div>
           <strong>{copy.planning.ifStopNowKnownRisks}</strong>
@@ -153,15 +149,15 @@ export function PlanningView({ controller }: PlanningViewProps) {
       <section className="panel spec-panel">
         <div className="panel-heading">
           <h2>{copy.planning.spec}</h2>
-          <span>{planningDisplayText(sessionStatusLabel, language)}</span>
+          <span>{decisionQueueDisplayText(sessionStatusLabel, language)}</span>
         </div>
         {projections.spec?.title ? (
           <div className="spec-outline">
-            <h3>{planningDisplayText(projections.spec.title, language)}</h3>
+            <h3>{decisionQueueDisplayText(projections.spec.title, language)}</h3>
             {projections.spec.sections?.length ? (
               <ol>
                 {projections.spec.sections.map((section) => (
-                  <li key={section}>{planningDisplayText(section, language)}</li>
+                  <li key={section}>{decisionQueueDisplayText(section, language)}</li>
                 ))}
               </ol>
             ) : null}
@@ -297,15 +293,15 @@ export function PlanningView({ controller }: PlanningViewProps) {
               {topRiskCards.map((risk) => (
                 <li className={`top-risk-card severity-${risk.severity}`} key={risk.riskId}>
                   <div className="top-risk-card-heading">
-                    <strong>{planningDisplayText(risk.title, language)}</strong>
+                    <strong>{decisionQueueDisplayText(risk.title, language)}</strong>
                     <span>{copy.planning.riskSeverity}: {copy.planning.riskSeverityLabels[risk.severity]}</span>
                   </div>
-                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${planningDisplayText(risk.title, language)}`}>
-                    {copy.planning.riskNextValidation}: {planningDisplayText(risk.nextValidationAction, language)}
+                  <p aria-label={`${copy.planning.riskNextValidationAriaPrefix} ${decisionQueueDisplayText(risk.title, language)}`}>
+                    {copy.planning.riskNextValidation}: {decisionQueueDisplayText(risk.nextValidationAction, language)}
                   </p>
                   <small>
                     {copy.planning.riskSourceRefs}: {
-                      risk.sourceRefs.map((ref) => planningDisplayText(ref, language)).filter(Boolean).join(", ") ||
+                      risk.sourceRefs.map((ref) => decisionQueueDisplayText(ref, language)).filter(Boolean).join(", ") ||
                       copy.planning.riskNoSourceRefs
                     }
                   </small>
@@ -352,7 +348,7 @@ export function PlanningView({ controller }: PlanningViewProps) {
             </dl>
             <div className="completion-candidate-summary">
               <strong>
-                {copy.planning.completionCandidate}: {planningDisplayText(confidence.completionCandidate.summary, language)}
+                {copy.planning.completionCandidate}: {decisionQueueDisplayText(confidence.completionCandidate.summary, language)}
               </strong>
               {confidence.completionCandidate.gateFailures.length ? (
                 <div className="confidence-gate-failures">
@@ -388,8 +384,8 @@ export function PlanningView({ controller }: PlanningViewProps) {
           <div className="spec-outline">
             {projections.founderBrief.briefSections.map((section) => (
               <section key={section.sectionId}>
-                <h3>{planningDisplayText(section.title, language)}</h3>
-                <p>{planningDisplayText(section.body, language)}</p>
+                <h3>{decisionQueueDisplayText(section.title, language)}</h3>
+                <p>{decisionQueueDisplayText(section.body, language)}</p>
               </section>
             ))}
             <FounderBriefRiskActions

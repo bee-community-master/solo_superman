@@ -1,5 +1,4 @@
 import {
-  localizedUserFacingDecisionQueueText,
   type ResearchAllowlistGovernanceProjection,
   type ResearchAllowlistId,
   type ResearchDisclosureLogProjection,
@@ -22,6 +21,7 @@ import {
   phase15aTerminalReasonLabel
 } from "./phase15a-operation-labels";
 import { useDecisionQueueCopy } from "./shell/decision-queue-copy";
+import { decisionQueueDisplayText } from "./text-formatting";
 
 export interface ResearchOperationsState {
   readonly allowlists: ResearchAllowlistGovernanceProjection | null;
@@ -72,7 +72,7 @@ function exitGateStatusLabel(status: Phase15aOperationsViewModel["exitGate"]["st
 }
 
 function phase15aDisplayText(value: string, language: AppLanguage) {
-  return localizedUserFacingDecisionQueueText(value, language)
+  return decisionQueueDisplayText(value, language)
     .replace(/\s*·\s*:\s*/gu, " · ")
     .replace(/^\s*[·:;,-]+\s*/u, "")
     .replace(/\s*[·:;,-]+\s*$/u, "")

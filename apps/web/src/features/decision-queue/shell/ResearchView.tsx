@@ -12,6 +12,7 @@ import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegat
 import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
+import { compactDecisionQueueDisplayText as compactUserFacingText } from "../text-formatting";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import { uniqueTextItems } from "./list-values";
@@ -72,16 +73,6 @@ function researchSourceDisplay(input: {
 
 function userFacingText(value: string | undefined, language: AppLanguage) {
   return value ? localizedUserFacingDecisionQueueText(value, language) : "";
-}
-
-function compactUserFacingText(value: string | undefined, language: AppLanguage, maxLength = 180) {
-  const text = userFacingText(value, language).replace(/\s+/gu, " ").trim();
-
-  if (text.length <= maxLength) {
-    return text;
-  }
-
-  return `${text.slice(0, maxLength - 1).trim()}…`;
 }
 
 function TextList({ items, language }: { readonly items: readonly string[]; readonly language: AppLanguage }) {

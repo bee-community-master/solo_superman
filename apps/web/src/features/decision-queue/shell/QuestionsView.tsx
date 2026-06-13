@@ -15,6 +15,7 @@ import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-langu
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 import { boundedQuestionBatchSize, MIN_QUESTION_BATCH_SIZE, MAX_QUESTION_BATCH_SIZE } from "./useDecisionQueueSessionActions";
 import { uniqueTextItems } from "./list-values";
+import { decisionQueueDisplayText } from "../text-formatting";
 
 interface QuestionsViewProps {
   readonly controller: DecisionQueueShellController;
@@ -46,10 +47,6 @@ function compactSourceTraceLabel(value: string) {
   const compacted = value.replace(/\s+/gu, " ").trim();
 
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
-}
-
-function questionDisplayText(value: string, language: AppLanguage) {
-  return localizedUserFacingDecisionQueueText(value, language).replace(/\s+/gu, " ").trim();
 }
 
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
@@ -372,7 +369,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
     queueRecovery.refetchLabel,
     queueRecovery.sseLabel
   ]
-    .map((label) => questionDisplayText(label, language))
+    .map((label) => decisionQueueDisplayText(label, language))
     .filter(Boolean);
   const nextQuestionLoopAction = questionLoopNextAction(copy, {
     activeQuestionCount: questionProgress.activeQuestionCount,
