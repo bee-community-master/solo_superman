@@ -99,6 +99,10 @@ interface DecisionQueueSessionActionsProps {
 type InitialQuestionGenerationMode = "live_preview" | "local_fallback";
 type InitialQuestionGenerationAction = "fallback" | "retry";
 type InitialQuestionGenerationStatus = "idle" | "generating" | "delayed" | "fallback" | "retrying";
+type InitialQuestionGenerationAttemptStatus = Extract<
+  InitialQuestionGenerationStatus,
+  "generating" | "fallback" | "retrying"
+>;
 
 export interface InitialQuestionGenerationState {
   readonly status: InitialQuestionGenerationStatus;
@@ -340,7 +344,7 @@ export function useDecisionQueueSessionActions({
     async (
       generationInput: GeneratedInitialQuestionSetInput,
       generationMode: InitialQuestionGenerationMode,
-      status: Extract<InitialQuestionGenerationStatus, "generating" | "fallback" | "retrying">
+      status: InitialQuestionGenerationAttemptStatus
     ): Promise<
       | { readonly kind: "generated"; readonly generatedQuestionSet: unknown }
       | { readonly kind: "action"; readonly action: InitialQuestionGenerationAction }
@@ -444,7 +448,7 @@ export function useDecisionQueueSessionActions({
   const generateInitialQuestionSetWithControls = useCallback(
     async (generationInput: GeneratedInitialQuestionSetInput) => {
       let nextMode: InitialQuestionGenerationMode = "live_preview";
-      let nextStatus: Extract<InitialQuestionGenerationStatus, "generating" | "fallback" | "retrying"> = "generating";
+      let nextStatus: InitialQuestionGenerationAttemptStatus = "generating";
 
       for (;;) {
         const result = await runInitialQuestionGenerationAttempt(generationInput, nextMode, nextStatus);
