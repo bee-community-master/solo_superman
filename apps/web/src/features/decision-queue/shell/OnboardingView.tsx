@@ -16,7 +16,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     canStart,
     chatGptLoginAcknowledged,
     codexLoginStart,
-    continueInitialQuestionGeneration,
     idea,
     initialQuestionGeneration,
     initialQueueStartBlockerMessages,
@@ -83,9 +82,6 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             </div>
             {initialQuestionGeneration.delayed ? (
               <div className="card-actions initial-question-generation-actions">
-                <button type="button" onClick={continueInitialQuestionGeneration}>
-                  {copy.questions.initialQuestionContinue}
-                </button>
                 <button
                   type="button"
                   disabled={!initialQuestionGeneration.canUseFallback}
