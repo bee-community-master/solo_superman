@@ -50,7 +50,6 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
         tokenSource: "vite_env"
       }
     },
-    continueInitialQuestionGeneration: vi.fn(),
     idea: "",
     initialQuestionGeneration: {
       status: "idle",

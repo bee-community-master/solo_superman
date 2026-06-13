@@ -557,7 +557,6 @@ const EN_COPY = {
       fallback: "Starting with fallback planning questions.",
       retrying: "Retrying live question generation."
     },
-    initialQuestionContinue: "Keep generating",
     initialQuestionUseFallback: "Start with fallback questions",
     initialQuestionRetry: "Retry",
     queue: "Queue",
@@ -2103,7 +2102,6 @@ const JA_COPY: typeof EN_COPY = {
       fallback: "フォールバックの計画質問で開始しています。",
       retrying: "ライブ質問生成を再試行しています。"
     },
-    initialQuestionContinue: "生成を続ける",
     initialQuestionUseFallback: "フォールバック質問で開始",
     initialQuestionRetry: "再試行",
     queue: "キュー",
@@ -3654,7 +3652,6 @@ const KO_COPY: typeof EN_COPY = {
       fallback: "폴백 기획 질문으로 시작합니다.",
       retrying: "라이브 질문 생성을 다시 시도합니다."
     },
-    initialQuestionContinue: "계속 생성 중",
     initialQuestionUseFallback: "폴백 질문으로 시작",
     initialQuestionRetry: "재시도",
     queue: "큐",

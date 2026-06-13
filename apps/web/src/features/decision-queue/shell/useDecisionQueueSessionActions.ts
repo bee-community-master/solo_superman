@@ -300,17 +300,6 @@ export function useDecisionQueueSessionActions({
     initialQuestionControlRef.current = null;
   }, [clearInitialQuestionDelayTimer]);
 
-  const continueInitialQuestionGeneration = useCallback(() => {
-    setInitialQuestionGeneration((current) => current.status === "delayed"
-      ? {
-          status: "generating",
-          delayed: false,
-          canUseFallback: true,
-          canRetry: true
-        }
-      : current);
-  }, []);
-
   const requestInitialQuestionFallback = useCallback(() => {
     const control = initialQuestionControlRef.current;
 
@@ -1279,7 +1268,6 @@ export function useDecisionQueueSessionActions({
 
   return {
     initialQuestionGeneration,
-    continueInitialQuestionGeneration,
     requestInitialQuestionFallback,
     retryInitialQuestionGeneration,
     runInitialQueueFlow,
