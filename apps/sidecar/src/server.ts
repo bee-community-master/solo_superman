@@ -703,6 +703,23 @@ function generatedQuestionSetLocalFallback(input: {
   };
 }
 
+function parsedGeneratedQuestionSetLocalFallback(input: {
+  readonly rawIdea: string;
+  readonly intakeGoal: string;
+  readonly businessCriticIntensity?: string | null;
+  readonly contextText: string;
+}) {
+  const fallbackQuestionSet = generatedQuestionSetLocalFallback(input);
+  const fallbackParsed = parseGeneratedAmbiguityQuestionSet(fallbackQuestionSet, {
+    contextText: input.contextText
+  });
+
+  return {
+    fallbackQuestionSet,
+    fallbackParsed
+  };
+}
+
 function optionalPositiveIntegerFromBody(value: unknown, fieldName: string) {
   if (value === undefined || value === null) {
     return undefined;
@@ -3685,12 +3702,12 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       };
 
       if (request.generationMode === "local_fallback") {
-        const fallbackQuestionSet = generatedQuestionSetLocalFallback({
+        const { fallbackParsed, fallbackQuestionSet } = parsedGeneratedQuestionSetLocalFallback({
           rawIdea: request.rawIdea,
           intakeGoal: request.intakeGoal,
-          businessCriticIntensity: request.businessCriticIntensity ?? null
+          businessCriticIntensity: request.businessCriticIntensity ?? null,
+          contextText: questionSetContext.contextText
         });
-        const fallbackParsed = parseGeneratedAmbiguityQuestionSet(fallbackQuestionSet, questionSetContext);
 
         if (fallbackParsed.ok) {
           return {
@@ -3785,12 +3802,12 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
       }
 
       if (!parsed.ok || generatedQuestionSet === undefined) {
-        const fallbackQuestionSet = generatedQuestionSetLocalFallback({
+        const { fallbackParsed, fallbackQuestionSet } = parsedGeneratedQuestionSetLocalFallback({
           rawIdea: request.rawIdea,
           intakeGoal: request.intakeGoal,
-          businessCriticIntensity: request.businessCriticIntensity ?? null
+          businessCriticIntensity: request.businessCriticIntensity ?? null,
+          contextText: questionSetContext.contextText
         });
-        const fallbackParsed = parseGeneratedAmbiguityQuestionSet(fallbackQuestionSet, questionSetContext);
 
         if (fallbackParsed.ok) {
           return {
