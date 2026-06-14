@@ -16,6 +16,7 @@ import {
   type SseEvent
 } from "@solo-superman/contracts";
 import { formatListWithFallback as commaList } from "./text-formatting";
+import { taskCanStartPublicSearchResearch } from "./research-routing-readiness";
 
 export type QueueSectionId = "active" | "next" | "blocked" | "deferred";
 
@@ -319,6 +320,7 @@ export function startableReadOnlyResearchTaskIds({
   return research.tasks
     .filter((task) => task.status === "planned")
     .filter((task) => !taskIdsWithActiveRuns.has(task.researchTaskId))
+    .filter((task) => taskCanStartPublicSearchResearch({ task }))
     .slice(0, availableRunSlots)
     .map((task) => task.researchTaskId);
 }

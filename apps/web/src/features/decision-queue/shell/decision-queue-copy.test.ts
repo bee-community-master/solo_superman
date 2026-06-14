@@ -232,7 +232,7 @@ describe("decision queue language copy", () => {
     expect(
       DECISION_QUEUE_COPY.ko.permissions.permissionActionReasons.exportArtifactRefsLogMessage(3, "perm_1")
     ).toContain("3개");
-    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffTitle).toBe("ChatGPTリサーチ依頼");
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffTitle).toBe("ChatGPT Deep Research依頼");
     expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptImportHint).not.toMatch(/引き継ぎ|allowlist/u);
     expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffBoundary).not.toMatch(/引き継ぎ/u);
     expect(DECISION_QUEUE_COPY.ja.research.gateStatus).toBe("確認状態");

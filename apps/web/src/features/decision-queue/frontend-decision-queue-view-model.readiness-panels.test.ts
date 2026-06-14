@@ -506,6 +506,7 @@ describe("Decision Queue view model readiness-panels", () => {
 
     const request = buildWebResearchRunRequest({
       allowlist,
+      detailedAnswers: ["노령·만성질환 보호자가 보험 청구 서류를 반복해서 찾습니다."],
       spec: {
         title: "반려동물 전생애주기 통합 관리 앱",
         sections: [
@@ -523,8 +524,10 @@ describe("Decision Queue view model readiness-panels", () => {
       adapterKind: "web_search_readonly",
       productCategory: "반려동물 전생애주기 통합 관리 앱",
       customerProblemHypothesis: expect.stringContaining("보험 청구"),
-      highLevelContext: expect.stringContaining("장례 준비")
+      highLevelContext: expect.stringContaining("장례 준비"),
+      detailedAnswers: ["노령·만성질환 보호자가 보험 청구 서류를 반복해서 찾습니다."]
     });
+    expect(request.highLevelContext).toContain("최근 사용자 답변");
     expect(JSON.stringify(request)).not.toContain("Founder workflow assistant");
     expect(JSON.stringify(request)).not.toContain("Founder needs public-safe evidence");
   });

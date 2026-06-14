@@ -26,13 +26,18 @@ describe("visibleChatGptResearchHandoffForTask", () => {
       ]
     } satisfies Pick<LivingSpecProjection, "title" | "sections">;
 
-    const handoff = visibleChatGptResearchHandoffForTask({ language: "ko", spec, task });
+    const handoff = visibleChatGptResearchHandoffForTask({
+      language: "ko",
+      planningContext: "최근 사용자 답변: 막연한 아이디어는 있지만 실행 가능한 기획서로 정리하지 못하는 초기 창업자가 먼저 씁니다.",
+      spec,
+      task
+    });
 
     expect(handoff.openUrl).toBe("https://chatgpt.com/");
     expect(handoff.prompt).toContain("원문 아이디어: 초기 창업자가 막연한 서비스 아이디어");
     expect(handoff.prompt).toContain("현재까지의 사용자 답변/기획 맥락:");
-    expect(handoff.prompt).toContain("사용자는 아이디어를 한두 문장으로 적고 쉬운 질문에 답한다.");
-    expect(handoff.prompt).toContain("이번 리서치가 좁힐 결정: 초기 창업자 기획 상세화 도구");
+    expect(handoff.prompt).toContain("막연한 아이디어는 있지만 실행 가능한 기획서로 정리하지 못하는 초기 창업자");
+    expect(handoff.prompt).toContain("이번 리서치로 좁힐 결정: 초기 창업자 기획 상세화 도구");
     expect(handoff.prompt).toContain("가능한 사용자 미래");
     expect(handoff.prompt).toContain("대표 사용 케이스");
     expect(handoff.prompt).toContain("기존 대안");
@@ -40,6 +45,8 @@ describe("visibleChatGptResearchHandoffForTask", () => {
     expect(handoff.prompt).toContain("다음 질문");
     expect(handoff.prompt).toContain("출처 요구사항");
     expect(handoff.prompt).toContain("로그인·CAPTCHA·결제·비공개 문서");
+    expect(handoff.prompt).not.toContain("Validate evidence for");
+    expect(handoff.prompt).not.toContain("JTBD");
     expect(handoff.checklist.join("\n")).toContain("아이디어와 현재 답변 맥락");
   });
 
@@ -105,7 +112,7 @@ describe("visibleChatGptResearchHandoffForTask", () => {
       task
     });
 
-    expect(request.userVisibleExplanation).toContain("ChatGPT Pro/Deep Research request is prepared");
+    expect(request.userVisibleExplanation).toContain("ChatGPT Deep Research request is prepared");
     expect(request.userVisibleExplanation).not.toContain("handoff");
     expect(request.nextAction).toContain("prompt preview");
     expect(request.policyRiskVerdict.rationale).not.toContain("handoff");

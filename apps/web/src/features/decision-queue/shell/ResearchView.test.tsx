@@ -363,11 +363,11 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
-    expect(markup).toContain("ChatGPT research request");
+    expect(markup).toContain("A ChatGPT Deep Research request is ready for this task.");
+    expect(markup).toContain("ChatGPT Deep Research request");
     expect(markup).toContain("Open ChatGPT");
     expect(markup).toContain('href="https://chatgpt.com/"');
-    expect(markup).toContain("Prompt to paste into ChatGPT/Deep Research");
+    expect(markup).toContain("Prompt to paste into ChatGPT Deep Research");
     expect(markup).toContain("Decision this research should narrow: Use visible ChatGPT Deep Research for the buyer/user split.");
     expect(markup).toContain("Possible user futures");
     expect(markup).toContain("Do not include passwords, session cookies, API keys");
@@ -392,12 +392,26 @@ describe("ResearchView", () => {
           projectPurposeModeEffect: "Business validation mode keeps commercialization gates active.",
           initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
         },
-        research: researchProjection()
+        research: {
+          ...researchProjection(),
+          taskIds: ["research_task_deep_research" as ResearchTaskId],
+          tasks: [
+            {
+              researchTaskId: "research_task_deep_research" as ResearchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Compare multiple sources for possible user futures, representative use cases, and existing alternatives.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "planned",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ]
+        }
       }
     });
 
-    expect(markup).toContain("ChatGPT research request");
-    expect(markup).toContain("Decision this research should narrow: Validate public evidence path 1.");
+    expect(markup).toContain("ChatGPT Deep Research request");
+    expect(markup).toContain("Decision this research should narrow: Compare multiple sources for possible user futures");
     expect(markup).toContain("Solo Superman does not use your account in the background.");
     expect(markup).not.toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
   });

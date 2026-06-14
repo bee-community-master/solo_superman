@@ -8,6 +8,7 @@ import type {
   StateVersion
 } from "@solo-superman/contracts";
 import type { AppLanguage } from "../../shared/i18n/app-language";
+import { taskShouldUseBrowserDeepResearch } from "./research-routing-readiness";
 
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
@@ -27,8 +28,8 @@ export interface VisibleChatGptResearchHandoff {
   readonly checklist: readonly string[];
 }
 
-function compactResearchContextFromSpec(spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined) {
-  return [spec?.title, ...(spec?.sections ?? [])]
+function compactContextParts(parts: readonly (string | null | undefined)[]) {
+  return parts
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .join(" ")
     .replace(/\s+/gu, " ")
@@ -36,9 +37,31 @@ function compactResearchContextFromSpec(spec: Pick<LivingSpecProjection, "title"
     .slice(0, 900);
 }
 
+function compactResearchContextFromSpec(spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined) {
+  const nonCanonicalSections = (spec?.sections ?? []).filter((section) => !/^(?:Problem|Target Customer|JTBD|Use Case|Current Alternatives|Value Proposition|Build Slice)\s*[:：]?/iu.test(section.trim()));
+
+  return compactContextParts([spec?.title, ...nonCanonicalSections]);
+}
+
+function visibleResearchDecision(objective: string, isKorean: boolean) {
+  return objective
+    .replace(/\bValidate evidence for:\s*/giu, isKorean ? "다음 기획 판단을 더 구체화합니다: " : "Make this planning decision more specific: ")
+    .replace(/\bFind decision evidence for:\s*/giu, isKorean ? "다음 리서치 주제를 확인합니다: " : "Research this planning topic: ")
+    .replace(/\bBroaden research for:\s*/giu, isKorean ? "다음 리서치 주제를 더 넓게 살펴봅니다: " : "Research this topic more broadly: ")
+    .replace(/\bOriginal ambiguity:\s*/giu, isKorean ? "관련 질문: " : "Related question: ")
+    .replace(/\bUser answer to account for:\s*/giu, isKorean ? "사용자 답변: " : "User answer: ")
+    .replace(/\bAmbiguity dimension:\s*/giu, isKorean ? "구체화할 부분: " : "Planning area: ")
+    .replace(/\bProblem\b/gu, isKorean ? "문제" : "problem")
+    .replace(/\bTarget Customer\b/gu, isKorean ? "첫 사용자" : "target customer")
+    .replace(/\bJTBD\b/gu, isKorean ? "사용자가 하려는 일" : "job to be done")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 export function visibleChatGptResearchDelegationTaskIds(input: {
   readonly research: ResearchEvidenceProjection | null | undefined;
   readonly delegation: ChatGptBrowserDelegationProjection | null | undefined;
+  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
   readonly maxTasks?: number;
 }): readonly ResearchTaskId[] {
   const delegatedTaskIds = new Set(input.delegation?.runs.map((run) => run.researchTaskId) ?? []);
@@ -46,6 +69,7 @@ export function visibleChatGptResearchDelegationTaskIds(input: {
 
   return (input.research?.tasks ?? [])
     .filter((task) => task.status === "planned" && !delegatedTaskIds.has(task.researchTaskId))
+    .filter((task) => taskShouldUseBrowserDeepResearch({ task, spec: input.spec }))
     .slice(0, maxTasks)
     .map((task) => task.researchTaskId);
 }
@@ -53,26 +77,29 @@ export function visibleChatGptResearchDelegationTaskIds(input: {
 export function visibleChatGptResearchHandoffForTask(input: {
   readonly task: ResearchTaskProjection;
   readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
+  readonly planningContext?: string | null | undefined;
   readonly language?: AppLanguage | undefined;
 }): VisibleChatGptResearchHandoff {
-  const { language = "en", spec, task } = input;
+  const { language = "en", planningContext: providedPlanningContext, spec, task } = input;
   const isKorean = language === "ko";
   const ideaContext = spec?.title?.trim() || (isKorean ? "아직 제목이 없는 서비스 아이디어" : "Untitled service idea");
   const planningContext =
+    compactContextParts([providedPlanningContext]) ||
     compactResearchContextFromSpec(spec) ||
     (isKorean
       ? "아직 사용자 답변과 기획서 문맥이 충분히 쌓이지 않았습니다."
       : "User answers and planning context are not detailed yet.");
+  const decision = visibleResearchDecision(task.objective, isKorean);
 
   return {
     openUrl: CHATGPT_VISIBLE_RESEARCH_OPEN_URL,
     prompt: isKorean
       ? [
-          "Solo Superman의 기획 상세화를 돕는 공개 웹 리서치를 해주세요.",
+          "Solo Superman의 기획 상세화를 돕는 ChatGPT Deep Research 요청입니다.",
           "",
           `원문 아이디어: ${ideaContext}`,
           `현재까지의 사용자 답변/기획 맥락: ${planningContext}`,
-          `이번 리서치가 좁힐 결정: ${task.objective}`,
+          `이번 리서치로 좁힐 결정: ${decision}`,
           `영향도: ${task.impact}`,
           "",
           "원하는 출력 형식:",
@@ -88,11 +115,11 @@ export function visibleChatGptResearchHandoffForTask(input: {
           "비밀번호, 세션 쿠키, API 키, 결제 정보, 개인 연락처, 법률·의료·금융 비밀은 포함하지 마세요."
         ].join("\n")
       : [
-          "Research public web evidence that helps Solo Superman turn this idea into a more detailed plan.",
+          "Use ChatGPT Deep Research to help Solo Superman turn this idea into a more detailed plan.",
           "",
           `Original idea: ${ideaContext}`,
           `Current user answers / planning context: ${planningContext}`,
-          `Decision this research should narrow: ${task.objective}`,
+          `Decision this research should narrow: ${decision}`,
           `Impact: ${task.impact}`,
           "",
           "Return the result in this format:",
@@ -109,13 +136,13 @@ export function visibleChatGptResearchHandoffForTask(input: {
         ].join("\n"),
     checklist: isKorean
       ? [
-          "ChatGPT에 보내기 전에 아이디어와 현재 답변 맥락이 맞는지 확인하세요.",
+          "Deep Research에 보내기 전에 아이디어와 현재 답변 맥락이 맞는지 확인하세요.",
           "로그인, CAPTCHA, 사용량 제한은 사용자 브라우저에서 직접 처리하세요.",
           "검토한 결과와 공개 출처만 Solo Superman에 붙여 넣으세요.",
           "출처가 약하거나 오래됐거나 한쪽 관점이면 그 한계를 결과에 남기세요."
         ]
       : [
-          "Review that the idea and current answer context are accurate before sending this to ChatGPT.",
+          "Review that the idea and current answer context are accurate before sending this to Deep Research.",
           "Keep login, CAPTCHA, and usage limits under the user's direct browser control.",
           "Paste only the reviewed result and public sources back into Solo Superman.",
           "If sources are weak, stale, or one-sided, keep that limitation in the result."
@@ -137,7 +164,7 @@ export function buildVisibleChatGptResearchDelegationRequest(input: {
     idempotencyKey: `chatgpt-visible-preflight:${sessionId}:${task.researchTaskId}`,
     researchTaskId: task.researchTaskId,
     userVisibleExplanation:
-      `ChatGPT Pro/Deep Research request is prepared as a visible, user-owned browser review for: ${task.objective}`,
+      `ChatGPT Deep Research request is prepared as a visible, user-owned browser review for: ${task.objective}`,
     nextAction:
       "Review the redacted prompt preview, then approve a visible browser action or keep using public-web/Codex research instead.",
     promptPreviewRef: `prompt_preview:${refSuffix}`,

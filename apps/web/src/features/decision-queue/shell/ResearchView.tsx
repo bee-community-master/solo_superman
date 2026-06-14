@@ -13,6 +13,10 @@ import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegat
 import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
+import {
+  researchRoutingReadinessForTask,
+  taskShouldUseBrowserDeepResearch
+} from "../research-routing-readiness";
 import { compactDecisionQueueDisplayText as compactUserFacingText } from "../text-formatting";
 import { useAppLanguage, type AppLanguage } from "../../../shared/i18n/app-language";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
@@ -433,15 +437,17 @@ function ResearchInsufficientSummary({
 function VisibleChatGptResearchHandoff({
   copy,
   language,
+  planningContext,
   spec,
   task
 }: {
   readonly copy: DecisionQueueCopy;
   readonly language: AppLanguage;
+  readonly planningContext?: string | null | undefined;
   readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
   readonly task: ResearchTaskProjection;
 }) {
-  const handoff = visibleChatGptResearchHandoffForTask({ language, spec, task });
+  const handoff = visibleChatGptResearchHandoffForTask({ language, planningContext, spec, task });
 
   return (
     <aside className="chatgpt-visible-research-handoff research-action-assist">
@@ -464,6 +470,34 @@ function VisibleChatGptResearchHandoff({
       </ul>
     </aside>
   );
+}
+
+function researchPlanningContext(input: {
+  readonly queue: DecisionQueueShellController["projections"]["queue"];
+  readonly recentAnswers: readonly string[];
+  readonly spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
+}) {
+  const visibleQuestions = [
+    ...(input.queue?.active ?? []),
+    ...(input.queue?.next ?? []),
+    ...(input.queue?.blocked ?? [])
+  ]
+    .map((item) => item.title)
+    .filter(Boolean)
+    .slice(0, 4);
+  const specContext = [input.spec?.title, ...(input.spec?.sections ?? [])]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ");
+  const answerContext = input.recentAnswers
+    .map((answer) => answer.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  return [
+    answerContext.length ? `최근 사용자 답변: ${answerContext.join(" / ")}` : null,
+    visibleQuestions.length ? `현재 질문 맥락: ${visibleQuestions.join(" / ")}` : null,
+    specContext ? `현재 기획 초안: ${specContext}` : null
+  ].filter((value): value is string => Boolean(value)).join(" ");
 }
 
 function ImportedResearchResultPending({
@@ -548,6 +582,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
     refreshResearchRunStatus,
     researchDrafts,
     researchOperations,
+    recentResearchAnswers = [],
     resolveResearchCard,
     retryResearchRun,
     revokeAllowlist,
@@ -563,6 +598,11 @@ export function ResearchView({ controller }: ResearchViewProps) {
   const knownRisks = research?.knownRisks ?? [];
   const nextValidationActions = research?.nextValidationActions ?? [];
   const readyReadOnlyResearchTaskIdSet = new Set(readyReadOnlyResearchTaskIds);
+  const planningContextForResearch = researchPlanningContext({
+    queue: projections.queue,
+    recentAnswers: recentResearchAnswers,
+    spec: projections.spec
+  });
   const balanceStatusLabel = research?.proConBalanceStatus
     ? copy.research.balanceStatusLabels[research.proConBalanceStatus]
     : copy.research.unknown;
@@ -620,9 +660,11 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 researchTaskId: task.researchTaskId,
                 hint: copy.research.visibleChatGptImportHint
               });
+              const routingReadiness = researchRoutingReadinessForTask({ task, spec: projections.spec });
               const canUseVisibleChatGptHandoff =
-                projections.session?.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible" ||
-                Boolean(visibleChatGptImportHint);
+                taskShouldUseBrowserDeepResearch({ task, spec: projections.spec }) &&
+                (projections.session?.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible" ||
+                  Boolean(visibleChatGptImportHint));
 
               return (
                 <article className="research-card" key={task.researchTaskId}>
@@ -633,6 +675,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                     </header>
                     <p className="research-card-summary">{compactUserFacingText(summaryLabel, language)}</p>
                     <dl className="research-card-facts">
+                      <div>
+                        <dt>{copy.research.routingReadiness}</dt>
+                        <dd>{copy.research.routingReadinessLabels[routingReadiness]}</dd>
+                      </div>
                       <div>
                         <dt>{copy.research.gateStatus}</dt>
                         <dd>{statusLabel}</dd>
@@ -698,7 +744,13 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         <p className="research-recovery">{visibleChatGptImportHint}</p>
                       ) : null}
                       {canUseVisibleChatGptHandoff ? (
-                        <VisibleChatGptResearchHandoff copy={copy} language={language} spec={projections.spec} task={task} />
+                        <VisibleChatGptResearchHandoff
+                          copy={copy}
+                          language={language}
+                          planningContext={planningContextForResearch}
+                          spec={projections.spec}
+                          task={task}
+                        />
                       ) : null}
                       <label className="research-import-field">
                         <span>{copy.research.importResult}</span>

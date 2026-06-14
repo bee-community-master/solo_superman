@@ -401,55 +401,66 @@ const FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS = [
 ] as const satisfies readonly AmbiguityAnswerOption[];
 
 const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
-  text: "답변 검증 질문: 방금 답한 “{answer}”를 더 안전하게 판단하려면, 반례나 한계를 더 찾아야 할까요? 아니면 현재 단서로 조건부 진행해도 될까요?",
-  expectedAnswerType: "evidence",
-  answerSelectionMode: "single"
+  text: "기존 방법으로도 충분하다고 느끼는 사용자는 어떤 상황에서 이 서비스를 다시 떠올릴까요?",
+  expectedAnswerType: "text"
 } as const satisfies FollowUpQuestionTemplate;
 
 const FOLLOW_UP_QUESTION_TEMPLATES = [
   {
-    text: "답변 검증 질문: 방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+    text: "그 사용자는 지금 어떤 방법으로 이 문제를 해결하고 있나요?",
     expectedAnswerType: "text"
   },
   {
-    text: "범위 축소 질문: 방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
+    text: "사용자가 답변을 마치면 어떤 기획서 조각이 생기면 좋나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "초보 사용자와 이미 문서가 있는 사용자는 어떤 질문이 달라야 하나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 서비스를 처음 써본 사람이 바로 이해해야 하는 첫 화면은 무엇인가요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 답을 기준으로 다음에 하나만 정한다면 무엇을 먼저 정하시겠습니까?",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   },
   {
-    text: "핵심 판단 질문: 방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.",
+    text: "방금 정한 방향을 그대로 진행할지, 더 좁힐지, 조건을 붙일지 골라주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
   },
   {
-    text: "범위 축소 질문: 이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
+    text: "첫 버전에 꼭 넣을 것과 나중으로 미룰 것은 무엇인가요?",
     expectedAnswerType: "choice",
     answerSelectionMode: "multiple",
     optionTopicKey: "mvp_validation_scope"
   },
   {
-    text: "답변 검증 질문: 이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
+    text: "이 방향이 맞는지 가장 작게 확인하려면 어떤 행동을 먼저 보면 좋을까요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "범위 축소 질문: 이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+    text: "아직 애매한 단어, 숫자, 대상은 무엇인가요?",
     expectedAnswerType: "text"
   },
   {
-    text: "답변 검증 질문: 이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+    text: "이 방향이 잘 안 맞는다면 어떤 장면에서 가장 먼저 티가 날까요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "범위 축소 질문: 이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
+    text: "첫 1주일 안에 끝낼 수 있는 가장 작은 작업은 무엇인가요?",
     expectedAnswerType: "rank",
     answerSelectionMode: "ranked"
   },
   {
-    text: "핵심 판단 질문: 이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+    text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇인가요?",
     expectedAnswerType: "text"
   }
 ] as const satisfies readonly FollowUpQuestionTemplate[];
@@ -1176,7 +1187,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         operational_risk_boundary:
           "반려동물 의료·보험·장례 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 법률, 운영 리스크는 무엇인가요?",
         evidence_balance:
-          "반려동물 보호자가 의료·급여·보험·장례 정보를 한곳에 모으려 한다는 단서와, 기존 방식으로 충분하다는 반례는 각각 무엇인가요?"
+          "반려동물 보호자가 의료·급여·보험·장례 정보를 한곳에 모으고 싶어지는 장면과 지금 방식으로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1214,7 +1225,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         operational_risk_boundary:
           "매장 주문·예약·고객 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 결제, 운영 리스크는 무엇인가요?",
         evidence_balance:
-          "매장이나 손님이 예약·주문·단골 혜택을 한곳에 모으려 한다는 단서와 기존 도구로 충분하다는 반례는 각각 무엇인가요?"
+          "매장이나 손님이 예약·주문·단골 혜택을 한곳에 모으고 싶어지는 장면과 기존 도구로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1230,11 +1241,11 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         value_prop_switching_reason:
           `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${IDEA_CONTEXT_LABEL}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
-          "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+          "창업자는 지금 아이디어 검증 질문과 기획서 초안을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         payment_hesitation_reason:
           "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
         mvp_validation_scope:
-          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 기획서 초안 작성 중 반드시 확인할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1244,15 +1255,15 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         acquisition_channel_realism:
           "유료 고객 인터뷰나 제품 스펙 준비 중인 창업자는 어디서 어떻게 모집할 수 있나요?",
         implementation_resource_fit:
-          "현재 리소스로 질문 품질, 근거 추적, 스펙 handoff 중 어떤 창업자 검증 흐름만 구현할 수 있나요?",
+          "현재 리소스로 질문 품질, 근거 추적, 기획서 초안 작성 중 어떤 창업자 지원 흐름만 구현할 수 있나요?",
         founder_advantage:
           "이 만드는 사람/팀이 창업자의 아이디어 모호성, 질문 품질, 근거 추적 문제를 더 잘 풀 수 있는 근거는 무엇인가요?",
         job_context_specificity:
-          "창업자는 아이디어를 처음 정리할 때, 고객 인터뷰 전, 스펙 handoff 전 중 어떤 순간에 이 제품을 쓰나요?",
+          "창업자는 아이디어를 처음 정리할 때, 고객 인터뷰 전, 기획서 초안 작성 전 중 어떤 순간에 이 제품을 쓰나요?",
         operational_risk_boundary:
           "창업자 아이디어와 리서치 근거를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 신뢰, 책임 리스크는 무엇인가요?",
         evidence_balance:
-          "창업자가 맞춤 질문과 근거 추적 스펙을 원한다는 단서와 기존 ChatGPT/템플릿으로 충분하다는 반례는 각각 무엇인가요?"
+          "창업자가 맞춤 질문과 근거 추적 기획서를 원하게 되는 장면과 기존 ChatGPT/템플릿으로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1426,7 +1437,7 @@ function weakeningCueForSeed(seed: AmbiguityIssueSeed) {
     case "founder_advantage":
       return "창업자/팀의 유리함이 약하거나 경쟁자가 더 쉽게 풀 수 있는 사례";
     default:
-      return "현재 가정을 약하게 만들거나 다른 범위·고객·검증 방식을 요구하는 반례";
+      return "현재 방향을 다시 생각하게 만드는 다른 범위·고객·확인 방식의 사례";
   }
 }
 
@@ -1626,13 +1637,13 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     topicKey: "evidence_balance",
     uncertaintyType: "unsupported",
     severity: "medium",
-    summary: "핵심 claim의 리서치 단서와 반례 균형이 부족함",
-    whyItMatters: "한쪽 단서만 있으면 중요한 claim을 완료 상태로 승격할 수 없습니다.",
-    question: "핵심 claim을 뒷받침하는 단서와 흔들 수 있는 반례는 무엇이며 어느 쪽이 비어 있는가?",
+    summary: "핵심 claim의 리서치 단서와 다른 사용 장면이 부족함",
+    whyItMatters: "한쪽 장면만 보면 중요한 claim을 너무 빨리 확정할 수 있습니다.",
+    question: "핵심 claim을 뒷받침하는 단서와 사용자가 기존 방법으로도 괜찮다고 느끼는 장면은 무엇인가요?",
     expectedAnswerType: "evidence",
-    decisionItUnlocks: "Evidence Matrix와 반례 확인 route를 결정합니다.",
+    decisionItUnlocks: "Evidence Matrix와 추가 확인 경로를 결정합니다.",
     routes: ["research_needed", "missing_con_evidence"],
-    suggestedResearchTask: "핵심 claim별 지지 단서와 반례 coverage를 점검합니다."
+    suggestedResearchTask: "핵심 claim별 지지 단서, 기존 대안, 막힐 상황을 확인합니다."
   },
   {
     sectionRef: "Non-goals",
@@ -2873,18 +2884,18 @@ function answerRequestsBroaderResearch(answer: string) {
 
 function ambiguityRoutingPathInstruction(path: AmbiguityIssueSnapshot["ambiguityRoutingPath"] | undefined) {
   if (path === "existing_fact_check") {
-    return "First verify facts that can be checked from existing public records or known documents, then separate the user's remaining judgment.";
+    return "공개 자료로 바로 확인되는 사실과 사용자가 직접 정해야 할 판단을 나눠 정리합니다.";
   }
 
   if (path === "current_research") {
-    return "Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready.";
+    return "최신 공개 자료를 모아 사용 장면, 기존 대안, 막힐 상황을 함께 정리합니다.";
   }
 
   if (path === "human_judgment") {
-    return "Do not replace the user's choice with research; use research only to clarify consequences, risks, and observable validation signals.";
+    return "사용자의 선택을 대신 결정하지 않고, 선택 뒤에 생기는 장면과 확인할 행동만 정리합니다.";
   }
 
-  return "Separate checkable facts, current research, and remaining user judgment before recommending the next question or spec update.";
+  return "확인 가능한 사실, 더 찾아볼 자료, 사용자가 직접 정할 내용을 나눠 다음 질문으로 연결합니다.";
 }
 
 function researchObjectiveForAnswer(input: {
@@ -2897,33 +2908,33 @@ function researchObjectiveForAnswer(input: {
   const broaden = answerRequestsBroaderResearch(input.answer);
 
   if (!researchTarget) {
-    const baseObjective = `Validate evidence for: ${subject}`;
+    const baseObjective = `다음 기획 판단을 더 구체화할 공개 자료를 찾습니다: ${plainUserFacingDecisionQueueText(subject)}`;
 
     if (!broaden) {
       return baseObjective;
     }
 
     return [
-      `Broaden research beyond existing notes for: ${subject}`,
-      `User asked for additional or wider research after answering: “${compactAnswerExcerpt(input.answer)}”.`,
-      "Use any existing research memory as baseline context, but collect wider sources and counter-evidence instead of treating the previous memo as complete."
+      `다음 기획 판단을 더 넓게 살펴봅니다: ${plainUserFacingDecisionQueueText(subject)}`,
+      `사용자 답변에서 추가 자료가 필요하다고 했습니다: “${compactAnswerExcerpt(input.answer)}”.`,
+      "기존 메모가 있으면 참고하되, 사용자 미래, 기존 대안, 막힐 상황, 대응 선택지를 함께 정리합니다."
     ].join(" ");
   }
 
   return [
-    broaden ? `Broaden research for: ${plainUserFacingDecisionQueueText(researchTarget)}` : `Find decision evidence for: ${plainUserFacingDecisionQueueText(researchTarget)}`,
-    `Original ambiguity: ${plainUserFacingDecisionQueueText(subject)}`,
-    `User answer to account for: “${compactAnswerExcerpt(input.answer)}”.`,
+    broaden ? `다음 리서치 주제를 더 넓게 살펴봅니다: ${plainUserFacingDecisionQueueText(researchTarget)}` : `다음 리서치 주제를 확인합니다: ${plainUserFacingDecisionQueueText(researchTarget)}`,
+    `관련 질문: ${plainUserFacingDecisionQueueText(subject)}`,
+    `사용자 답변: “${compactAnswerExcerpt(input.answer)}”.`,
     input.sourceQuestion?.decisionItUnlocks
-      ? `Decision this should inform: ${plainUserFacingDecisionQueueText(input.sourceQuestion.decisionItUnlocks)}`
+      ? `이 자료가 도와야 할 결정: ${plainUserFacingDecisionQueueText(input.sourceQuestion.decisionItUnlocks)}`
       : null,
     input.sourceQuestion?.ambiguityDimension
-      ? `Ambiguity dimension: ${input.sourceQuestion.ambiguityDimension}`
+      ? `구체화할 부분: ${plainUserFacingDecisionQueueText(input.sourceQuestion.ambiguityDimension)}`
       : null,
     ambiguityRoutingPathInstruction(input.sourceQuestion?.ambiguityRoutingPath),
     broaden
-      ? "Use existing research memory only as baseline context; look for wider sources, counterexamples, and stale assumptions."
-      : "Return source-linked findings, limitations, other perspectives, and what still needs a human decision."
+      ? "더 넓은 출처에서 사용자 미래, 기존 대안, 막힐 상황, 대응 선택지를 정리합니다."
+      : "출처가 있는 내용, 한계, 다음 질문을 함께 정리합니다."
   ].filter(Boolean).join(" ");
 }
 
@@ -2984,7 +2995,7 @@ function answerJudgmentLabel(
       sourceQuestion.topicKey ?? ""
     )
   ) {
-    return "대체재 반례 판단";
+    return "기존 대안 판단";
   }
 
   if (routeOutcome === "research_needed") {
@@ -3005,11 +3016,11 @@ function followUpQuestionText(answerLabel: string, template: FollowUpQuestionTem
 function routeOutcomePlanningAction(routeOutcome: ResearchRouteOutcome) {
   switch (routeOutcome) {
     case "missing_con_evidence":
-      return "반례/대체재 리서치와 known risk 후보로 보내야 합니다.";
+      return "기존 대안과 사용자가 막힐 상황을 조금 더 살펴봅니다.";
     case "conflict_review":
-      return "상충 근거를 비교한 뒤 스펙 반영 또는 방향 전환을 결정해야 합니다.";
+      return "서로 다른 자료를 비교해 어느 상황에 맞는지 정리합니다.";
     case "research_needed":
-      return "스펙 확정 전에 공개 근거 또는 사용자 행동 신호를 확인해야 합니다.";
+      return "공개 자료나 작은 사용자 행동으로 확인할 점을 정리합니다.";
   }
 }
 
@@ -3021,7 +3032,7 @@ function planningChangeSummaryForAnswer(input: {
   const answer = answerJudgmentLabel(input.sourceQuestion, input.routeOutcome);
   const routeAction = routeOutcomePlanningAction(input.routeOutcome);
 
-  return `기획 변화: ${section} 판단이 “${answer}” 쪽으로 좁혀졌습니다. 다음에는 ${routeAction}`;
+  return `기획 메모: ${section} 내용이 “${answer}” 쪽으로 조금 더 구체화되었습니다. 다음에는 ${routeAction}`;
 }
 
 function followUpSuggestedResearchTask(
@@ -3031,7 +3042,7 @@ function followUpSuggestedResearchTask(
   const answerLabel = answerJudgmentLabel(sourceQuestion, routeOutcome);
 
   if (routeOutcome === "missing_con_evidence") {
-    return `${answerLabel}을 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
+    return `${answerLabel}과 관련해 기존 대안, 사용자가 멈출 상황, 대응 선택지를 찾습니다.`;
   }
 
   const researchTarget = sourceQuestion.researchQuestion ?? sourceQuestion.suggestedResearchTask;
@@ -3179,14 +3190,14 @@ function createFollowUpIssuesForAnswer(input: {
         ? `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`
         : `이전 답변의 ${branchIndex + 1}번째 판단 가지를 더 구체화해야 함: ${sourceQuestion.summary}`,
       whyItMatters:
-        `${planningChangeSummary} 답하지 않으면 이 판단은 스펙 반영, 추가 리서치, known risk, 검증 액션 중 어디로 갈지 흐려집니다.`,
+        `${planningChangeSummary} 답하면 다음 질문, 리서치 주제, 첫 결과물 범위가 더 선명해집니다.`,
       status: "open" as const,
       questionText: followUpQuestionText(answerLabel, followUpTemplate),
       expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions,
       decisionItUnlocks:
-        `${sourceQuestion.decisionItUnlocks ?? "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다."} 이 후속 답변은 다음 범위를 한 단계 더 좁힙니다.`,
+        `${sourceQuestion.decisionItUnlocks ?? "이전 답변을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다."} 이 후속 답변은 다음 범위를 한 단계 더 좁힙니다.`,
       nextValidationAction: planningChangeSummary,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: nextRepeatCount,
@@ -3384,8 +3395,8 @@ function researchObjectiveForFollowUpIssue(issue: AmbiguityIssueSnapshot) {
     issue.suggestedResearchTask ??
     issue.researchQuestion ??
     (issue.questionText
-      ? `추가 질문 “${compactAnswerExcerpt(issue.questionText)}”에 답할 공개 근거, 반례, 한계를 확인합니다.`
-      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 근거, 반례, 한계를 확인합니다.`);
+      ? `추가 질문 “${compactAnswerExcerpt(issue.questionText)}”에 답할 공개 단서, 기존 대안, 막힐 상황을 확인합니다.`
+      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 단서, 기존 대안, 막힐 상황을 확인합니다.`);
 
   return (
     issue.sourceRef?.startsWith("research:")
@@ -5561,7 +5572,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
       task.routeOutcome === "conflict_review"
         ? `후속 상충 근거 검토 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
         : task.routeOutcome === "missing_con_evidence"
-          ? `후속 반례 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
+          ? `후속 대안 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
           : `후속 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`,
       researchReviewQueueStateForRouteOutcome(task.routeOutcome),
       researchProjectionWithFollowUpTasks.version,

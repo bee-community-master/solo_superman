@@ -118,9 +118,9 @@ describe("OnboardingView", () => {
       projectPurposeMode: "business"
     });
 
-    expect(markup).toContain("Business review intensity");
-    expect(markup.indexOf("Project purpose")).toBeLessThan(markup.indexOf("Business review intensity"));
-    expect(markup.indexOf("Business review intensity")).toBeLessThan(markup.indexOf("Research setup"));
+    expect(markup).toContain("Question style");
+    expect(markup.indexOf("Project purpose")).toBeLessThan(markup.indexOf("Question style"));
+    expect(markup.indexOf("Question style")).toBeLessThan(markup.indexOf("Research setup"));
   });
 
   it("shows fallback and retry choices when first question generation is delayed", () => {

@@ -336,18 +336,18 @@ const EN_COPY = {
   businessCriticIntensityOptions: [
     {
       intensity: "balanced" as BusinessCriticIntensity,
-      label: "Balanced business review",
-      description: "Keep at least one challenge question in each major decision area."
+      label: "Calm planning detail",
+      description: "Start with user situations and outputs, then leave later checks where needed."
     },
     {
       intensity: "strong" as BusinessCriticIntensity,
-      label: "Strong business review",
-      description: "Keep challenge questions visible when a major business assumption is still weak."
+      label: "More detailed planning",
+      description: "Ask more about user cases, existing alternatives, and the first version before later checks."
     },
     {
       intensity: "investor_grade" as BusinessCriticIntensity,
-      label: "Investor-grade review",
-      description: "Stress-test pricing, channels, retention signals, legal or operational risk, timing, and founder advantage."
+      label: "Full planning check",
+      description: "After the plan is concrete, also check pricing, channels, operations, and timing."
     }
   ],
   layout: {
@@ -426,7 +426,7 @@ const EN_COPY = {
       sidecar_connection: "Local service is not connected.",
       project_purpose: "Choose either business validation or personal workflow build before starting.",
       business_critic_intensity:
-        "Choose a business review intensity before the business-validation queue can be confirmed.",
+        "Choose a question style before starting the planning questions.",
       idea: "Enter an idea summary before starting.",
       intake: "Enter the goal description before starting."
     } satisfies Record<InitialQueueStartBlocker, string>,
@@ -543,10 +543,10 @@ const EN_COPY = {
     ],
     initialResearchAutomationPermissionHelp:
       "This single setting controls both onboarding public read-only sources and automated assistance. It never grants write, credential, account, or paid-service access; ChatGPT is never fully headless.",
-    businessCriticIntensity: "Business review intensity",
-    intensityReason: "Reason for this intensity",
-    intensityReasonPlaceholder: "Note why this level of challenge fits the project.",
-    intensityHelp: "Business mode needs an explicit review intensity before the first question set can be created.",
+    businessCriticIntensity: "Question style",
+    intensityReason: "Reason for this style",
+    intensityReasonPlaceholder: "Note why this question style fits the project.",
+    intensityHelp: "Business mode uses this style to decide how detailed the first questions should be.",
     running: "Running",
     createFirstBatch: "Create first questions",
     initialQuestionGenerationTitle: "First question generation",
@@ -747,10 +747,10 @@ const EN_COPY = {
         acquisition_channel: "Acquisition channel",
         competition_pressure: "Competition pressure"
       }),
-    businessCriticChangeReason: "Business review change reason",
-    businessCriticChangeReasonPlaceholder: "Record why the business validation intensity is changing.",
+    businessCriticChangeReason: "Question style change reason",
+    businessCriticChangeReasonPlaceholder: "Record why the question style is changing.",
     changeTo: (label: string) => `Change to ${label}`,
-    businessCriticAuditHelp: "Changes are saved to the audit trail and add new review pressure without replacing current questions.",
+    businessCriticAuditHelp: "Changes are saved to the audit trail and adjust later questions without replacing current questions.",
     modeChangeReason: "Mode change reason",
     modeChangeReasonPlaceholder: "Record why the question/research criteria are changing.",
     modeAuditHelp: "Changes are saved to the audit trail and keep the current question set.",
@@ -804,13 +804,19 @@ const EN_COPY = {
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
     visibleChatGptImportHint:
-      "A ChatGPT Pro/Deep Research request is ready for this task. Paste the user-reviewed result here; Solo Superman will add it to the planning draft with sources, uncertainty, freshness, and next questions visible.",
-    visibleChatGptHandoffTitle: "ChatGPT research request",
+      "A ChatGPT Deep Research request is ready for this task. Paste the user-reviewed result here; Solo Superman will add it to the planning draft with sources, uncertainty, freshness, and next questions visible.",
+    visibleChatGptHandoffTitle: "ChatGPT Deep Research request",
     visibleChatGptOpen: "Open ChatGPT",
-    visibleChatGptPromptLabel: "Prompt to paste into ChatGPT/Deep Research",
+    visibleChatGptPromptLabel: "Prompt to paste into ChatGPT Deep Research",
     visibleChatGptChecklistLabel: "Before importing the result",
     visibleChatGptHandoffBoundary:
       "Review the request, run it in your own browser session, then paste only the reviewed result and public source refs below. Solo Superman does not use your account in the background.",
+    routingReadiness: "Research route",
+    routingReadinessLabels: {
+      codex_quick_search: "Short public search",
+      browser_deep_research: "Deep Research request",
+      needs_more_clarification: "Ask one more question first"
+    },
     startReadOnlyRun: "Start public web run",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0
@@ -2347,13 +2353,19 @@ const JA_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
     visibleChatGptImportHint:
-      "このタスクにはChatGPT Pro/Deep Researchに貼り付けるリサーチ依頼が準備されています。ユーザーが確認した結果をここに貼り付けると、Solo Supermanは出典付き証拠として取り込み、不確実性・反証・鮮度確認を見える状態に保ちます。",
-    visibleChatGptHandoffTitle: "ChatGPTリサーチ依頼",
+      "このタスクにはChatGPT Deep Researchに貼り付けるリサーチ依頼が準備されています。ユーザーが確認した結果をここに貼り付けると、Solo Supermanは出典付き証拠として取り込み、不確実性・鮮度確認・次の質問を見える状態に保ちます。",
+    visibleChatGptHandoffTitle: "ChatGPT Deep Research依頼",
     visibleChatGptOpen: "ChatGPT を開く",
-    visibleChatGptPromptLabel: "ChatGPT/Deep Research に貼り付けるプロンプト",
+    visibleChatGptPromptLabel: "ChatGPT Deep Research に貼り付けるプロンプト",
     visibleChatGptChecklistLabel: "結果を取り込む前に",
     visibleChatGptHandoffBoundary:
       "これはユーザーが見える形で確認して使うリサーチ依頼であり、アカウント共有やバックエンド ChatGPT 自動化ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
+    routingReadiness: "リサーチ経路",
+    routingReadinessLabels: {
+      codex_quick_search: "短い公開検索",
+      browser_deep_research: "Deep Research依頼",
+      needs_more_clarification: "先にもう一つ質問"
+    },
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
@@ -3423,8 +3435,8 @@ const KO_COPY: typeof EN_COPY = {
   projectPurposeModeOptions: [
     {
       mode: "business",
-      label: "비즈니스 검증",
-      description: "고객, 문제 강도, 돈을 낼 이유, 경쟁, 채널, 법무/운영 리스크를 검증합니다."
+      label: "서비스 기획 구체화",
+      description: "고객, 사용 상황, 결과물, 기존 대안, 첫 실행 범위를 차례로 정리합니다."
     },
     {
       mode: "personal",
@@ -3435,18 +3447,18 @@ const KO_COPY: typeof EN_COPY = {
   businessCriticIntensityOptions: [
     {
       intensity: "balanced",
-      label: "균형 잡힌 비즈니스 리뷰",
-      description: "주요 판단 영역마다 최소 하나의 반박 질문을 남깁니다."
+      label: "차분하게 구체화",
+      description: "먼저 사용 상황과 결과물을 묻고, 더 확인할 점은 뒤에서 정리합니다."
     },
     {
       intensity: "strong",
-      label: "강한 비즈니스 리뷰",
-      description: "중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 남깁니다."
+      label: "조금 더 자세히 묻기",
+      description: "사용 케이스, 기존 대안, 첫 버전 범위를 조금 더 촘촘하게 묻습니다."
     },
     {
       intensity: "investor_grade",
-      label: "투자 심사급 리뷰",
-      description: "가격, 채널, 유지 신호, 법무·운영 리스크, 시장 타이밍, 창업자 강점을 강하게 검증합니다."
+      label: "전체 기획 점검",
+      description: "기획이 어느 정도 구체화된 뒤 가격, 채널, 운영, 시점까지 함께 확인합니다."
     }
   ],
   layout: {
@@ -3519,13 +3531,13 @@ const KO_COPY: typeof EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "첫 질문을 이미 생성 중입니다.",
-      chatgpt_login: "보이는 ChatGPT Pro/Deep Research 위임을 허용하려면 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
+      chatgpt_login: "ChatGPT Deep Research 요청을 쓰려면 ChatGPT에 직접 로그인했다는 확인이 필요합니다.",
       codex_login:
-        "backend 질문 또는 리서치 준비를 시작하기 전에 로컬 Codex CLI 로그인이 확인되어야 합니다.",
+        "질문과 리서치 준비를 시작하기 전에 로컬 Codex 로그인이 확인되어야 합니다.",
       sidecar_connection: "로컬 서비스가 연결되어 있지 않습니다.",
       project_purpose:
-        "시작 전에 프로젝트 목적을 비즈니스 검증 또는 개인 워크플로 만들기 중 하나로 선택해야 합니다.",
-      business_critic_intensity: "비즈니스 검증 큐를 확정하려면 먼저 사업 리뷰 강도를 선택해야 합니다.",
+        "시작 전에 프로젝트 목적을 서비스 기획 구체화 또는 개인 워크플로 만들기 중 하나로 선택해야 합니다.",
+      business_critic_intensity: "첫 질문을 만들기 전에 질문 방식을 선택해야 합니다.",
       idea: "시작 전에 아이디어 요약을 입력해야 합니다.",
       intake: "시작 전에 목표에 대한 서술을 입력해야 합니다."
     },
@@ -3571,7 +3583,7 @@ const KO_COPY: typeof EN_COPY = {
       loadNextQuestions: "다음 질문 불러오기",
       carryAsKnownRisk: "나중에 확인할 항목으로 남기기",
       importResearchResult: "리서치 결과 가져오기",
-      recordVisibleChatGptResearchResultImport: "보이는 ChatGPT 결과 가져오기 게이트 기록",
+      recordVisibleChatGptResearchResultImport: "보이는 ChatGPT 결과 가져오기 기록",
       resolveResearchCard: (outcome: ResearchQueueTerminalOutcome) => `리서치 카드 해결: ${outcome}`
     },
     sessionActionReasons: {
@@ -3580,13 +3592,13 @@ const KO_COPY: typeof EN_COPY = {
         `${label}을(를) 사용자가 시작 전에 확인했습니다.`,
       projectPurposeChanged: (label: string) => `사용자가 프로젝트 목적을 ${label}으로 변경했습니다.`,
       businessCriticIntensityChanged: (label: string) =>
-        `사용자가 사업 리뷰 강도를 ${label}으로 변경했습니다.`,
+        `사용자가 질문 방식을 ${label}으로 변경했습니다.`,
       businessCriticKnownRiskDeferred: "사용자가 사업 점검 항목을 나중에 확인할 항목으로 남겼습니다.",
       manualResearchSourceTitle: "수동 데스크 리서치",
       manualResearchLimitationNotes: "창업자가 제공한 출처에서 수동으로 가져왔습니다.",
-      chatGptResearchSourceTitle: "사용자가 제공한 ChatGPT Pro/Deep Research 결과",
+      chatGptResearchSourceTitle: "사용자가 제공한 ChatGPT Deep Research 결과",
       chatGptResearchLimitationNotes:
-        "사용자 소유의 보이는 ChatGPT 세션에서 가져왔습니다. 계획에 사용하기 전에 인용 출처, 불확실성, 반례, 최신성을 확인하세요.",
+        "사용자 소유의 보이는 ChatGPT 세션에서 가져왔습니다. 계획에 사용하기 전에 인용 출처, 불확실성, 다른 관점, 최신성을 확인하세요.",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
         `리서치 카드 '${title}'을(를) ${outcome} 처리했습니다.`,
       researchCardResolvedRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -3632,16 +3644,16 @@ const KO_COPY: typeof EN_COPY = {
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Codex + 보이는 ChatGPT Pro/Deep Research",
-        description: "공개 웹 리서치를 켜고 Codex가 ChatGPT에 붙여 넣을 요청을 준비합니다. ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 직접 확인해 사용합니다."
+        label: "Codex + 보이는 ChatGPT Deep Research",
+        description: "공개 웹 리서치를 켜고 Codex가 ChatGPT에 붙여 넣을 요청을 준비합니다. ChatGPT Deep Research는 사용자 소유 브라우저에서 직접 확인해 사용합니다."
       }
     ],
     initialResearchAutomationPermissionHelp:
-      "이 한 가지 설정으로 온보딩의 읽기 전용 공개 소스 사용 여부와 자동화 보조 범위를 함께 정합니다. 쓰기, credential, 계정, 유료 서비스 접근은 허용하지 않으며 ChatGPT도 완전 headless로 돌리지 않습니다.",
-    businessCriticIntensity: "사업 리뷰 강도",
-    intensityReason: "이 강도를 선택한 이유",
-    intensityReasonPlaceholder: "이 정도로 되묻는 것이 프로젝트에 맞는 이유를 적어주세요.",
-    intensityHelp: "사업 검증에서는 첫 질문을 만들기 전에 리뷰 강도를 명시해야 합니다.",
+      "이 한 가지 설정으로 온보딩의 읽기 전용 공개 소스 사용 여부와 자동화 보조 범위를 함께 정합니다. 쓰기 작업, 로그인 정보, 계정 조작, 유료 서비스 접근은 허용하지 않으며 ChatGPT 요청도 사용자가 직접 확인합니다.",
+    businessCriticIntensity: "질문 방식",
+    intensityReason: "이 방식을 선택한 이유",
+    intensityReasonPlaceholder: "이 질문 방식이 프로젝트에 맞는 이유를 적어주세요.",
+    intensityHelp: "서비스 기획 구체화에서는 이 방식으로 첫 질문의 자세한 정도를 정합니다.",
     running: "실행 중",
     createFirstBatch: "첫 질문 만들기",
     initialQuestionGenerationTitle: "첫 질문 생성",
@@ -3827,7 +3839,7 @@ const KO_COPY: typeof EN_COPY = {
     specSections: "제품 설명서 섹션",
     approval: "승인",
     projectPurpose: "프로젝트 목적",
-    businessCritic: "사업 리뷰",
+    businessCritic: "질문 방식",
     notSelected: "미선택",
     notApplicable: "해당 없음",
     skippedCommercializationAxes: "제외된 사업화 검토 축",
@@ -3840,10 +3852,10 @@ const KO_COPY: typeof EN_COPY = {
         acquisition_channel: "고객 유입 채널",
         competition_pressure: "경쟁 압력"
       }),
-    businessCriticChangeReason: "사업 리뷰 강도 변경 이유",
-    businessCriticChangeReasonPlaceholder: "비즈니스 검증 강도를 바꾸는 이유를 기록하세요.",
+    businessCriticChangeReason: "질문 방식 변경 이유",
+    businessCriticChangeReasonPlaceholder: "질문 방식을 바꾸는 이유를 기록하세요.",
     changeTo: (label: string) => `${label}(으)로 변경`,
-    businessCriticAuditHelp: "변경은 감사 로그에 남고, 현재 질문을 교체하지 않은 채 새 검토 압력을 추가합니다.",
+    businessCriticAuditHelp: "변경은 기록에 남고, 현재 질문을 교체하지 않은 채 다음 질문의 자세한 정도를 조정합니다.",
     modeChangeReason: "모드 변경 이유",
     modeChangeReasonPlaceholder: "질문/리서치 기준을 바꾸는 이유를 기록하세요.",
     modeAuditHelp: "변경은 감사 로그에 남고, 현재 질문은 유지됩니다.",
@@ -3897,13 +3909,19 @@ const KO_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
     visibleChatGptImportHint:
-      "이 작업에는 ChatGPT Pro/Deep Research에 붙여넣을 리서치 요청이 준비되어 있습니다. 사용자가 검토한 결과를 여기에 붙여 넣으면 Solo Superman이 출처, 불확실성, 최신성, 다음 질문을 기획 초안에 반영합니다.",
-    visibleChatGptHandoffTitle: "ChatGPT 리서치 요청",
+      "이 작업에는 ChatGPT Deep Research에 붙여넣을 리서치 요청이 준비되어 있습니다. 사용자가 검토한 결과를 여기에 붙여 넣으면 Solo Superman이 출처, 불확실성, 최신성, 다음 질문을 기획 초안에 반영합니다.",
+    visibleChatGptHandoffTitle: "ChatGPT Deep Research 요청",
     visibleChatGptOpen: "ChatGPT 열기",
-    visibleChatGptPromptLabel: "ChatGPT/Deep Research에 붙여 넣을 프롬프트",
+    visibleChatGptPromptLabel: "ChatGPT Deep Research에 붙여 넣을 프롬프트",
     visibleChatGptChecklistLabel: "결과를 가져오기 전에",
     visibleChatGptHandoffBoundary:
       "본인 브라우저 세션에서 요청을 검토·실행한 뒤, 검토한 결과와 공개 출처 참조만 아래에 붙여 넣으세요. Solo Superman은 사용자 계정을 백그라운드에서 사용하지 않습니다.",
+    routingReadiness: "리서치 경로",
+    routingReadinessLabels: {
+      codex_quick_search: "짧은 공개 검색",
+      browser_deep_research: "Deep Research 요청",
+      needs_more_clarification: "질문을 하나 더 묻기"
+    },
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
@@ -3980,7 +3998,7 @@ const KO_COPY: typeof EN_COPY = {
     decisionBlocked: "지금 계획으로 넘기면 위험함",
     decisionReady: "계획 인계 차단 없음",
     proEvidence: "확인된 단서",
-    conEvidence: "다른 관점/반례",
+    conEvidence: "다른 관점/기존 대안",
     uncertainties: "불확실성",
     missingConEvidenceReason: "다른 관점 부족 이유",
     knownRisk: "알려진 리스크",
@@ -4007,7 +4025,7 @@ const KO_COPY: typeof EN_COPY = {
     planningBlockedSuffix: "지금 만들면 위험한 이유가 남아 있습니다",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
-      missing_con_evidence: "반례 확인 필요",
+      missing_con_evidence: "기존 대안 확인 필요",
       conflict_review: "상충 근거 검토 필요"
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
@@ -4061,10 +4079,10 @@ const KO_COPY: typeof EN_COPY = {
     balanceStatusLabels: {
       unknown: "근거 균형 알 수 없음",
       balanced: "근거 균형 충분",
-      needs_con_evidence: "반례 확인 필요",
+      needs_con_evidence: "기존 대안 확인 필요",
       missing_con_evidence: "다른 관점 부족",
       source_quality_insufficient: "출처 품질 부족",
-      blocked_by_con_evidence: "반례로 차단"
+      blocked_by_con_evidence: "다른 관점으로 차단"
     } satisfies Record<EvidenceBalanceStatus, string>,
     sourceReliabilityLabels: {
       high: "높은 신뢰도",
@@ -4820,15 +4838,15 @@ const KO_COPY: typeof EN_COPY = {
         waiting_for_user: "로그인, CAPTCHA, 사용량 제한, UI 변경은 사용자 직접 조치가 필요합니다.",
         importing_result: "가져온 결과는 출처/불확실성/다른 관점/신선도 게이트를 통과해야 합니다.",
         completed: "결과 가져오기가 끝났지만 저장 자료는 사용자가 내보내거나 삭제할 수 있어야 합니다.",
-        blocked: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
-        failed: "완전 headless ChatGPT Pro 자동화 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
+        blocked: "완전 자동 ChatGPT 실행 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
+        failed: "완전 자동 ChatGPT 실행 대신 수동 프롬프트 전달 또는 공식 경로로 대체합니다.",
         revoked: "사용자가 위임을 취소했으므로 더 이상 브라우저 작업을 계속할 수 없습니다.",
         pending_preflight: "프롬프트/가림 처리/정책/세션 소유권 사전 점검을 먼저 기록합니다."
       },
       notStarted: {
         summary: "외부 AI 작업공간이 아직 준비되지 않았습니다.",
         explanation: "이 세션에는 실행별 로컬 브라우저 작업공간이 아직 기록되지 않았습니다.",
-        visibleHandoffLabel: "ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 준비합니다.",
+        visibleHandoffLabel: "ChatGPT Deep Research는 사용자 소유 브라우저에서 보이는 요청으로만 준비합니다.",
         nextAction: "외부 AI 작업공간을 사용하기 전에 리서치 작업을 계획하고 안전한 브라우저 인계 preview를 준비하세요.",
         retentionLabel: "아직 prompt/result/screenshot/log 자료가 저장되지 않았습니다."
       },
@@ -4849,8 +4867,8 @@ const KO_COPY: typeof EN_COPY = {
         noSourceRefs: "출처 참조 없음",
         uncertainty: (status: string, refs: string) => `불확실성: ${status} (${refs})`,
         noUncertaintyRefs: "불확실성 참조 없음",
-        conEvidence: (status: string, refs: string) => `다른 관점/반례: ${status} (${refs})`,
-        noConEvidenceRefs: "다른 관점/반례 참조 없음",
+        conEvidence: (status: string, refs: string) => `다른 관점/기존 대안: ${status} (${refs})`,
+        noConEvidenceRefs: "다른 관점/기존 대안 참조 없음",
         staleRisk: (status: string, refs: string) => `신선도 리스크: ${status} (${refs})`,
         noStaleRiskRefs: "신선도 리스크 참조 없음",
         importRationale: (rationale: string) => `가져오기 근거: ${rationale}`

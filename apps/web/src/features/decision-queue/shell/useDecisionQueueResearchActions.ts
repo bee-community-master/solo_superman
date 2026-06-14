@@ -40,6 +40,7 @@ interface DecisionQueueResearchActionsProps {
   readonly client: SidecarClient | null;
   readonly copy: DecisionQueueCopy;
   readonly projections: ProjectionState;
+  readonly recentResearchAnswers?: readonly string[];
   readonly refreshProjections: (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
   readonly refreshResearchOperations: (projectId: ProjectId) => Promise<void>;
   readonly researchOperations: ResearchOperationsState;
@@ -57,6 +58,7 @@ export function useDecisionQueueResearchActions({
   client,
   copy,
   projections,
+  recentResearchAnswers = [],
   refreshProjections,
   refreshResearchOperations,
   researchOperations,
@@ -94,7 +96,8 @@ export function useDecisionQueueResearchActions({
       const existingDelegation = await client.getChatGptBrowserDelegation(sessionId);
       const taskIds = visibleChatGptResearchDelegationTaskIds({
         research,
-        delegation: existingDelegation
+        delegation: existingDelegation,
+        spec: projections.spec
       });
 
       let nextExpectedStateVersion = expectedStateVersion;
@@ -209,6 +212,7 @@ export function useDecisionQueueResearchActions({
                 projectId,
                 buildWebResearchRunRequest({
                   allowlist: activatedAllowlist,
+                  detailedAnswers: recentResearchAnswers,
                   spec: projections.spec,
                   task
                 })
@@ -231,6 +235,13 @@ export function useDecisionQueueResearchActions({
                 runs: refreshedRuns
               }));
             }
+
+            const listedRuns = await client.listResearchRuns(projectId);
+
+            setResearchOperations((current) => ({
+              ...current,
+              runs: listedRuns
+            }));
           }
 
           await refreshResearchEvidenceSurfaces(projectId, projections.session.sessionId);
@@ -527,6 +538,7 @@ export function useDecisionQueueResearchActions({
           projectId,
           buildWebResearchRunRequest({
             allowlist,
+            detailedAnswers: recentResearchAnswers,
             spec: projections.spec,
             task
           })
@@ -548,8 +560,15 @@ export function useDecisionQueueResearchActions({
           runs: refreshedRuns
         }));
       }
+
+      const listedRuns = await client.listResearchRuns(projectId);
+
+      setResearchOperations((current) => ({
+        ...current,
+        runs: listedRuns
+      }));
     },
-    [appendCommand, client, projections.spec, researchActionErrors, setResearchOperations]
+    [appendCommand, client, projections.spec, recentResearchAnswers, researchActionErrors, setResearchOperations]
   );
 
   const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
