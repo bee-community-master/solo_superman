@@ -28,21 +28,6 @@ describe("researchRoutingReadinessForTask", () => {
     ).toBe("codex_quick_search");
   });
 
-  it("does not overroute a short check just because the current spec mentions synthesis topics", () => {
-    expect(
-      researchRoutingReadinessForTask({
-        task: task("기존 대안이 무엇인지 짧게 공개 검색으로 확인합니다."),
-        spec: {
-          title: "초기 창업자 기획 상세화 도구",
-          sections: [
-            "대표 사용 케이스와 가능한 사용자 미래는 기획서 초안에서 나중에 정리합니다.",
-            "시장 변화와 경쟁 대안도 필요하면 별도 리서치로 확인합니다."
-          ]
-        }
-      })
-    ).toBe("codex_quick_search");
-  });
-
   it("uses Browser/Deep Research only when multiple sources need synthesis", () => {
     const deepResearchTask = task("여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다.");
 

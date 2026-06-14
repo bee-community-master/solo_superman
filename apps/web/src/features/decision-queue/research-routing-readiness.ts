@@ -1,4 +1,4 @@
-import type { LivingSpecProjection, ResearchEvidenceProjection } from "@solo-superman/contracts";
+import type { ResearchEvidenceProjection } from "@solo-superman/contracts";
 
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
@@ -24,7 +24,6 @@ function compactText(value: string | undefined) {
 
 export function researchRoutingReadinessForTask(input: {
   readonly task: ResearchTaskProjection;
-  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
 }): ResearchRoutingReadiness {
   const text = compactText([
     input.task.objective,
@@ -45,14 +44,12 @@ export function researchRoutingReadinessForTask(input: {
 
 export function taskCanStartPublicSearchResearch(input: {
   readonly task: ResearchTaskProjection;
-  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
 }) {
   return researchRoutingReadinessForTask(input) === "codex_quick_search";
 }
 
 export function taskShouldUseBrowserDeepResearch(input: {
   readonly task: ResearchTaskProjection;
-  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
 }) {
   return researchRoutingReadinessForTask(input) === "browser_deep_research";
 }

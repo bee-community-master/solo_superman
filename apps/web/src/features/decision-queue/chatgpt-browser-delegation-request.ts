@@ -61,7 +61,6 @@ function visibleResearchDecision(objective: string, isKorean: boolean) {
 export function visibleChatGptResearchDelegationTaskIds(input: {
   readonly research: ResearchEvidenceProjection | null | undefined;
   readonly delegation: ChatGptBrowserDelegationProjection | null | undefined;
-  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
   readonly maxTasks?: number;
 }): readonly ResearchTaskId[] {
   const delegatedTaskIds = new Set(input.delegation?.runs.map((run) => run.researchTaskId) ?? []);
@@ -69,7 +68,7 @@ export function visibleChatGptResearchDelegationTaskIds(input: {
 
   return (input.research?.tasks ?? [])
     .filter((task) => task.status === "planned" && !delegatedTaskIds.has(task.researchTaskId))
-    .filter((task) => taskShouldUseBrowserDeepResearch({ task, spec: input.spec }))
+    .filter((task) => taskShouldUseBrowserDeepResearch({ task }))
     .slice(0, maxTasks)
     .map((task) => task.researchTaskId);
 }

@@ -640,7 +640,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 task.status === "handoff_ready"
                   ? latestResearchResultForTask(research.results, task.researchTaskId)
                   : undefined;
-              const routingReadiness = researchRoutingReadinessForTask({ task, spec: projections.spec });
+              const routingReadiness = researchRoutingReadinessForTask({ task });
               const canImportResearch =
                 routingReadiness !== "needs_more_clarification" &&
                 (task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true);
@@ -668,7 +668,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 hint: copy.research.visibleChatGptImportHint
               });
               const canUseVisibleChatGptHandoff =
-                taskShouldUseBrowserDeepResearch({ task, spec: projections.spec }) &&
+                taskShouldUseBrowserDeepResearch({ task }) &&
                 (projections.session?.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible" ||
                   Boolean(visibleChatGptImportHint));
 

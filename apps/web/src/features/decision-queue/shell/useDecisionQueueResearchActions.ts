@@ -97,8 +97,7 @@ export function useDecisionQueueResearchActions({
       const existingDelegation = await client.getChatGptBrowserDelegation(sessionId);
       const taskIds = visibleChatGptResearchDelegationTaskIds({
         research,
-        delegation: existingDelegation,
-        spec: projections.spec
+        delegation: existingDelegation
       });
 
       let nextExpectedStateVersion = expectedStateVersion;
@@ -533,7 +532,7 @@ export function useDecisionQueueResearchActions({
         throw new Error(researchActionErrors.sidecarConnectionRequiredStartRun);
       }
 
-      if (!taskCanStartPublicSearchResearch({ task, spec: projections.spec })) {
+      if (!taskCanStartPublicSearchResearch({ task })) {
         throw new Error(researchActionErrors.readyRunsNoReadyTasks);
       }
 
@@ -756,7 +755,10 @@ export function useDecisionQueueResearchActions({
         runs: latestRuns
       }));
       await prepareVisibleChatGptResearchDelegations({
-        expectedStateVersion: latestResearch.version as unknown as StateVersion,
+        expectedStateVersion: latestCommandBackedProjectionVersion({
+          ...projections,
+          research: latestResearch
+        }),
         research: latestResearch,
         sessionId
       });
@@ -783,7 +785,7 @@ export function useDecisionQueueResearchActions({
   }, [
     client,
     prepareVisibleChatGptResearchDelegations,
-    projections.session,
+    projections,
     refreshResearchEvidenceSurfaces,
     researchActionErrors,
     setProjections,

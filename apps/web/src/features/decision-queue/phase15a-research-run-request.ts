@@ -72,7 +72,7 @@ export function buildWebResearchRunRequest({
     .filter(Boolean)
     .slice(-5);
   const productCategory = spec?.title ?? specTitle ?? (publicContext ? "Product idea validation" : "Public product research");
-  const routingReadiness = researchRoutingReadinessForTask({ task, spec });
+  const routingReadiness = researchRoutingReadinessForTask({ task });
   const customerProblemHypothesis =
     publicContext ||
     answerContext.join(" ") ||
