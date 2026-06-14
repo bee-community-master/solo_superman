@@ -94,7 +94,7 @@ function activeQuestionState(repeatCount: number): ProductEngineStateSnapshot {
       businessCriticIntensity: "balanced",
       businessCriticIntensitySelectionStatus: "confirmed",
       businessCriticIntensityLabel: "균형 검증",
-      businessCriticIntensityEffect: "핵심 가정과 반례를 함께 확인합니다.",
+      businessCriticIntensityEffect: "중요한 판단과 보완할 관점을 함께 확인합니다.",
       rawIdeaText: "답변 형태가 다양한 질문 UX"
     },
     session: {

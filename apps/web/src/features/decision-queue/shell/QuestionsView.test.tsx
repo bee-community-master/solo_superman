@@ -882,15 +882,15 @@ describe("QuestionsView", () => {
           items: [
             {
               queueItemId: "research_review_follow_up" as QueueItemId,
-              title: "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
+              title: "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 보완할 관점이 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
               state: "blocked",
               cardType: "follow_up_question",
               sourceRef: "research:research_task_demo:evidence_matrix_demo:additional_question:1",
               whyItMatters:
                 "리서치 근거 요약:\n- 출처 단서: 공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.",
               additionalQuestions: [
-                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
-                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
+                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 보완할 관점이 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?",
+                "paid founder urgency를 조금 더 구체화하기 위해 리서치 결과를 모아보니 founders report urgency 같은 단서가 확인되었습니다.\n\n한계와 불확실성은 보완할 관점이 부족해 과신 가능성이 남아 있습니다.\n\n어느 방향으로 판단하시겠습니까?"
               ]
             }
           ]
@@ -901,7 +901,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Research-generated questions");
     expect(markup).toContain("founders report urgency 같은 단서가 확인되었습니다.");
     expect(markup.split("founders report urgency 같은 단서가 확인되었습니다.")).toHaveLength(4);
-    expect(markup).toContain("한계와 불확실성은 다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다.");
+    expect(markup).toContain("한계와 불확실성은 보완할 관점이 부족해 과신 가능성이 남아 있습니다.");
     expect(markup).not.toContain("What evidence would resolve");
     expect(markup).toContain('class="question-source-trace"');
     expect(markup).toContain("Source trace");
@@ -923,7 +923,7 @@ describe("QuestionsView", () => {
               {
                 queueItemId: "research_follow_up_korean" as QueueItemId,
                 title:
-                  "근거 공백: 유료 의향 핵심 가설을 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.\n\n한계/불확실성: 6 days ago · Use this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce.",
+                  "근거 공백: 유료 전환 여부를 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.\n\n한계/불확실성: 6 days ago · Use this divorce financial planning checklist to organize your cash flow, documents, insurance, account updates, and next-step planning during and after divorce.",
                 state: "active",
                 cardType: "follow_up_question",
                 sourceRef: "research:task:matrix:additional_question:1",
@@ -937,12 +937,12 @@ describe("QuestionsView", () => {
       "ko"
     );
 
-    expect(markup).toContain("<strong>근거 공백:</strong> 유료 의향 핵심 가설");
+    expect(markup).toContain("<strong>근거 공백:</strong> 유료 전환 여부");
     expect(markup).toContain("<strong>한계/불확실성:</strong> 최근 공개 검색 요약:");
     expect(markup).toContain("이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획을 정리하는 재무 체크리스트입니다.");
     expect(markup).toContain("<strong>리서치 근거 요약:</strong>");
     expect(markup).toContain("- <strong>출처 단서:</strong> 출처 품질 부족: 출처와 연결된 유의미한 근거 찾지 못했습니다.");
-    expect(markup).not.toContain("<strong>유료 의향 핵심 가설을 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.</strong>");
+    expect(markup).not.toContain("<strong>유료 전환 여부를 판단할 출처와 연결된 유의미한 공개 근거는 아직 없습니다.</strong>");
   });
 
   it("renders multiple-select answer choices when a question accepts more than one option", () => {

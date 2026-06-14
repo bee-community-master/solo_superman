@@ -107,7 +107,7 @@ const GENERIC_ANSWER_OPTIONS_BY_TYPE = {
     answerOption(
       "rank_by_evidence",
       "근거 강도순 정렬",
-      "현재 확보된 리서치 단서와 반례가 강한 순서로 우선순위를 매긴다.",
+      "현재 확보된 리서치 단서와 보완할 관점이 강한 순서로 우선순위를 매긴다.",
       "과신과 한쪽으로 치우친 판단을 줄입니다.",
       "중요하지만 아직 근거가 없는 항목이 과소평가될 수 있습니다."
     ),
@@ -623,7 +623,7 @@ const FOUNDER_VALIDATION_VALUE_PROP_OPTIONS: readonly AmbiguityAnswerOption[] = 
   answerOption(
     "build_risk_visible",
     "빌드 전 리스크 노출",
-    "창업자가 만들기 전에 근거 부족과 반례를 볼 수 있어 선택한다.",
+    "창업자가 만들기 전에 근거 부족과 다른 관점을 볼 수 있어 선택한다.",
     "성급한 구현 방지 가치를 검증합니다.",
     "즉시 실행을 원하는 사용자에게는 답답할 수 있습니다."
   )
@@ -688,7 +688,7 @@ const FOUNDER_VALIDATION_NON_GOAL_OPTIONS: readonly AmbiguityAnswerOption[] = [
   answerOption(
     "exclude_auto_code_generation",
     "자동 구현 제외",
-    "첫 버전에서는 코드 생성이나 PR 자동화를 제외하고 검증 질문과 스펙 준비에 집중한다.",
+    "첫 버전에서는 코드 생성이나 PR 자동화를 제외하고 확인 질문과 기획 준비에 집중한다.",
     "질문/스펙 품질을 먼저 안정화합니다.",
     "구현까지 한 번에 원하는 사용자에게는 가치가 작게 보일 수 있습니다."
   ),

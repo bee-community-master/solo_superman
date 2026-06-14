@@ -439,9 +439,9 @@ const EN_COPY = {
       activeSessionRequiredProjectPurpose: "An active session is required before changing the project purpose mode.",
       projectPurposeAlreadySelected: "Project purpose mode is already set to the selected value.",
       activeSessionRequiredBusinessCriticIntensity:
-        "An active session is required before changing the business critic intensity.",
+        "An active session is required before changing the question style.",
       businessCriticIntensityBusinessOnly:
-        "Business review intensity can only be changed for business-validation projects.",
+        "Question style can only be changed for service planning projects.",
       activeSessionRequiredSubmitAnswer: "An active session is required before submitting an answer.",
       answerTextRequired: "Answer text is required.",
       activeSessionRequiredDraftedAnswers: "An active session is required before submitting saved answers.",
@@ -842,7 +842,7 @@ const EN_COPY = {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
       activeProjectRequiredPauseAllowlist: "An active project is required before pausing a research allowlist.",
       activeProjectRequiredRevokeAllowlist: "An active project is required before revoking a research allowlist.",
-      activeSessionRequiredPlanResearch: "An active session is required before planning public-safe research.",
+      activeSessionRequiredPlanResearch: "An active session is required before planning research with public information only.",
       sidecarConnectionRequiredStartRun: "Reconnect the local service before starting research.",
       activeProjectRequiredStartRun: "An active project is required before starting a research run.",
       plannedTaskRequiredStartRun: "Select a planned research task before starting a read-only research run.",
@@ -867,7 +867,7 @@ const EN_COPY = {
       reactivateAllowlist: "Reactivate research allowlist",
       pauseAllowlist: "Pause research allowlist",
       revokeAllowlist: "Revoke research allowlist",
-      planPublicSafeResearchTask: "Plan public-safe research task",
+      planPublicSafeResearchTask: "Plan public-context research task",
       updateMaxConcurrentRuns: "Update research run limit",
       updateMaxSessionRuns: "Update session research limit",
       prepareVisibleChatGptResearchDelegation: "Prepare ChatGPT research request",
@@ -1076,7 +1076,7 @@ const EN_COPY = {
     startGuideWorkspaceBlocked: "Workspace creation waits for a planning-ready handoff.",
     startGuideNextSession: "Start a session from the idea intake.",
     startGuideNextScore: "Score completeness to find the remaining concrete metrics.",
-    startGuideNextBrief: "Prepare a Founder Brief or resolve completion gate blockers.",
+    startGuideNextBrief: "Prepare a Founder Brief or resolve remaining readiness items.",
     startGuideNextHandoff: "Run the planning handoff gate.",
     startGuideNextWorkspace: "Create the auto implementation workspace run.",
     startGuideNextWorker: "Plan the first scoped local Codex task for the current small PR slice.",
@@ -1598,7 +1598,7 @@ const EN_COPY = {
     noResearchRuns: "No research runs loaded yet.",
     qualityGateDisplay: "Source quality check",
     blockers: {
-      noActiveAllowlist: "No public-safe research source is active yet.",
+      noActiveAllowlist: "No public-context research source is active yet.",
       noAllowlistRefetch: "The research source refresh path is not visible yet.",
       noDisclosureRefetch: "The research-use log refresh path is not visible yet.",
       noRunsRefetch: "The research run status refresh path is not visible yet.",
@@ -2392,7 +2392,7 @@ const JA_COPY: typeof EN_COPY = {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
       activeProjectRequiredPauseAllowlist: "リサーチallowlistを一時停止するにはアクティブなプロジェクトが必要です。",
       activeProjectRequiredRevokeAllowlist: "リサーチallowlistを取り消すにはアクティブなプロジェクトが必要です。",
-      activeSessionRequiredPlanResearch: "public-safeリサーチを計画するにはアクティブなセッションが必要です。",
+      activeSessionRequiredPlanResearch: "公開可能な文脈だけを使うリサーチを計画するにはアクティブなセッションが必要です。",
       sidecarConnectionRequiredStartRun: "リサーチを始める前にローカルサービスへ再接続してください。",
       activeProjectRequiredStartRun: "リサーチ実行を開始するにはアクティブなプロジェクトが必要です。",
       plannedTaskRequiredStartRun: "読み取り専用リサーチ実行を始める前に、計画済みリサーチタスクを選択してください。",
@@ -2626,7 +2626,7 @@ const JA_COPY: typeof EN_COPY = {
     startGuideWorkspaceBlocked: "自動実装ワークスペース作成は、実装計画の引き渡し完了を待っています。",
     startGuideNextSession: "Idea intakeからsessionを開始してください。",
     startGuideNextScore: "完成度を採点して残りの具体化指標を確認してください。",
-    startGuideNextBrief: "Founder Briefを準備するかcompletion gate blockerを解消してください。",
+    startGuideNextBrief: "Founder Briefを準備するか残りの準備項目を解消してください。",
     startGuideNextHandoff: "実装計画の引き渡しを実行してください。",
     startGuideNextWorkspace: "自動実装ワークスペース実行を作成してください。",
     startGuideNextWorker: "現在の小さなPR単位の作業に対して、最初のローカルCodex作業を計画してください。",
@@ -3942,7 +3942,7 @@ const KO_COPY: typeof EN_COPY = {
       count === 0 ? "아직 바로 시작할 공개 웹 리서치가 없습니다" : `준비된 공개 웹 리서치 ${count}개 시작`,
     readyReadOnlyRunsPlanTitle: "준비된 공개 웹 배치 계획",
     readyReadOnlyRunsPlanReady: (count: number) =>
-      `읽기 전용 리서치 작업 ${count}개가 현재 리서치 소스 설정 안에서 시작됩니다.`,
+      `공개 웹 리서치 작업 ${count}개가 현재 리서치 소스 설정 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
       no_ready_tasks: "공개 웹 리서치로 넘기기 전에 질문에 조금 더 답해주세요."
@@ -3951,11 +3951,11 @@ const KO_COPY: typeof EN_COPY = {
       activeProjectRequiredAllowlistChange: "리서치 소스 설정을 변경하려면 활성 프로젝트가 필요합니다.",
       activeProjectRequiredPauseAllowlist: "리서치 소스를 일시 중지하려면 활성 프로젝트가 필요합니다.",
       activeProjectRequiredRevokeAllowlist: "리서치 소스를 끄려면 활성 프로젝트가 필요합니다.",
-      activeSessionRequiredPlanResearch: "public-safe 리서치를 계획하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredPlanResearch: "공개 가능한 내용만 쓰는 리서치를 계획하려면 활성 세션이 필요합니다.",
       sidecarConnectionRequiredStartRun: "리서치를 시작하기 전에 로컬 서비스를 다시 연결하세요.",
       activeProjectRequiredStartRun: "리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
-      plannedTaskRequiredStartRun: "읽기 전용 리서치 실행을 시작하기 전에 planned 리서치 작업을 선택하세요.",
-      plannedTaskStatusRequiredStartRun: "planned 리서치 작업만 새 읽기 전용 리서치 실행을 시작할 수 있습니다.",
+      plannedTaskRequiredStartRun: "공개 웹 리서치 실행을 시작하기 전에 준비된 리서치 작업을 선택하세요.",
+      plannedTaskStatusRequiredStartRun: "준비된 리서치 작업만 새 공개 웹 리서치 실행을 시작할 수 있습니다.",
       activeAllowlistRequiredStartRun:
         "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       activeProjectRequiredReadyRuns: "준비된 리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
@@ -4158,12 +4158,12 @@ const KO_COPY: typeof EN_COPY = {
     startGuideNextAction: "다음 구현 작업",
     startGuideMetricsTitle: "구현 준비 지표",
     startGuideCompositeScore: "종합 준비도",
-    startGuideGateFailures: "Gate 차단 항목",
+    startGuideGateFailures: "남은 확인 항목",
     startGuideMetricsReady: "구체화된 지표",
     startGuideMetricsReadyCount: (ready: number, total: number, threshold: number) =>
       `${total}개 중 ${ready}개 지표가 ${threshold}% 이상`,
-    startGuideGateFailureList: "남은 구현 gate 차단 항목",
-    startGuideNoGateFailures: "모든 구현 준비 gate가 통과 중입니다.",
+    startGuideGateFailureList: "구현 전에 더 확인할 항목",
+    startGuideNoGateFailures: "구현 준비 확인이 모두 통과 중입니다.",
     startGuideSession: "활성 세션",
     startGuideReadiness: "완성 근거",
     startGuideHandoff: "구현 계획 전달",
@@ -4176,8 +4176,8 @@ const KO_COPY: typeof EN_COPY = {
     startGuideReadinessMissing: "먼저 완성도를 채점해 대부분의 지표가 구체화되었는지 확인하세요.",
     startGuideReadinessBlocked: (count: number) =>
       count > 0
-        ? `구현에 충분한 근거가 되려면 준비 게이트 차단 항목 ${count}개가 더 남아 있습니다.`
-        : "완성 근거가 아직 부족합니다. Founder Brief를 준비하거나 남은 준비 gap을 줄이세요.",
+        ? `구현에 충분한 근거가 되려면 확인 항목 ${count}개가 더 남아 있습니다.`
+        : "완성 근거가 아직 부족합니다. Founder Brief를 준비하거나 남은 준비 항목을 줄이세요.",
     startGuideHandoffReady: "구현 계획 전달이 완료되어 구현을 시작할 수 있습니다.",
     startGuideHandoffMissing: "구현 계획 전달을 실행해 준비 근거를 구현 맥락으로 바꾸세요.",
     startGuideWorkspaceReady: "자동 구현 작업공간이 있습니다.",
@@ -4185,7 +4185,7 @@ const KO_COPY: typeof EN_COPY = {
     startGuideWorkspaceBlocked: "작업공간 생성은 구현 계획 전달 완료를 기다리고 있습니다.",
     startGuideNextSession: "아이디어 입력에서 세션을 시작하세요.",
     startGuideNextScore: "완성도를 채점해 남은 구체화 지표를 확인하세요.",
-    startGuideNextBrief: "Founder Brief를 준비하거나 completion gate blocker를 줄이세요.",
+    startGuideNextBrief: "Founder Brief를 준비하거나 남은 준비 항목을 줄이세요.",
     startGuideNextHandoff: "구현 계획 전달을 실행하세요.",
     startGuideNextWorkspace: "자동 구현 작업공간 실행을 만드세요.",
     startGuideNextWorker: "현재 작은 PR 단위 작업의 첫 로컬 Codex 작업을 계획하세요.",
@@ -4742,7 +4742,7 @@ const KO_COPY: typeof EN_COPY = {
         `${concurrentRuns} 동시 / 세션당 ${runsPerSession}`,
         logRequired ? "활동 기록 필요" : null
       ]),
-    noAllowlistPolicyLoaded: "리서치 소스 설정이 로드되지 않았습니다.",
+    noAllowlistPolicyLoaded: "리서치 소스 설정을 아직 불러오지 못했습니다.",
     disclosureActivityLoaded: (logCount: number, latestStatus: string) =>
       `리서치 사용 기록 ${logCount}개 · 최신 ${latestStatus}`,
     noDisclosureActivity: "리서치 사용 기록이 아직 로드되지 않았습니다.",
@@ -4798,17 +4798,17 @@ const KO_COPY: typeof EN_COPY = {
     title: "계획 인계",
     sourceRefs: "참조 출처",
     runGate: "계획 인계 확인 실행",
-    refresh: "핸드오프 새로고침",
+    refresh: "계획 전달 새로고침",
     planningActionErrors: {
       activeSessionRequiredScoreCompleteness: "완성도를 채점하려면 활성 세션이 필요합니다.",
       activeSessionRequiredFounderBrief: "Founder Brief를 준비하려면 활성 세션이 필요합니다.",
-      activeSessionRequiredPlanningHandoff: "계획 인계 게이트를 실행하려면 활성 세션이 필요합니다.",
+      activeSessionRequiredPlanningHandoff: "계획 인계 확인을 실행하려면 활성 세션이 필요합니다.",
       activeSessionRequiredPrepareImplementationContext: "구현 컨텍스트를 준비하려면 활성 세션이 필요합니다."
     },
     planningActionLabels: {
       scoreCompleteness: "완성도 채점",
       prepareFounderBrief: "Founder Brief 준비",
-      runPlanningHandoffGate: "계획 인계 게이트 실행",
+      runPlanningHandoffGate: "계획 인계 확인 실행",
       prepareImplementationContext: "구현 컨텍스트 준비"
     }
   },

@@ -292,7 +292,7 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
 
 const BUSINESS_CRITIC_PRESSURE_SUMMARY = {
   balanced: "균형 점검: 주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
-  strong: "강한 점검: 중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 다음 질문으로 보냅니다.",
+  strong: "강한 점검: 중요한 사업 판단이 약하면 필요한 내용을 다시 묻는 질문을 다음 질문으로 보냅니다.",
   investor_grade:
     "꼼꼼한 점검: 가격, 채널, 반복 사용, 운영, 시장 타이밍, 만드는 사람/팀 강점을 확인하거나 다음 확인 항목으로 남기게 합니다."
 } as const satisfies Record<BusinessCriticIntensity, string>;
@@ -1241,7 +1241,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         value_prop_switching_reason:
           `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${IDEA_CONTEXT_LABEL}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
-          "창업자는 지금 아이디어 검증 질문과 기획서 초안을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+          "창업자는 지금 아이디어 확인 질문과 기획서 초안을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         payment_hesitation_reason:
           "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
         mvp_validation_scope:
@@ -1690,7 +1690,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     severity: "medium",
     summary: "창업자만의 유리함이나 방어 가능성이 근거로 연결되지 않음",
     whyItMatters: "차별화 근거가 약하면 Founder Brief와 acquisition story가 설득력을 잃습니다.",
-    question: "이 founder/team이 이 문제를 더 잘 풀 수 있는 근거는 무엇인가?",
+    question: "이 만드는 사람이나 팀이 이 문제를 더 잘 풀 수 있는 근거는 무엇인가?",
     expectedAnswerType: "evidence",
     decisionItUnlocks: "Differentiation section과 Founder Brief의 핵심 narrative를 엽니다.",
     routes: ["research_needed", "spec_update_candidate"]
@@ -1777,7 +1777,7 @@ const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     nextValidationAction: "Identify one reachable channel and one fallback if it fails.",
     uncertaintyType: "unsupported",
     severity: "high",
-    summary: "초기 획득 채널 핵심 가설이 반박되지 않음",
+    summary: "초기 획득 채널 판단이 아직 충분히 확인되지 않음",
     whyItMatters: "첫 사용자에게 도달하지 못하면 MVP validation이 실행되지 않습니다.",
     question: "첫 사용자 모집 채널이 실패한다면 가장 가능성 높은 원인은 무엇인가?",
     expectedAnswerType: "evidence",
@@ -1868,13 +1868,13 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     nextValidationAction: "이 팀이 더 잘 풀 수 있다는 근거를 확인하거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "unsupported",
     severity: "high",
-    summary: "founder advantage pressure item이 근거 없이 남아 있음",
+    summary: "만드는 사람/팀의 강점이 근거 없이 남아 있음",
     whyItMatters: "만드는 사람/팀의 강점이 약하면 왜 우리가 이 문제를 더 잘 풀 수 있는지 설명하기 어렵습니다.",
     question: "왜 이 만드는 사람/팀이 이 문제를 더 잘 풀 수 있고, 그 생각이 틀릴 수 있는 이유는 무엇인가요?",
     expectedAnswerType: "evidence",
     decisionItUnlocks: "만드는 사람/팀의 강점을 근거로 남길지, 아직 모르는 항목으로 남길지 정합니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "founder advantage 주장과 그 주장을 약하게 만드는 사례를 수집합니다."
+    suggestedResearchTask: "만드는 사람/팀의 강점 주장과 그 주장을 다시 살펴보게 하는 사례를 수집합니다."
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
@@ -2838,7 +2838,7 @@ function researchFollowUpEvidenceContext(input: {
   return [
     "리서치 메모리 요약:",
     proSummary ? `- 확인된 단서: ${proSummary}` : null,
-    conSummary ? `- 다른 관점/반례: ${conSummary}` : null,
+    conSummary ? `- 보완할 관점: ${conSummary}` : null,
     uncertaintySummary ? `- 한계/불확실성: ${uncertaintySummary}` : null,
     `- 출처 단서: ${readableEvidenceContextExcerpt(input.sourceLabel)}`
   ]
@@ -4813,7 +4813,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     !candidateIssues.some(isCoreAssumptionChallengeIssue)
   ) {
     return reject(
-      "ActivateQuestionBatch requires at least one core-assumption challenge for stronger business review intensity.",
+      "ActivateQuestionBatch requires at least one important-detail check for a stronger question style.",
       "COMMAND_PRECONDITION_FAILED",
       {
         businessCriticIntensity: state.project.businessCriticIntensity,

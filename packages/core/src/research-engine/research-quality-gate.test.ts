@@ -217,7 +217,7 @@ describe("Decision-linked research quality gate", () => {
     const matrix = synthesizeEvidenceMatrix({ researchTask, researchResult, synthesisVersion: 1 });
     const serializedQuestion = matrix.additionalQuestions.join("\n");
 
-    expect(serializedQuestion).toContain("근거 공백: 유료 의향 핵심 가설");
+    expect(serializedQuestion).toContain("근거 공백: 유료 전환 여부");
     expect(serializedQuestion).toContain("한계/불확실성: 최근 공개 검색 요약:");
     expect(serializedQuestion).toContain("이혼 전후의 현금 흐름, 서류, 보험, 계좌 업데이트, 다음 계획");
     expect(serializedQuestion).not.toContain("Find decision");
@@ -510,7 +510,7 @@ describe("Decision-linked research quality gate", () => {
     });
     const researchResult = result({
       result: "Pro: 공개 자료에서는 통합 기록과 비용 관리 문제를 함께 확인해야 한다는 단서가 있다.",
-      limitationNotes: "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다."
+      limitationNotes: "보완할 관점이 부족해 과신 가능성이 남아 있습니다."
     });
     const matrix = synthesizeEvidenceMatrix({
       researchTask,

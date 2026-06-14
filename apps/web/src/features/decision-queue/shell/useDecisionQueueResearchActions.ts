@@ -256,9 +256,10 @@ export function useDecisionQueueResearchActions({
   }, [
     appendCommand,
     client,
+    projections.spec,
     projections.research,
     projections.session,
-    projections.spec?.title,
+    recentResearchAnswers,
     refreshResearchEvidenceSurfaces,
     refreshResearchOperations,
     researchActionErrors,
@@ -301,7 +302,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const revokeAllowlist = useCallback(
@@ -339,7 +348,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const updateAllowlistMaxConcurrentRuns = useCallback(
@@ -513,6 +530,7 @@ export function useDecisionQueueResearchActions({
     projections,
     refreshProjections,
     researchActionErrors,
+    researchActionLabels,
     researchActionReasons
   ]);
 
@@ -622,6 +640,7 @@ export function useDecisionQueueResearchActions({
     refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
     researchActionErrors,
+    researchActionLabels,
     startReadOnlyResearchRunForTask
   ]);
 
@@ -719,6 +738,7 @@ export function useDecisionQueueResearchActions({
     refreshResearchEvidenceSurfaces,
     researchOperations.allowlists,
     researchActionErrors,
+    researchActionLabels,
     setResearchOperations,
     startReadyReadOnlyResearchRunsForPlan
   ]);
@@ -788,6 +808,7 @@ export function useDecisionQueueResearchActions({
     projections,
     refreshResearchEvidenceSurfaces,
     researchActionErrors,
+    researchActionLabels,
     setProjections,
     setResearchOperations,
     setWorkflowError,
@@ -851,7 +872,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const retryResearchRun = useCallback(
@@ -884,9 +913,16 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
-
 
   return {
     createOrReactivateAllowlist,
