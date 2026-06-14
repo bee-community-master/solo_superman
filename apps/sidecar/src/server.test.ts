@@ -579,6 +579,24 @@ function jsonDataRecord(body: JsonResponseBody) {
   return body.data as Readonly<Record<string, unknown>>;
 }
 
+function recordsFromValue(value: unknown) {
+  expect(Array.isArray(value)).toBe(true);
+
+  return value as readonly Readonly<Record<string, unknown>>[];
+}
+
+function answerLinkedResearchTaskIdFromValue(value: unknown) {
+  const task = recordsFromValue(value).find((candidate) => typeof candidate.sourceAnswerRef === "string");
+
+  expect(task?.researchTaskId).toEqual(expect.any(String));
+
+  if (typeof task?.researchTaskId !== "string") {
+    throw new Error("Expected an answer-linked research task id.");
+  }
+
+  return task.researchTaskId;
+}
+
 function latestAutoImplementationRunFromBody(body: JsonResponseBody) {
   return jsonDataRecord(body).latestRun as Readonly<Record<string, unknown>>;
 }
@@ -8000,8 +8018,7 @@ describe("PR-02 sidecar health shell", () => {
       });
       const researchBody = await jsonBody(research);
       const researchData = researchBody.data as Readonly<Record<string, unknown>>;
-      const researchTasks = researchData.tasks as readonly Readonly<Record<string, unknown>>[];
-      const researchTaskId = researchTasks.find((task) => typeof task.sourceAnswerRef === "string")?.researchTaskId as string;
+      const researchTaskId = answerLinkedResearchTaskIdFromValue(researchData.tasks);
 
       expect(research.status).toBe(200);
       expect(researchData).toMatchObject({

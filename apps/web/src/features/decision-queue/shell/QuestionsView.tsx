@@ -53,6 +53,41 @@ function compactPlanningProgressText(value: string | null | undefined, language:
   return compactSourceTraceLabel(decisionQueueDisplayText(value ?? "", language));
 }
 
+function planningDetailProgressItems(input: {
+  readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
+  readonly projections: DecisionQueueShellController["projections"];
+  readonly answeredQuestionCount: number;
+}) {
+  const { answeredQuestionCount, copy, language, projections } = input;
+
+  if (answeredQuestionCount < 1) {
+    return [];
+  }
+
+  const planningProgressTitle = compactPlanningProgressText(
+    projections.spec?.title ?? copy.questions.planningDetailProgressFallbackTitle,
+    language
+  );
+  const planningProgressNextQuestionItem = [
+    ...(projections.queue?.active ?? []),
+    ...(projections.queue?.next ?? [])
+  ].find(queueItemIsQuestionDebt);
+  const planningProgressNextQuestion = compactPlanningProgressText(planningProgressNextQuestionItem?.title, language);
+  const planningProgressResearch = compactPlanningProgressText(
+    (projections.research?.tasks.find((task) => task.status === "planned") ?? projections.research?.tasks[0])?.objective,
+    language
+  );
+
+  return [
+    copy.questions.planningDetailProgressAnswered(answeredQuestionCount, planningProgressTitle),
+    planningProgressNextQuestion ? copy.questions.planningDetailProgressNextQuestion(planningProgressNextQuestion) : undefined,
+    planningProgressResearch
+      ? copy.questions.planningDetailProgressResearch(planningProgressResearch)
+      : copy.questions.planningDetailProgressNoResearch
+  ].filter((item): item is string => Boolean(item));
+}
+
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
   en: [
     "Research evidence summary",
@@ -367,34 +402,12 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
-  const planningProgressTitle = compactPlanningProgressText(
-    projections.spec?.title ?? copy.questions.planningDetailProgressFallbackTitle,
-    language
-  );
-  const planningProgressNextQuestionItem = [
-    ...(projections.queue?.active ?? []),
-    ...(projections.queue?.next ?? [])
-  ].find(queueItemIsQuestionDebt);
-  const planningProgressNextQuestion = compactPlanningProgressText(
-    planningProgressNextQuestionItem?.title,
-    language
-  );
-  const planningProgressResearch = compactPlanningProgressText(
-    (projections.research?.tasks.find((task) => task.status === "planned") ?? projections.research?.tasks[0])?.objective,
-    language
-  );
-  const planningProgressItems =
-    questionProgress.answeredQuestionCount > 0
-      ? [
-          copy.questions.planningDetailProgressAnswered(questionProgress.answeredQuestionCount, planningProgressTitle),
-          planningProgressNextQuestion
-            ? copy.questions.planningDetailProgressNextQuestion(planningProgressNextQuestion)
-            : undefined,
-          planningProgressResearch
-            ? copy.questions.planningDetailProgressResearch(planningProgressResearch)
-            : copy.questions.planningDetailProgressNoResearch
-        ].filter((item): item is string => Boolean(item))
-      : [];
+  const planningProgressItems = planningDetailProgressItems({
+    copy,
+    language,
+    projections,
+    answeredQuestionCount: questionProgress.answeredQuestionCount
+  });
   const queueRecoveryLabels = [
     queueRecovery.label,
     queueRecovery.activeBatchLabel,

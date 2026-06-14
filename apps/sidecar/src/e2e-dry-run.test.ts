@@ -245,6 +245,23 @@ function firstRecord(value: unknown) {
   return first as Readonly<Record<string, unknown>>;
 }
 
+function answerLinkedResearchTaskRecord(value: unknown) {
+  const match = records(value).find((item) => typeof item.sourceAnswerRef === "string");
+
+  expect(match).toBeDefined();
+
+  return match as Readonly<Record<string, unknown>>;
+}
+
+function researchReviewCardForTask(value: unknown, task: Readonly<Record<string, unknown>>) {
+  const researchTaskId = stringField(task, "researchTaskId");
+  const match = records(value).find((item) => item.researchTaskId === researchTaskId);
+
+  expect(match).toBeDefined();
+
+  return match as Readonly<Record<string, unknown>>;
+}
+
 function recordWithStringFieldPrefix(value: unknown, field: string, prefix: string) {
   const match = records(value).find((item) => {
     const fieldValue = item[field];
@@ -3448,17 +3465,17 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const researchBeforeImport = await getJson(app, `/api/v1/sessions/${sessionId}/research`);
       const researchBeforeData = responseData(researchBeforeImport.body);
-      const researchTask = (researchBeforeData.tasks as readonly Readonly<Record<string, unknown>>[])
-        .find((task) => typeof task.sourceAnswerRef === "string") ?? firstRecord(researchBeforeData.tasks);
+      const researchTask = answerLinkedResearchTaskRecord(researchBeforeData.tasks);
+      const researchTaskId = stringField(researchTask, "researchTaskId");
 
       expect(researchTask).toMatchObject({
         routeOutcome: "research_needed",
         impact: "high"
       });
 
-      const importResult = await postJson(app, `/api/v1/research-tasks/${researchTask.researchTaskId as string}/results`, {
+      const importResult = await postJson(app, `/api/v1/research-tasks/${researchTaskId}/results`, {
         sessionId,
-        researchTaskId: researchTask.researchTaskId,
+        researchTaskId,
         expectedStateVersion: 7,
         result: PHASE1_E2E_RESEARCH_RESULT,
         sourceTitle: "Manual skeptical search dry-run",
@@ -3507,7 +3524,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expect.objectContaining({
             effectType: "research_evidence_effect",
             status: "cancelled",
-            idempotencyKey: `research:${researchTask.researchTaskId as string}`
+            idempotencyKey: `research:${researchTaskId}`
           })
         ],
         pendingEffectSummary: {
@@ -3519,8 +3536,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const researchAfterData = responseData(researchAfterImport.body);
       const evidenceMatrix = firstRecord(researchAfterData.evidenceMatrices);
       const evidencePack = firstRecord(researchAfterData.evidencePacks);
-      const researchReviewCard = (researchAfterData.reviewCards as readonly Readonly<Record<string, unknown>>[])
-        .find((card) => card.researchTaskId === researchTask.researchTaskId) ?? firstRecord(researchAfterData.reviewCards);
+      const researchReviewCard = researchReviewCardForTask(researchAfterData.reviewCards, researchTask);
       const researchReviewCardId = String(researchReviewCard.cardId);
 
       expect(evidenceMatrix).toMatchObject({
