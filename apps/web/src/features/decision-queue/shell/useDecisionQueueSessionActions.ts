@@ -110,7 +110,7 @@ export interface InitialQuestionGenerationState {
   readonly canUseFallback: boolean;
   readonly canRetry: boolean;
   readonly countdownSeconds?: number;
-  readonly canKeepWaiting?: boolean;
+  readonly canKeepWaiting: boolean;
 }
 
 export interface GeneratedInitialQuestionSetInput {

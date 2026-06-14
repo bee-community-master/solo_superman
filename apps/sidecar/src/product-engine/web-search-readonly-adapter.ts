@@ -1269,7 +1269,10 @@ function searchCandidateRelevanceScore(candidate: SearchCandidate, query: string
   }, 0);
 }
 
-function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
+function searchCandidateSourceQualityScore(
+  candidate: SearchCandidate,
+  input: { readonly petScanMedicalNoise?: boolean } = {}
+) {
   const haystack = `${candidate.title} ${candidate.snippet}`.toLowerCase();
   const hostname = (() => {
     try {
@@ -1300,7 +1303,7 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
     score += 3;
   }
 
-  if (isPetScanMedicalNoiseCandidate(candidate)) {
+  if (input.petScanMedicalNoise === true) {
     score -= 16;
   }
 
@@ -1337,12 +1340,16 @@ export function rankedSearchCandidates(
   query: string,
   maxResults: number
 ) {
-  const scoredCandidates = candidates.map((candidate) => ({
-    candidate,
-    relevanceScore: searchCandidateRelevanceScore(candidate, query),
-    sourceQualityScore: searchCandidateSourceQualityScore(candidate),
-    petScanMedicalNoise: isPetScanMedicalNoiseCandidate(candidate)
-  }));
+  const scoredCandidates = candidates.map((candidate) => {
+    const petScanMedicalNoise = isPetScanMedicalNoiseCandidate(candidate);
+
+    return {
+      candidate,
+      relevanceScore: searchCandidateRelevanceScore(candidate, query),
+      sourceQualityScore: searchCandidateSourceQualityScore(candidate, { petScanMedicalNoise }),
+      petScanMedicalNoise
+    };
+  });
   const hasPositiveQualityCandidate = scoredCandidates.some(({ sourceQualityScore }) => sourceQualityScore > 0);
 
   return scoredCandidates
