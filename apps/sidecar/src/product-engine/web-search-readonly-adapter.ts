@@ -440,12 +440,12 @@ function coreTermsFor(objective: string, context: string) {
     );
   }
 
-  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
-    return uniqueSearchTerms(["반려동물", "보호자", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", "pet owner"], 8);
-  }
-
   if (/(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu.test(combined)) {
     return uniqueSearchTerms(["소상공인", "예약", "카카오톡", "노쇼", "주문", "단골", "미용실", "네일샵", "음식점"], 9);
+  }
+
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+    return uniqueSearchTerms(["반려동물", "보호자", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", "pet owner"], 8);
   }
 
   return uniqueSearchTerms(tokenTermsFromText(combined), 8);
@@ -480,16 +480,16 @@ function searchIntentTermsFor(objective: string, context: string) {
     "report"
   ];
 
-  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
-    return isKorean
-      ? uniqueSearchTerms(["보호자 유형", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", ...commonKorean], 12)
-      : uniqueSearchTerms(["pet owner segments", "veterinary cost", "insurance", "care", ...commonEnglish], 12);
-  }
-
   if (/(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu.test(combined)) {
     return isKorean
       ? uniqueSearchTerms(["예약 누락", "노쇼", "카카오톡 예약", "소상공인 SaaS", "매장 운영", "단골 재방문", ...commonKorean], 12)
       : uniqueSearchTerms(["small business reservation", "no-show", "local merchant SaaS", "customer retention", ...commonEnglish], 12);
+  }
+
+  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+    return isKorean
+      ? uniqueSearchTerms(["보호자 유형", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", ...commonKorean], 12)
+      : uniqueSearchTerms(["pet owner segments", "veterinary cost", "insurance", "care", ...commonEnglish], 12);
   }
 
   if (/(?:고객|세그먼트|customer|segment|persona|사용자\s*유형)/iu.test(combined)) {

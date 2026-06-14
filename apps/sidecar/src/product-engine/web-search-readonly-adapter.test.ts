@@ -333,6 +333,23 @@ describe("web_search_readonly background research adapter", () => {
     expect(joinedQueries).not.toContain("Customer/problem hypothesis:");
   });
 
+  it("prefers local-commerce intent when pet terms are paired with reservation operations", () => {
+    const plan = planPublicWebSearchQueries({
+      researchObjective: "반려동물 미용실의 예약 누락과 노쇼 문제를 좁히기",
+      publicSafeSummary:
+        "Product category: 반려동물 미용실 예약 관리 앱. Customer/problem hypothesis: 동네 반려동물 미용실이 카카오톡 예약, 전화 예약, 노쇼, 단골 재방문 관리를 놓치지 않게 돕는다. Research objective: 반려동물 미용실의 예약 누락과 노쇼 문제를 좁히기."
+    });
+
+    const joinedQueries = plan.queries.join(" ");
+
+    expect(joinedQueries).toContain("소상공인");
+    expect(joinedQueries).toContain("예약");
+    expect(joinedQueries).toContain("노쇼");
+    expect(joinedQueries).toContain("단골");
+    expect(joinedQueries).not.toContain("보호자 유형");
+    expect(joinedQueries).not.toContain("보험 청구");
+  });
+
   it("returns ranked offline corpus results when localCorpusDir is configured", async () => {
     const corpusRoot = await mkdtemp(join(tmpdir(), "solo-research-corpus-"));
     await mkdir(join(corpusRoot, "nested"));

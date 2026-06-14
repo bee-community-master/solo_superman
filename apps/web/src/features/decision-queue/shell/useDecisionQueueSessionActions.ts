@@ -291,6 +291,7 @@ export function useDecisionQueueSessionActions({
   const initialQuestionAttemptRef = useRef(0);
   const initialQuestionControlRef = useRef<{
     readonly attemptId: number;
+    readonly status: InitialQuestionGenerationAttemptStatus;
     readonly abortController: AbortController;
     readonly resolveAction: (action: InitialQuestionGenerationAction) => void;
   } | null>(null);
@@ -308,6 +309,15 @@ export function useDecisionQueueSessionActions({
 
   const armInitialQuestionDecisionTimer = useCallback((attemptId: number, status: InitialQuestionGenerationAttemptStatus) => {
     clearInitialQuestionDelayTimer();
+    const control = initialQuestionControlRef.current;
+
+    if (control?.attemptId === attemptId) {
+      initialQuestionControlRef.current = {
+        ...control,
+        status
+      };
+    }
+
     const startedAt = Date.now();
     const initialSeconds = Math.ceil(INITIAL_QUESTION_GENERATION_DECISION_MS / 1000);
 
@@ -412,9 +422,9 @@ export function useDecisionQueueSessionActions({
 
     armInitialQuestionDecisionTimer(
       control.attemptId,
-      initialQuestionGeneration.status === "retrying" ? "retrying" : "generating"
+      control.status
     );
-  }, [armInitialQuestionDecisionTimer, initialQuestionGeneration.status]);
+  }, [armInitialQuestionDecisionTimer]);
 
   const runInitialQuestionGenerationAttempt = useCallback(
     async (
@@ -439,6 +449,7 @@ export function useDecisionQueueSessionActions({
 
       initialQuestionControlRef.current = {
         attemptId,
+        status,
         abortController,
         resolveAction
       };
