@@ -228,6 +228,8 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion).not.toContain("Original ambiguity");
     expect(serializedQuestion).not.toContain("User answer to account for");
     expect(serializedQuestion).not.toContain("Use this divorce financial planning checklist");
+    expect(serializedQuestion.split("\n").filter((line) => line.startsWith("- ")).every((line) => line.length <= 120))
+      .toBe(true);
     expect(serializedQuestion.length).toBeLessThan(950);
   });
 

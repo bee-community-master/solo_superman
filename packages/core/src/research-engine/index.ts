@@ -209,7 +209,7 @@ function userFacingQuestionText(value: string) {
 }
 
 function nextSearchQueriesForEvidenceGap(topic: string) {
-  const compactTopic = compactSummary(topic.replace(/[“”"]/gu, ""), "이번 판단");
+  const compactTopic = compactSummary(topic.replace(/[“”"]/gu, ""), "이번 판단").slice(0, 80).trim();
 
   return [
     `${compactTopic} 후기 불편`,

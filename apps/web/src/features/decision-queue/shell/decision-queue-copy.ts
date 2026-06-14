@@ -588,6 +588,7 @@ const EN_COPY = {
     questionProgressBlocked: "Blocked",
     questionProgressBacklog: "Later backlog",
     planningDetailProgressTitle: "Planning update",
+    planningDetailProgressFallbackTitle: "current idea",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `${count} answer${count === 1 ? "" : "s"} now shape “${title}”.`,
     planningDetailProgressNextQuestion: (question: string) => `Next detail to decide: ${question}`,
@@ -2159,6 +2160,7 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressBlocked: "ブロック中",
     questionProgressBacklog: "後続の未表示",
     planningDetailProgressTitle: "企画への反映",
+    planningDetailProgressFallbackTitle: "現在のアイデア",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `回答 ${count}件が「${title}」の企画に反映されています。`,
     planningDetailProgressNextQuestion: (question: string) => `次に決めること: ${question}`,
@@ -3735,6 +3737,7 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressBlocked: "막힘",
     questionProgressBacklog: "나중에 볼 질문",
     planningDetailProgressTitle: "기획 반영 내용",
+    planningDetailProgressFallbackTitle: "현재 아이디어",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `답변 ${count}개가 “${title}” 기획 초안에 반영되고 있습니다.`,
     planningDetailProgressNextQuestion: (question: string) => `다음에 정할 내용: ${question}`,

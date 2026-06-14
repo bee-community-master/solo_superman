@@ -367,10 +367,16 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
-  const planningProgressTitle = compactPlanningProgressText(projections.spec?.title ?? "Current idea", language);
+  const planningProgressTitle = compactPlanningProgressText(
+    projections.spec?.title ?? copy.questions.planningDetailProgressFallbackTitle,
+    language
+  );
+  const planningProgressNextQuestionItem = [
+    ...(projections.queue?.active ?? []),
+    ...(projections.queue?.next ?? [])
+  ].find(queueItemIsQuestionDebt);
   const planningProgressNextQuestion = compactPlanningProgressText(
-    projections.queue?.active.find((item) => item.cardType === "question" || item.cardType === "follow_up_question")?.title ??
-      projections.queue?.next[0]?.title,
+    planningProgressNextQuestionItem?.title,
     language
   );
   const planningProgressResearch = compactPlanningProgressText(

@@ -845,14 +845,21 @@ describe("QuestionsView", () => {
       version: 2 as ProjectionVersion,
       active: [
         {
+          queueItemId: "queue_review_not_question" as QueueItemId,
+          title: "Review returned research evidence",
+          state: "active",
+          cardType: "research_review"
+        }
+      ],
+      next: [
+        {
           queueItemId: "queue_next_detail" as QueueItemId,
           title: "Which first feature should the founder see after answering?",
-          state: "active",
+          state: "next",
           cardType: "question",
           topicKey: "first_feature"
         }
       ],
-      next: [],
       blocked: [],
       deferred: []
     } satisfies DecisionQueueProjection;
@@ -910,7 +917,28 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Planning update");
     expect(markup).toContain("1 answer now shape “Founder planning assistant”.");
     expect(markup).toContain("Next detail to decide: Which first feature should the founder see after answering?");
+    expect(markup).not.toContain("Next detail to decide: Review returned research evidence");
     expect(markup).toContain("Research to run next: Quickly check the first customer candidate and current alternatives.");
+  });
+
+  it("localizes the planning progress fallback title when the spec title is not loaded yet", () => {
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection()
+      },
+      questionProgress: {
+        ...DEFAULT_QUESTION_PROGRESS,
+        generatedQuestionCount: 1,
+        openQuestionCount: 0,
+        answeredQuestionCount: 1,
+        terminalQuestionCount: 1,
+        completionPercent: 100
+      }
+    }, "ko");
+
+    expect(markup).toContain("답변 1개가 “현재 아이디어” 기획 초안에 반영되고 있습니다.");
+    expect(markup).not.toContain("Current idea");
   });
 
   it("points users to the next question batch when the active batch is clear but debt remains", () => {

@@ -783,12 +783,6 @@ export function useDecisionQueueSessionActions({
         }));
         await refreshProjections(session.projectId, session.sessionId);
       } catch (error) {
-        if (isIdempotencyConflictError(error)) {
-          await refreshProjections(projections.session.projectId, projections.session.sessionId).catch(() => undefined);
-          setWorkflowError(sessionActionErrors.answerIdempotencyConflictRecovered);
-          return;
-        }
-
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
@@ -965,6 +959,12 @@ export function useDecisionQueueSessionActions({
           queue
         );
       } catch (error) {
+        if (isIdempotencyConflictError(error)) {
+          await refreshProjections(projections.session.projectId, projections.session.sessionId).catch(() => undefined);
+          setWorkflowError(sessionActionErrors.answerIdempotencyConflictRecovered);
+          return;
+        }
+
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
