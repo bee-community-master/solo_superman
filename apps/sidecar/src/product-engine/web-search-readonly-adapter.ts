@@ -441,7 +441,11 @@ function coreTermsFor(objective: string, context: string) {
   }
 
   if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
-    return uniqueSearchTerms(["반려동물", "보호자", "의료 기록", "보험", "돌봄", "장례", "pet owner"], 8);
+    return uniqueSearchTerms(["반려동물", "보호자", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", "pet owner"], 8);
+  }
+
+  if (/(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu.test(combined)) {
+    return uniqueSearchTerms(["소상공인", "예약", "카카오톡", "노쇼", "주문", "단골", "미용실", "네일샵", "음식점"], 9);
   }
 
   return uniqueSearchTerms(tokenTermsFromText(combined), 8);
@@ -478,8 +482,14 @@ function searchIntentTermsFor(objective: string, context: string) {
 
   if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
     return isKorean
-      ? uniqueSearchTerms(["보호자 유형", "의료비", "보험", "돌봄", ...commonKorean], 12)
+      ? uniqueSearchTerms(["보호자 유형", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", ...commonKorean], 12)
       : uniqueSearchTerms(["pet owner segments", "veterinary cost", "insurance", "care", ...commonEnglish], 12);
+  }
+
+  if (/(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu.test(combined)) {
+    return isKorean
+      ? uniqueSearchTerms(["예약 누락", "노쇼", "카카오톡 예약", "소상공인 SaaS", "매장 운영", "단골 재방문", ...commonKorean], 12)
+      : uniqueSearchTerms(["small business reservation", "no-show", "local merchant SaaS", "customer retention", ...commonEnglish], 12);
   }
 
   if (/(?:고객|세그먼트|customer|segment|persona|사용자\s*유형)/iu.test(combined)) {
@@ -529,6 +539,13 @@ function englishExpansionQueriesFor(combined: string) {
 
   if (/(?:이혼|별거|소송|divorce|separation)/iu.test(combined)) {
     return ["divorce financial planning cash flow willingness to pay alternatives"];
+  }
+
+  if (/(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu.test(combined)) {
+    return [
+      "small business appointment scheduling no-show customer retention software reviews",
+      "local merchant reservation order management KakaoTalk customer loyalty SaaS"
+    ];
   }
 
   return [];
@@ -1267,8 +1284,16 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
     score += 6;
   }
 
-  if (/(보호자|의료비|보험|돌봄|니즈|이혼|재무|현금|현금흐름|생계비|결제|유료|상담|후기|대체재|segment|persona|need|care|insurance|veterinary|divorce|financial|cash|pricing|paid|alternative|review)/iu.test(haystack)) {
+  if (/(보호자|동물병원|의료\s*기록|보험\s*청구|돌봄|의료비|보험|니즈|소상공인|예약|카카오톡|노쇼|주문|단골|미용실|네일|음식점|매장|이혼|재무|현금|현금흐름|생계비|결제|유료|상담|후기|대체재|segment|persona|need|care|insurance|veterinary|merchant|reservation|order|loyalty|no-show|divorce|financial|cash|pricing|paid|alternative|review)/iu.test(haystack)) {
     score += 3;
+  }
+
+  if (
+    /\bpet\b/iu.test(haystack) &&
+    /(검사|암|뇌질환|ct|mri|양전자|tomography|scan|oncology|brain)/iu.test(haystack) &&
+    !/(반려|보호자|동물병원|수의|veterinary|guardian|insurance|care|lifecycle|record)/iu.test(haystack)
+  ) {
+    score -= 16;
   }
 
   if (

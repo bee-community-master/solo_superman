@@ -618,6 +618,41 @@ function generatedQuestionSetLocalFallback(input: {
 }) {
   const context = [input.rawIdea, input.intakeGoal].filter(Boolean).join(" ").trim();
   const ideaLabel = (input.rawIdea || context || "이 아이디어").slice(0, 80);
+  const isLocalCommerce = /(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|전화)/u.test(context);
+  const shortSubject = isLocalCommerce
+    ? "소상공인 예약/주문"
+    : /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(context)
+      ? "반려동물 기록"
+      : /(?:이직|퇴사|커리어|직장인|career|job)/iu.test(context)
+        ? "커리어 전환"
+      : /(?:창업자|스타트업|founder|startup)/iu.test(context)
+        ? "창업자 기획"
+        : "이 아이디어";
+  const firstSituationOptions = isLocalCommerce
+    ? [
+        {
+          id: "solo_salon_reservation_gap",
+          label: "1인 미용실/네일샵 예약 누락",
+          value: "전화와 카카오톡 예약이 섞여 누락이 생기는 1인 미용실/네일샵을 먼저 본다.",
+          primaryDetail: "첫 고객군과 첫 문제를 예약 누락으로 좁힙니다.",
+          secondaryDetail: "주문 관리와 단골 관리는 첫 버전에서 제외하거나 나중에 확인합니다."
+        },
+        {
+          id: "small_restaurant_order_check",
+          label: "소형 음식점 주문 확인",
+          value: "전화, 채팅, 배달앱 주문 확인이 반복되는 소형 음식점을 먼저 본다.",
+          primaryDetail: "첫 고객군과 첫 기능을 주문 확인으로 좁힙니다.",
+          secondaryDetail: "예약형 업종과 단골 관리는 별도 검증이 필요합니다."
+        },
+        {
+          id: "regular_customer_followup",
+          label: "단골 재방문 관리",
+          value: "단골 고객 재방문 연락과 혜택 관리를 어려워하는 매장을 먼저 본다.",
+          primaryDetail: "첫 가치를 단골 재방문 관리로 좁힙니다.",
+          secondaryDetail: "예약/주문 누락보다 돈을 낼 만큼 급한지는 확인해야 합니다."
+        }
+      ]
+    : [];
   const pressureMinimum =
     input.businessCriticIntensity === "investor_grade"
       ? "investor_grade"
@@ -641,10 +676,12 @@ function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "decision_required",
         severity: "high",
         summary: "첫 사용자 상황이 아직 넓습니다.",
-        whyItMatters: `${ideaLabel}에서 누구의 어떤 순간을 먼저 돕는지 정해야 질문, 리서치, 첫 화면이 좁혀집니다.`,
-        questionText: `${ideaLabel}에서 가장 먼저 좁힐 실제 사용자 상황은 무엇인가요?`,
-        expectedAnswerType: "text",
-        answerOptions: [],
+        whyItMatters: "먼저 도울 상황을 정하지 않으면 질문, 리서치, 첫 화면이 서로 다른 사용자를 향할 수 있습니다.",
+        questionText: `${shortSubject}에서 가장 먼저 도울 실제 사용자 상황은 무엇인가요?`,
+        expectedAnswerType: firstSituationOptions.length ? "choice" : "text",
+        ...(firstSituationOptions.length
+          ? { answerSelectionMode: "single", answerOptions: firstSituationOptions }
+          : { answerOptions: [] }),
         decisionItUnlocks: "첫 인터뷰 대상과 첫 문제 문장을 좁힙니다.",
         ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
@@ -656,8 +693,8 @@ function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "vague",
         severity: "high",
         summary: "첫 버전 범위가 아직 넓습니다.",
-        whyItMatters: `${ideaLabel}의 첫 버전 범위가 넓으면 사용자가 실제로 달라지는 한 가지 결정을 확인하기 어렵습니다.`,
-        questionText: `${ideaLabel} 첫 버전에서 반드시 도울 결정 하나와 일부러 빼는 결정은 무엇인가요?`,
+        whyItMatters: "첫 버전 범위가 넓으면 사용자가 실제로 달라지는 한 가지 순간을 확인하기 어렵습니다.",
+        questionText: `${shortSubject} 첫 버전에서 반드시 도울 일 하나와 일부러 빼는 일은 무엇인가요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "첫 기능 범위와 제외할 범위를 나눕니다.",
@@ -671,8 +708,8 @@ function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "missing",
         severity: "high",
         summary: "이번 주 성공 기준이 아직 없습니다.",
-        whyItMatters: `${ideaLabel}를 계속 만들지 판단하려면 말이 아니라 실제 행동으로 볼 기준이 필요합니다.`,
-        questionText: `${ideaLabel} 이번 주 검증에서 어떤 사용자 행동이 나오면 계속 만들 기준으로 볼 건가요?`,
+        whyItMatters: "계속 만들지 판단하려면 말이 아니라 실제 행동으로 볼 기준이 필요합니다.",
+        questionText: `${shortSubject}에서 이번 주 어떤 사용자 행동이 나오면 계속 만들 기준으로 볼 건가요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "이번 주 검증 액션과 통과 기준을 정합니다.",
@@ -686,8 +723,8 @@ function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "missing_con_evidence",
         severity: "medium",
         summary: "기존 대체재로 충분하다는 반례가 필요합니다.",
-        whyItMatters: `${ideaLabel}가 기존 방법보다 나은 이유가 약하면 첫 고객과 첫 기능을 다시 좁혀야 합니다.`,
-        questionText: `${ideaLabel} 사용자가 기존 방법으로 충분하다고 말한다면 어떤 반례 때문에 계획을 바꿔야 하나요?`,
+        whyItMatters: "기존 방법보다 나은 이유가 약하면 첫 고객과 첫 기능을 다시 좁혀야 합니다.",
+        questionText: `${shortSubject} 사용자가 기존 방법으로 충분하다고 말한다면 어떤 반례 때문에 계획을 바꿔야 하나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "버릴 선택지와 유지할 가정을 분리합니다.",

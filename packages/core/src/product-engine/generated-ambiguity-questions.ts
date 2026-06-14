@@ -138,6 +138,8 @@ const GENERIC_RESEARCH_TASK_PATTERN =
   /^(?:추가\s*리서치(?:가)?\s*(?:필요|하기|진행)?|자료\s*더\s*찾기|근거\s*더\s*찾기|리서치\s*필요|do\s+more\s+research|additional\s+research\s+needed|research\s+needed)$/iu;
 const RESEARCH_SOURCE_SEEKING_CUE_PATTERN =
   /(?:공개|출처|자료|후기|커뮤니티|리포트|보고서|통계|가이드|가격|정책|규정|경쟁|대체재|사례|리뷰|forum|community|review|report|source|public|statistic|guide|policy|pricing|competitor|alternative|case)/iu;
+const MAX_USER_FACING_QUESTION_CHARS = 120;
+const MAX_USER_FACING_SUPPORTING_TEXT_CHARS = 180;
 const RESEARCH_SKEPTICAL_CUE_PATTERN =
   /(?:반례|반대|부족|약하|흔들|불확실|한계|위험|실패|다른|여전히|남는|counter|contrary|weaken|missing|gap|uncertain|uncertainty|limit|risk|fail|skeptical)/iu;
 const RESEARCH_REMAINING_HUMAN_JUDGMENT_CUE_PATTERN =
@@ -172,6 +174,22 @@ function rawStringList(value: unknown) {
   return Array.isArray(value)
     ? value.map(rawStringValue).filter((item) => item.length > 0)
     : [];
+}
+
+function normalizedCompactText(value: string) {
+  return plainUserFacingDecisionQueueText(value)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function significantContextPhrases(contextText: string | undefined) {
+  return (contextText ?? "")
+    .split(/\n+/u)
+    .map(normalizedCompactText)
+    .filter((phrase) => phrase.length >= 24)
+    .map((phrase) => phrase.slice(0, 90));
 }
 
 interface BusinessCriticPressureMetadataValidation {
@@ -358,8 +376,38 @@ function contextualGeneratedQuestionIssues(
   const ideaFitCuePattern = ideaFitCuePatternForContext(contextText);
   const domainSignals = extractIdeaFitDomainSignals(contextText ? { rawIdea: contextText } : {});
   const domainAnchorTerms = ideaFitDomainAnchorTerms(domainSignals);
+  const repeatedContextPhrases = significantContextPhrases(contextText);
 
   questions.forEach((question, questionIndex) => {
+    const normalizedQuestionText = normalizedCompactText(question.question);
+
+    if (question.question.length > MAX_USER_FACING_QUESTION_CHARS) {
+      issue(
+        issues,
+        `$.questions[${questionIndex}].questionText`,
+        `generated question must stay under ${MAX_USER_FACING_QUESTION_CHARS} characters`
+      );
+    }
+
+    if (repeatedContextPhrases.some((phrase) => normalizedQuestionText.includes(phrase))) {
+      issue(
+        issues,
+        `$.questions[${questionIndex}].questionText`,
+        "generated question must not repeat the full idea or goal text shown elsewhere in the UI"
+      );
+    }
+
+    if (
+      question.whyItMatters.length > MAX_USER_FACING_SUPPORTING_TEXT_CHARS ||
+      question.decisionItUnlocks.length > MAX_USER_FACING_SUPPORTING_TEXT_CHARS
+    ) {
+      issue(
+        issues,
+        `$.questions[${questionIndex}]`,
+        `whyItMatters and decisionItUnlocks must stay under ${MAX_USER_FACING_SUPPORTING_TEXT_CHARS} characters`
+      );
+    }
+
     if (
       (domainAnchorTerms.length > 0 &&
         !textHasIdeaFitDomainAnchor(question.question, domainSignals) &&

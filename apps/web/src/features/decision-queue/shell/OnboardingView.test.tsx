@@ -55,7 +55,8 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
       status: "idle",
       delayed: false,
       canUseFallback: false,
-      canRetry: false
+      canRetry: false,
+      canKeepWaiting: false
     },
     initialBusinessCriticIntensityReason: "",
     initialQueueStartBlockerMessages: [],
@@ -65,6 +66,7 @@ function renderOnboardingView(controllerOverrides: Partial<DecisionQueueShellCon
     projectPurposeMode: null,
     projections: emptyProjectionState(),
     refreshRuntimeStatus: vi.fn(),
+    keepWaitingForInitialQuestionGeneration: vi.fn(),
     requestInitialQuestionFallback: vi.fn(),
     retryInitialQuestionGeneration: vi.fn(),
     runInitialQueueFlow: vi.fn(),
@@ -130,14 +132,16 @@ describe("OnboardingView", () => {
         status: "delayed",
         delayed: true,
         canUseFallback: true,
-        canRetry: true
+        canRetry: true,
+        canKeepWaiting: true
       }
     });
 
-    expect(markup).toContain("Live generation is taking longer than 30 seconds or is not ready");
+    expect(markup).toContain("Live generation has taken 60 seconds");
     expect(markup).not.toContain("Keep generating");
     expect(markup).toContain("Start with fallback questions");
-    expect(markup).toContain("Retry");
+    expect(markup).toContain("Regenerate");
+    expect(markup).toContain("Keep waiting");
   });
 
   it("shows the ChatGPT login gate only when visible ChatGPT research is selected", () => {

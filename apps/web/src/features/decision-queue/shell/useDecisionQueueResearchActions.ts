@@ -587,6 +587,7 @@ export function useDecisionQueueResearchActions({
         task
       });
       await refreshResearchEvidenceSurfaces(projections.session.projectId, projections.session.sessionId);
+      await refreshResearchOperations(projections.session.projectId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
@@ -597,6 +598,7 @@ export function useDecisionQueueResearchActions({
     projections.research,
     projections.session,
     refreshResearchEvidenceSurfaces,
+    refreshResearchOperations,
     researchOperations.allowlists,
     researchActionErrors,
     startReadOnlyResearchRunForTask
@@ -684,6 +686,7 @@ export function useDecisionQueueResearchActions({
       }
 
       await refreshResearchEvidenceSurfaces(projectId, projections.session.sessionId);
+      await refreshResearchOperations(projectId);
     } catch (error) {
       setWorkflowError(displayError(error));
     } finally {
@@ -694,6 +697,7 @@ export function useDecisionQueueResearchActions({
     projections.research,
     projections.session,
     refreshResearchEvidenceSurfaces,
+    refreshResearchOperations,
     researchOperations.allowlists,
     researchActionErrors,
     setResearchOperations,
@@ -753,6 +757,7 @@ export function useDecisionQueueResearchActions({
         taskIds: plan.taskIds
       });
       await refreshResearchEvidenceSurfaces(projectId, sessionId);
+      await refreshResearchOperations(projectId);
     } catch (error) {
       setWorkflowError(researchActionErrors.backgroundStartAfterAnswerFailed(displayError(error)));
     }
@@ -761,6 +766,7 @@ export function useDecisionQueueResearchActions({
     prepareVisibleChatGptResearchDelegations,
     projections.session,
     refreshResearchEvidenceSurfaces,
+    refreshResearchOperations,
     researchActionErrors,
     setProjections,
     setResearchOperations,

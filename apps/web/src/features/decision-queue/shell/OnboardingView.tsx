@@ -25,6 +25,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     isBusy,
     projectPurposeMode,
     refreshRuntimeStatus,
+    keepWaitingForInitialQuestionGeneration,
     requestInitialQuestionFallback,
     retryInitialQuestionGeneration,
     runInitialQueueFlow,
@@ -79,22 +80,34 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
             <div>
               <strong>{copy.questions.initialQuestionGenerationTitle}</strong>
               <p>{copy.questions.initialQuestionGenerationStatus[initialQuestionGeneration.status]}</p>
+              {initialQuestionGeneration.countdownSeconds !== undefined ? (
+                <p className="mode-summary">
+                  {copy.questions.initialQuestionGenerationCountdown(initialQuestionGeneration.countdownSeconds)}
+                </p>
+              ) : null}
             </div>
             {initialQuestionGeneration.delayed ? (
               <div className="card-actions initial-question-generation-actions">
+                <button
+                  type="button"
+                  disabled={!initialQuestionGeneration.canRetry}
+                  onClick={retryInitialQuestionGeneration}
+                >
+                  {copy.questions.initialQuestionRegenerate}
+                </button>
+                <button
+                  type="button"
+                  disabled={!initialQuestionGeneration.canKeepWaiting}
+                  onClick={keepWaitingForInitialQuestionGeneration}
+                >
+                  {copy.questions.initialQuestionKeepWaiting}
+                </button>
                 <button
                   type="button"
                   disabled={!initialQuestionGeneration.canUseFallback}
                   onClick={requestInitialQuestionFallback}
                 >
                   {copy.questions.initialQuestionUseFallback}
-                </button>
-                <button
-                  type="button"
-                  disabled={!initialQuestionGeneration.canRetry}
-                  onClick={retryInitialQuestionGeneration}
-                >
-                  {copy.questions.initialQuestionRetry}
                 </button>
               </div>
             ) : null}

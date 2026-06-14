@@ -553,10 +553,14 @@ const EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "Waiting to start.",
       generating: "Still creating the first planning question.",
-      delayed: "Live generation is taking longer than 30 seconds or is not ready. You can keep waiting, start with fallback questions, or retry.",
+      delayed: "Live generation has taken 60 seconds. Choose whether to regenerate, keep waiting, or start with fallback questions.",
       fallback: "Starting with fallback planning questions.",
       retrying: "Retrying live question generation."
     },
+    initialQuestionGenerationCountdown: (seconds: number) =>
+      `${seconds} seconds left before Solo Superman asks whether to regenerate or keep waiting.`,
+    initialQuestionRegenerate: "Regenerate",
+    initialQuestionKeepWaiting: "Keep waiting",
     initialQuestionUseFallback: "Start with fallback questions",
     initialQuestionRetry: "Retry",
     queue: "Queue",
@@ -908,6 +912,9 @@ const EN_COPY = {
     importedResultQuestionRef: "Question or handoff reference",
     importedResultImplicationScope: "What this can decide",
     noResearchTasks: "No research tasks yet.",
+    researchRunStatus: "Research run status",
+    researchRunNotStarted: "Not started yet",
+    researchRunUnavailable: "No active run for this task",
     insufficientSummaryTitle: "Why this public research is not enough",
     insufficientSearchedFor: "Searched for",
     insufficientCheckedScope: "Checked scope",
@@ -2098,10 +2105,14 @@ const JA_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "開始待ちです。",
       generating: "最初の計画質問をまだ生成しています。",
-      delayed: "ライブ質問生成に30秒以上かかっているか、まだ準備できていません。待ち続ける、フォールバック質問で始める、再試行を選べます。",
+      delayed: "ライブ質問生成が60秒かかりました。再生成するか、さらに待つか、フォールバック質問で始めるかを選んでください。",
       fallback: "フォールバックの計画質問で開始しています。",
       retrying: "ライブ質問生成を再試行しています。"
     },
+    initialQuestionGenerationCountdown: (seconds: number) =>
+      `再生成するか待つかを選ぶまで残り${seconds}秒です。`,
+    initialQuestionRegenerate: "再生成",
+    initialQuestionKeepWaiting: "さらに待つ",
     initialQuestionUseFallback: "フォールバック質問で開始",
     initialQuestionRetry: "再試行",
     queue: "キュー",
@@ -2447,6 +2458,9 @@ const JA_COPY: typeof EN_COPY = {
     importedResultQuestionRef: "質問または引き継ぎ参照",
     importedResultImplicationScope: "この結果で判断できること",
     noResearchTasks: "リサーチタスクはまだありません。",
+    researchRunStatus: "リサーチ実行状態",
+    researchRunNotStarted: "まだ開始していません",
+    researchRunUnavailable: "この作業の実行はまだありません",
     insufficientSummaryTitle: "この公開リサーチだけでは足りない理由",
     insufficientSearchedFor: "検索したこと",
     insufficientCheckedScope: "確認できた範囲",
@@ -3648,10 +3662,14 @@ const KO_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "시작 대기 중입니다.",
       generating: "첫 기획 질문을 계속 생성 중입니다.",
-      delayed: "라이브 질문 생성이 30초 이상 걸리거나 아직 준비되지 않았습니다. 계속 기다리거나, 폴백 질문으로 시작하거나, 다시 시도할 수 있습니다.",
+      delayed: "라이브 질문 생성이 60초 걸렸습니다. 재생성할지, 더 기다릴지, 폴백 질문으로 시작할지 선택하세요.",
       fallback: "폴백 기획 질문으로 시작합니다.",
       retrying: "라이브 질문 생성을 다시 시도합니다."
     },
+    initialQuestionGenerationCountdown: (seconds: number) =>
+      `재생성할지 더 기다릴지 묻기까지 ${seconds}초 남았습니다.`,
+    initialQuestionRegenerate: "재생성",
+    initialQuestionKeepWaiting: "더 기다리기",
     initialQuestionUseFallback: "폴백 질문으로 시작",
     initialQuestionRetry: "재시도",
     queue: "큐",
@@ -3995,6 +4013,9 @@ const KO_COPY: typeof EN_COPY = {
     importedResultQuestionRef: "질문 또는 인계 참조",
     importedResultImplicationScope: "이 결과로 판단할 수 있는 범위",
     noResearchTasks: "아직 리서치 작업이 없습니다.",
+    researchRunStatus: "리서치 실행 상태",
+    researchRunNotStarted: "아직 시작 전",
+    researchRunUnavailable: "이 작업의 실행 없음",
     insufficientSummaryTitle: "이 공개 리서치만으로 부족한 이유",
     insufficientSearchedFor: "검색한 것",
     insufficientCheckedScope: "확인한 범위",

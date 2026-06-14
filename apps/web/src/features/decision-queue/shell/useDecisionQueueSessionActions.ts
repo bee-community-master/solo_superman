@@ -109,6 +109,8 @@ export interface InitialQuestionGenerationState {
   readonly delayed: boolean;
   readonly canUseFallback: boolean;
   readonly canRetry: boolean;
+  readonly countdownSeconds?: number;
+  readonly canKeepWaiting?: boolean;
 }
 
 export interface GeneratedInitialQuestionSetInput {
@@ -124,13 +126,14 @@ export interface GeneratedInitialQuestionSetInput {
 export const MIN_QUESTION_BATCH_SIZE = 1;
 export const MAX_QUESTION_BATCH_SIZE = 5;
 export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MIN_QUESTION_BATCH_SIZE;
-export const INITIAL_QUESTION_GENERATION_DELAY_MS = 30_000;
+export const INITIAL_QUESTION_GENERATION_DECISION_MS = 60_000;
 
 const INITIAL_QUESTION_GENERATION_IDLE: InitialQuestionGenerationState = {
   status: "idle",
   delayed: false,
   canUseFallback: false,
-  canRetry: false
+  canRetry: false,
+  canKeepWaiting: false
 };
 
 export function boundedQuestionBatchSize(value: number) {
@@ -284,6 +287,7 @@ export function useDecisionQueueSessionActions({
     INITIAL_QUESTION_GENERATION_IDLE
   );
   const initialQuestionDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialQuestionCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initialQuestionAttemptRef = useRef(0);
   const initialQuestionControlRef = useRef<{
     readonly attemptId: number;
@@ -296,7 +300,56 @@ export function useDecisionQueueSessionActions({
       clearTimeout(initialQuestionDelayTimerRef.current);
       initialQuestionDelayTimerRef.current = null;
     }
+    if (initialQuestionCountdownTimerRef.current) {
+      clearInterval(initialQuestionCountdownTimerRef.current);
+      initialQuestionCountdownTimerRef.current = null;
+    }
   }, []);
+
+  const armInitialQuestionDecisionTimer = useCallback((attemptId: number, status: InitialQuestionGenerationAttemptStatus) => {
+    clearInitialQuestionDelayTimer();
+    const startedAt = Date.now();
+    const initialSeconds = Math.ceil(INITIAL_QUESTION_GENERATION_DECISION_MS / 1000);
+
+    setInitialQuestionGeneration({
+      status,
+      delayed: false,
+      canUseFallback: true,
+      canRetry: true,
+      canKeepWaiting: false,
+      countdownSeconds: initialSeconds
+    });
+    initialQuestionCountdownTimerRef.current = setInterval(() => {
+      if (initialQuestionControlRef.current?.attemptId !== attemptId) {
+        clearInitialQuestionDelayTimer();
+        return;
+      }
+
+      const remainingMs = Math.max(0, INITIAL_QUESTION_GENERATION_DECISION_MS - (Date.now() - startedAt));
+      const countdownSeconds = Math.ceil(remainingMs / 1000);
+
+      setInitialQuestionGeneration((current) => current.status === "generating" || current.status === "retrying"
+        ? {
+            ...current,
+            countdownSeconds
+          }
+        : current);
+    }, 1_000);
+    initialQuestionDelayTimerRef.current = setTimeout(() => {
+      if (initialQuestionControlRef.current?.attemptId !== attemptId) {
+        return;
+      }
+
+      clearInitialQuestionDelayTimer();
+      setInitialQuestionGeneration({
+        status: "delayed",
+        delayed: true,
+        canUseFallback: true,
+        canRetry: true,
+        canKeepWaiting: true
+      });
+    }, INITIAL_QUESTION_GENERATION_DECISION_MS);
+  }, [clearInitialQuestionDelayTimer]);
 
   useEffect(() => () => {
     clearInitialQuestionDelayTimer();
@@ -318,7 +371,8 @@ export function useDecisionQueueSessionActions({
       status: "fallback",
       delayed: false,
       canUseFallback: false,
-      canRetry: false
+      canRetry: false,
+      canKeepWaiting: false
     });
   }, []);
 
@@ -336,9 +390,20 @@ export function useDecisionQueueSessionActions({
       status: "retrying",
       delayed: false,
       canUseFallback: true,
-      canRetry: false
+      canRetry: false,
+      canKeepWaiting: false
     });
   }, []);
+
+  const keepWaitingForInitialQuestionGeneration = useCallback(() => {
+    const control = initialQuestionControlRef.current;
+
+    if (!control) {
+      return;
+    }
+
+    armInitialQuestionDecisionTimer(control.attemptId, "generating");
+  }, [armInitialQuestionDecisionTimer]);
 
   const runInitialQuestionGenerationAttempt = useCallback(
     async (
@@ -367,26 +432,16 @@ export function useDecisionQueueSessionActions({
         resolveAction
       };
       clearInitialQuestionDelayTimer();
-      setInitialQuestionGeneration({
-        status,
-        delayed: false,
-        canUseFallback: generationMode === "live_preview",
-        canRetry: generationMode === "live_preview"
-      });
-
       if (generationMode === "live_preview") {
-        initialQuestionDelayTimerRef.current = setTimeout(() => {
-          if (initialQuestionControlRef.current?.attemptId !== attemptId) {
-            return;
-          }
-
-          setInitialQuestionGeneration({
-            status: "delayed",
-            delayed: true,
-            canUseFallback: true,
-            canRetry: true
-          });
-        }, INITIAL_QUESTION_GENERATION_DELAY_MS);
+        armInitialQuestionDecisionTimer(attemptId, status);
+      } else {
+        setInitialQuestionGeneration({
+          status,
+          delayed: false,
+          canUseFallback: false,
+          canRetry: false,
+          canKeepWaiting: false
+        });
       }
 
       const generatedPromise = generateInitialQuestionSetForAnalysis(
@@ -419,7 +474,8 @@ export function useDecisionQueueSessionActions({
             status: "delayed",
             delayed: true,
             canUseFallback: true,
-            canRetry: true
+            canRetry: true,
+            canKeepWaiting: true
           });
           const action = await actionPromise;
           if (initialQuestionControlRef.current?.attemptId === attemptId) {
@@ -442,7 +498,13 @@ export function useDecisionQueueSessionActions({
 
       return result;
     },
-    [clearInitialQuestionDelayTimer, client, generateInitialQuestionSet, initialQueueStartBlockers.sidecar_connection]
+    [
+      armInitialQuestionDecisionTimer,
+      clearInitialQuestionDelayTimer,
+      client,
+      generateInitialQuestionSet,
+      initialQueueStartBlockers.sidecar_connection
+    ]
   );
 
   const generateInitialQuestionSetWithControls = useCallback(
@@ -1272,6 +1334,7 @@ export function useDecisionQueueSessionActions({
 
   return {
     initialQuestionGeneration,
+    keepWaitingForInitialQuestionGeneration,
     requestInitialQuestionFallback,
     retryInitialQuestionGeneration,
     runInitialQueueFlow,
