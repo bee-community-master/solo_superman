@@ -3079,11 +3079,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(answer.accepted).toBe(true);
     expect(answer.events[0]?.payload).toMatchObject({
-      researchTaskIds: [
-        expect.stringMatching(/^research_task_/),
-        expect.stringMatching(/^research_task_/),
-        expect.stringMatching(/^research_task_/)
-      ],
+      researchTaskId: expect.stringMatching(/^research_task_/),
       followUpQueueItemIds: [
         expect.stringMatching(/^queue_followup_/),
         expect.stringMatching(/^queue_followup_/),
@@ -3092,24 +3088,14 @@ describe("PR-04 ProductEngine reducer", () => {
       followUpRepeatCounts: [1, 2, 3]
     });
     expect(answer.events[1]?.payload).toMatchObject({
-      researchTasks: [
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:1"),
-          objective: expect.stringContaining("노령·만성질환 반려동물 보호자")
-        }),
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:2"),
-          objective: expect.stringContaining("보험·의료비 지불의향")
-        }),
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:3"),
-          objective: expect.stringContaining("장례와 생애 후반 정보")
-        })
-      ]
+      researchTask: expect.objectContaining({
+        sourceAnswerRef: expect.not.stringContaining("branch:"),
+        objective: expect.stringContaining("더 넓게 살펴봅니다")
+      })
     });
-    expect(answer.effectPlan.map((effect) => effect.inputRef.refId)).toEqual(answer.events[0]?.payload.researchTaskIds);
-    expect(answer.nextState.researchState.tasks).toHaveLength(3);
-    expect(answer.nextState.queueProjection.next.filter((item) => item.cardType === "research_review")).toHaveLength(3);
+    expect(answer.effectPlan.map((effect) => effect.inputRef.refId)).toEqual([answer.events[0]?.payload.researchTaskId]);
+    expect(answer.nextState.researchState.tasks).toHaveLength(1);
+    expect(answer.nextState.queueProjection.next.filter((item) => item.cardType === "research_review")).toHaveLength(1);
 
     const followUpIssues = answer.nextState.openIssues.filter((issue) =>
       issue.queueItemId.startsWith("queue_followup_")
@@ -3159,12 +3145,8 @@ describe("PR-04 ProductEngine reducer", () => {
     ]);
 
     expect(replayed.openIssues.filter((issue) => issue.queueItemId.startsWith("queue_followup_"))).toHaveLength(3);
-    expect(replayed.researchState.tasks).toHaveLength(3);
-    expect(replayed.researchState.tasks.map((task) => task.sourceAnswerRef)).toEqual([
-      expect.stringContaining("branch:1"),
-      expect.stringContaining("branch:2"),
-      expect.stringContaining("branch:3")
-    ]);
+    expect(replayed.researchState.tasks).toHaveLength(1);
+    expect(replayed.researchState.tasks[0]?.sourceAnswerRef).not.toContain("branch:");
     expect(replayed.queueProjection.progress).toMatchObject({
       followUpQuestionCount: 3,
       followUpOpenQuestionCount: 3

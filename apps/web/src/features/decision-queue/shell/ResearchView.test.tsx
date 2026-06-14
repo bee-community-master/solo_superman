@@ -329,6 +329,47 @@ describe("ResearchView", () => {
     expect(markup).toContain("Review already returned evidence.");
   });
 
+  it("hides result import for research tasks that need more clarification first", () => {
+    const research = researchProjection();
+    const task = {
+      ...research.tasks[0]!,
+      researchTaskId: "research_task_needs_more_context" as ResearchTaskId,
+      objective:
+        "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다."
+    };
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: {
+          ...research,
+          taskIds: [task.researchTaskId],
+          tasks: [task]
+        }
+      },
+      readyReadOnlyResearchTaskIds: [],
+      readyReadOnlyResearchStartPlan: {
+        status: "blocked",
+        reason: "no_ready_tasks",
+        message: "Answer a little more before sending this to public web research."
+      }
+    });
+
+    expect(markup).toContain("Ask one more question first");
+    expect(markup).not.toContain("Prompt to paste into ChatGPT Deep Research");
+    expect(markup).not.toContain("Research result");
+  });
+
   it("shows visible ChatGPT import guidance on matching research tasks", () => {
     const markup = renderResearchView({
       projections: {
@@ -368,6 +409,9 @@ describe("ResearchView", () => {
     expect(markup).toContain("Open ChatGPT");
     expect(markup).toContain('href="https://chatgpt.com/"');
     expect(markup).toContain("Prompt to paste into ChatGPT Deep Research");
+    expect(markup).toContain("Copy the research request.");
+    expect(markup).toContain("Run it with ChatGPT Deep Research.");
+    expect(markup).toContain("Paste the reviewed result below.");
     expect(markup).toContain("Decision this research should narrow: Use visible ChatGPT Deep Research for the buyer/user split.");
     expect(markup).toContain("Possible user futures");
     expect(markup).toContain("Do not include passwords, session cookies, API keys");
@@ -536,7 +580,7 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("No ready public web runs");
+    expect(markup).toContain("No ready public web research yet");
     expect(markup).toContain("Ready public web batch plan");
     expect(markup).toContain("Research tasks exist, but public web sources must be enabled before they can run.");
     expect(markup).not.toContain("Task IDs queued for this batch");
@@ -552,8 +596,8 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("No ready public web runs");
-    expect(markup).toContain("No public web research task is executable with the current source settings.");
+    expect(markup).toContain("No ready public web research yet");
+    expect(markup).toContain("Answer a little more before sending this to public web research.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
@@ -770,7 +814,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Balance status");
     expect(markup).toContain("Missing counter-evidence");
     expect(markup).not.toContain(">missing_con_evidence<");
-    expect(markup).toContain("Risk remains before planning handoff");
+    expect(markup).toContain("More planning detail is still needed");
     expect(markup).toContain("Supporting signals");
     expect(markup).toContain("Founders report willingness to pay");
     expect(markup).toContain("Counterpoints / risks");

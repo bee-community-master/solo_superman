@@ -48,6 +48,16 @@ describe("researchRoutingReadinessForTask", () => {
     ).toBe("browser_deep_research");
   });
 
+  it("routes the accumulated planning-detail objective to Browser/Deep Research", () => {
+    expect(
+      researchRoutingReadinessForTask({
+        task: task(
+          "여러 공개 자료를 비교해 초기 창업자 기획 상세화 도구 아이디어의 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지를 종합합니다."
+        )
+      })
+    ).toBe("browser_deep_research");
+  });
+
   it("asks another clarification question before research when the target is still vague", () => {
     expect(
       researchRoutingReadinessForTask({

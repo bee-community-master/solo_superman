@@ -21,7 +21,8 @@ describe("clarification volume smoke", () => {
     expect(evidence.volume?.answeredQuestionCountAtTarget).toBeGreaterThanOrEqual(200);
     expect(evidence.volume?.finalAnsweredQuestionCount).toBeGreaterThanOrEqual(200);
     expect(evidence.volume?.finalFollowUpQuestionCount).toBeGreaterThanOrEqual(200);
-    expect(evidence.volume?.researchTaskCount).toBeGreaterThanOrEqual(200);
+    expect(evidence.volume?.researchTaskCount).toBeGreaterThanOrEqual(1);
+    expect(evidence.volume?.researchTaskCount).toBeLessThanOrEqual(5);
     expect(evidence.volume?.minActiveQuestionCountBeforeTarget).toBeGreaterThanOrEqual(1);
     expect(evidence.checked).toEqual(
       expect.arrayContaining([

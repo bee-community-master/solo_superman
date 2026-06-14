@@ -1929,7 +1929,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(importResearchResult).toHaveBeenCalledWith(expect.objectContaining({
       researchTaskId,
       result: "ChatGPT Deep Research result with cited sources and remaining caveats.",
-      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceTitle: "User-supplied ChatGPT Deep Research result",
       sourceReliability: "unknown",
       questionRef: CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.promptPreviewRef,
       implicationScope: "visible_chatgpt_deep_research_import",
@@ -2047,7 +2047,7 @@ describe("useDecisionQueueSessionActions", () => {
     expect(importResearchResult).toHaveBeenCalledWith(expect.objectContaining({
       researchTaskId,
       result: "User-reviewed ChatGPT Deep Research result with cited public sources.",
-      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceTitle: "User-supplied ChatGPT Deep Research result",
       sourceReliability: "unknown",
       questionRef: `visible_chatgpt_handoff:${researchTaskId}`,
       implicationScope: "visible_chatgpt_deep_research_import",

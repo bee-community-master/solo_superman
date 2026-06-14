@@ -304,8 +304,12 @@ function flowBlockers(result: VolumeFlowResult) {
     blockers.push(`follow-up chain depth must reach 16; received ${depth}`);
   }
 
-  if (result.state.researchState.tasks.length < TARGET_ANSWERED_QUESTION_COUNT) {
-    blockers.push(`each volume answer should create durable research debt; received ${result.state.researchState.tasks.length}`);
+  if (result.state.researchState.tasks.length < 1) {
+    blockers.push("clarification answers should maintain at least one durable research task.");
+  }
+
+  if (result.state.researchState.tasks.length > 5) {
+    blockers.push(`clarification research task debt should stay bounded; received ${result.state.researchState.tasks.length}`);
   }
 
   if (!result.stoppedBecauseActiveQueueWasEmpty) {
@@ -349,7 +353,7 @@ function passedEvidence(result: VolumeFlowResult): ClarificationVolumeSmokeEvide
       "active question flow stayed bounded to one visible question by default",
       "active batch refilled until at least 200 answers were accepted",
       "follow-up chains reached depth 16 without duplicate-topic rejection",
-      "every accepted answer created durable research task debt",
+      "accepted answers updated bounded durable research task debt",
       "question progress reached 100% after answerable debt was exhausted"
     ]
   };

@@ -458,6 +458,11 @@ function VisibleChatGptResearchHandoff({
         </a>
       </div>
       <p className="mode-summary">{copy.research.visibleChatGptHandoffBoundary}</p>
+      <ol className="research-handoff-steps">
+        {copy.research.visibleChatGptSteps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
       <label>
         {copy.research.visibleChatGptPromptLabel}
         <textarea readOnly rows={8} value={handoff.prompt} />
@@ -635,8 +640,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 task.status === "handoff_ready"
                   ? latestResearchResultForTask(research.results, task.researchTaskId)
                   : undefined;
+              const routingReadiness = researchRoutingReadinessForTask({ task, spec: projections.spec });
               const canImportResearch =
-                task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true;
+                routingReadiness !== "needs_more_clarification" &&
+                (task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true);
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
               const visibleSourceRefs = retainedSourceRefs
@@ -660,7 +667,6 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 researchTaskId: task.researchTaskId,
                 hint: copy.research.visibleChatGptImportHint
               });
-              const routingReadiness = researchRoutingReadinessForTask({ task, spec: projections.spec });
               const canUseVisibleChatGptHandoff =
                 taskShouldUseBrowserDeepResearch({ task, spec: projections.spec }) &&
                 (projections.session?.initialResearchAutomationPermission === "allow_codex_and_chatgpt_visible" ||

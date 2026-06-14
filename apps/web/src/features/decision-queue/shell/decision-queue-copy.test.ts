@@ -40,7 +40,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.chatGptLoginTitle).toBe("Sign in to ChatGPT in your browser first");
     expect(DECISION_QUEUE_COPY.ko.questions.chatGptLoginTitle).toBe("먼저 브라우저에서 ChatGPT에 로그인");
     expect(DECISION_QUEUE_COPY.en.questions.codexLoginTitle).toBe(
-      "Sign in to Codex CLI for backend questions and research"
+      "Confirm Codex CLI login for question and research prep"
     );
     expect(DECISION_QUEUE_COPY.en.questions.codexLoginStart).toBe("Open Codex login");
     expect(DECISION_QUEUE_COPY.ja.questions.codexLoginStart).toBe("Codexログインを開く");

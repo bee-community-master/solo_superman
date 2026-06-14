@@ -150,6 +150,11 @@ describe("answer follow-up variety", () => {
     const followUp = submitAnswerAndReadFollowUp(0);
 
     expect(followUp.questionText).toContain("지금 어떤 방법");
+    expect(followUp.summary).toBe("타깃 고객 판단을 한 단계 더 구체화합니다.");
+    expect(followUp.decisionItUnlocks).toBe("타깃 고객 판단을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다.");
+    expect(followUp.summary).not.toContain("이전 답변");
+    expect(followUp.decisionItUnlocks).not.toContain("이 후속 답변");
+    expect(followUp.nextValidationAction).not.toContain("기획 메모");
     expect(followUp.expectedAnswerType).toBe("text");
     expect(followUp.answerSelectionMode).toBeUndefined();
     expect(followUp.answerOptions).toEqual([]);

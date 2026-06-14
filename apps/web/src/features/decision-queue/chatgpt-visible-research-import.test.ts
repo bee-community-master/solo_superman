@@ -15,7 +15,7 @@ import {
 const copy = {
   manualResearchSourceTitle: "Manual desk research",
   manualResearchLimitationNotes: "Manual import from founder-provided source.",
-  chatGptResearchSourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+  chatGptResearchSourceTitle: "User-supplied ChatGPT Deep Research result",
   chatGptResearchLimitationNotes: "Imported from a visible user-owned ChatGPT session; verify cited sources, uncertainty, counterpoints, and freshness before planning."
 };
 
@@ -32,7 +32,7 @@ describe("chatgpt visible research import helpers", () => {
       researchTaskId: CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.researchTaskId
     })?.runId).toBe(CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.runId);
     expect(metadata).toMatchObject({
-      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceTitle: "User-supplied ChatGPT Deep Research result",
       sourceReliability: "unknown",
       questionRef: CHATGPT_BROWSER_DELEGATION_READY_RUN_FIXTURE.promptPreviewRef,
       implicationScope: "visible_chatgpt_deep_research_import",
@@ -65,7 +65,7 @@ describe("chatgpt visible research import helpers", () => {
       visibleChatGptHandoffAvailable: true,
       copy
     })).toMatchObject({
-      sourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      sourceTitle: "User-supplied ChatGPT Deep Research result",
       sourceReliability: "unknown",
       limitationNotes:
         "Imported from a visible user-owned ChatGPT session; verify cited sources, uncertainty, counterpoints, and freshness before planning.",

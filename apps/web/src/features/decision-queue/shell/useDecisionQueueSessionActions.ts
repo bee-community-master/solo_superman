@@ -596,6 +596,9 @@ export function useDecisionQueueSessionActions({
           projectPurposeMode,
           businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
         });
+        clearInitialQuestionDelayTimer();
+        initialQuestionControlRef.current = null;
+        setInitialQuestionGeneration(INITIAL_QUESTION_GENERATION_IDLE);
         const analyzeResponse = await appendCommand(
           sessionActionLabels.analyzeAmbiguity,
           await client.analyzeAmbiguity(

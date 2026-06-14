@@ -2882,6 +2882,10 @@ function answerRequestsBroaderResearch(answer: string) {
   return BROADER_RESEARCH_REQUEST_PATTERN.test(answer) && !BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
 }
 
+function answerRejectsBroaderResearch(answer: string) {
+  return BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
+}
+
 function ambiguityRoutingPathInstruction(path: AmbiguityIssueSnapshot["ambiguityRoutingPath"] | undefined) {
   if (path === "existing_fact_check") {
     return "공개 자료로 바로 확인되는 사실과 사용자가 직접 정해야 할 판단을 나눠 정리합니다.";
@@ -3028,11 +3032,11 @@ function planningChangeSummaryForAnswer(input: {
   readonly sourceQuestion: AmbiguityIssueSnapshot;
   readonly routeOutcome: ResearchRouteOutcome;
 }) {
-  const section = input.sourceQuestion.sectionRef ?? "현재 스펙";
+  const section = input.sourceQuestion.sectionRef ?? "현재 기획";
   const answer = answerJudgmentLabel(input.sourceQuestion, input.routeOutcome);
   const routeAction = routeOutcomePlanningAction(input.routeOutcome);
 
-  return `기획 메모: ${section} 내용이 “${answer}” 쪽으로 조금 더 구체화되었습니다. 다음에는 ${routeAction}`;
+  return `${section}에서 “${answer}”이 조금 더 정리되었습니다. 다음에는 ${routeAction}`;
 }
 
 function followUpSuggestedResearchTask(
@@ -3090,32 +3094,58 @@ function answerFollowUpBranches(answer: string): readonly string[] {
   return uniqueBranches.slice(0, MAX_IMMEDIATE_FOLLOW_UP_BRANCHES);
 }
 
-function branchAnswerRef(answerRef: string, branchCount: number, branchIndex: number) {
-  return branchCount === 1 ? answerRef : `${answerRef}:branch:${branchIndex + 1}`;
+const PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD = 3;
+
+function planningDetailResearchTaskId(sessionId: SessionId) {
+  return `research_task_${stableToken(`${sessionId}:planning_detail_research`)}` as ResearchTaskId;
 }
 
-function researchObjectiveForAnswerBranch(input: {
+function answeredPlanningQuestionCount(issues: readonly AmbiguityIssueSnapshot[]) {
+  return issues.filter((issue) => issue.status === "answered" && Boolean(issue.submittedAnswer)).length;
+}
+
+function currentPlanningIdeaTitle(state: ProductEngineStateSnapshot) {
+  return plainUserFacingDecisionQueueText(state.currentSpec.title ?? state.project.rawIdeaText ?? "현재 아이디어");
+}
+
+function researchObjectiveForPlanningDetailAnswer(input: {
   readonly explicitObjective: string | undefined;
   readonly activeItem: QueueItemProjection;
-  readonly branchAnswer: string;
-  readonly branchCount: number;
-  readonly branchIndex: number;
+  readonly answer: string;
+  readonly answeredQuestionCount: number;
+  readonly state: ProductEngineStateSnapshot;
   readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
 }) {
-  const { activeItem, branchAnswer, branchCount, branchIndex, explicitObjective, sourceQuestion } = input;
-  const objective =
-    explicitObjective ??
-    researchObjectiveForAnswer({
-      activeItem,
-      answer: branchAnswer,
-      sourceQuestion
-    });
-
-  if (branchCount === 1) {
-    return objective;
+  if (input.explicitObjective) {
+    return input.explicitObjective;
   }
 
-  return `답변의 ${branchIndex + 1}번째 판단 가지 “${compactAnswerExcerpt(branchAnswer)}” 기준으로 ${plainUserFacingDecisionQueueText(objective)}`;
+  if (
+    answerRequestsBroaderResearch(input.answer) ||
+    answerRejectsBroaderResearch(input.answer) ||
+    Boolean(input.sourceQuestion?.researchQuestion) ||
+    Boolean(input.sourceQuestion?.suggestedResearchTask)
+  ) {
+    return researchObjectiveForAnswer({
+      activeItem: input.activeItem,
+      answer: input.answer,
+      sourceQuestion: input.sourceQuestion
+    });
+  }
+
+  if (input.answeredQuestionCount < PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD) {
+    return "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다.";
+  }
+
+  const title = currentPlanningIdeaTitle(input.state);
+  const question = input.sourceQuestion?.questionText ?? input.activeItem.title;
+
+  return [
+    `여러 공개 자료를 비교해 “${title}” 아이디어의 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지를 종합합니다.`,
+    `최근 질문: ${plainUserFacingDecisionQueueText(question)}`,
+    `최근 사용자 답변: “${compactAnswerExcerpt(input.answer)}”.`,
+    "첫 사용자, 기존 방법, 결과물, 첫 화면 판단을 기획서 초안에 반영할 수 있게 정리합니다."
+  ].join(" ");
 }
 
 function createFollowUpIssuesForAnswer(input: {
@@ -3187,8 +3217,8 @@ function createFollowUpIssuesForAnswer(input: {
       uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
       severity,
       summary: branches.length === 1
-        ? `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`
-        : `이전 답변의 ${branchIndex + 1}번째 판단 가지를 더 구체화해야 함: ${sourceQuestion.summary}`,
+        ? `${answerLabel}을 한 단계 더 구체화합니다.`
+        : `${answerLabel}의 ${branchIndex + 1}번째 선택지를 한 단계 더 구체화합니다.`,
       whyItMatters:
         `${planningChangeSummary} 답하면 다음 질문, 리서치 주제, 첫 결과물 범위가 더 선명해집니다.`,
       status: "open" as const,
@@ -3197,8 +3227,8 @@ function createFollowUpIssuesForAnswer(input: {
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions,
       decisionItUnlocks:
-        `${sourceQuestion.decisionItUnlocks ?? "이전 답변을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다."} 이 후속 답변은 다음 범위를 한 단계 더 좁힙니다.`,
-      nextValidationAction: planningChangeSummary,
+        `${answerLabel}을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다.`,
+      nextValidationAction: `다음에는 ${routeOutcomePlanningAction(routeOutcome)}`,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: nextRepeatCount,
       repeatLimit,
@@ -5044,44 +5074,47 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const routeOutcome = routeOutcomeForAnswer(command);
   const impact = validResearchImpact(command.payload.claimImpact);
   const sourceQuestion = state.openIssues.find((issue) => issue.queueItemId === queueItemId);
-  const answerBranches = answerFollowUpBranches(answer);
   const explicitResearchObjective = requiredString(command.payload.researchObjective) ?? undefined;
-  const researchTasks = answerBranches.map((branchAnswer, branchIndex) => {
-    const branchCount = answerBranches.length;
-    const branchSourceAnswerRef = branchAnswerRef(answerRef, branchCount, branchIndex);
-    const objective = researchObjectiveForAnswerBranch({
+  const nextOpenIssues = state.openIssues.map((issue) =>
+    issue.queueItemId === queueItemId
+      ? {
+          ...issue,
+          status: "answered" as const,
+          submittedAnswer: answer,
+          submittedAnswerRef: answerRef,
+          answerRouteOutcome: routeOutcome
+        }
+      : issue
+  );
+  const answeredQuestionCount = answeredPlanningQuestionCount(nextOpenIssues);
+  const researchRouteOutcome =
+    answeredQuestionCount >= PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD ? "research_needed" : routeOutcome;
+  const researchTask = planResearchTask({
+    researchTaskId: planningDetailResearchTaskId(command.sessionId),
+    sessionId: command.sessionId,
+    sourceQueueItemId: queueItemId as QueueItemId,
+    sourceAnswerRef: answerRef,
+    objective: researchObjectiveForPlanningDetailAnswer({
       explicitObjective: explicitResearchObjective,
       activeItem,
-      branchAnswer,
-      branchCount,
-      branchIndex,
+      answer,
+      answeredQuestionCount,
+      state,
       sourceQuestion
-    });
-    const researchTaskId = `research_task_${stableToken(
-      branchCount === 1
-        ? `${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`
-        : `${command.sessionId}:${queueItemId}:${branchAnswer}:${routeOutcome}:${branchIndex}`
-    )}` as ResearchTaskId;
-
-    return planResearchTask({
-      researchTaskId,
-      sessionId: command.sessionId,
-      sourceQueueItemId: queueItemId as QueueItemId,
-      sourceAnswerRef: branchSourceAnswerRef,
-      objective,
-      projectPurposeMode: confirmedMode,
-      projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
-      projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
-      skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
-      ...(state.project.businessCriticIntensity
-        ? { businessCriticIntensity: state.project.businessCriticIntensity }
-        : {}),
-      ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
-      routeOutcome,
-      impact,
-      createdAt: command.issuedAt
-    });
+    }),
+    projectPurposeMode: confirmedMode,
+    projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
+    skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
+    ...(state.project.businessCriticIntensity
+      ? { businessCriticIntensity: state.project.businessCriticIntensity }
+      : {}),
+    ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
+    routeOutcome: researchRouteOutcome,
+    impact,
+    createdAt: command.issuedAt
   });
+  const researchTasks = [researchTask];
   const firstResearchTask = researchTasks[0];
 
   if (!firstResearchTask) {
@@ -5094,26 +5127,15 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
       projection,
       researchTask.researchTaskId,
       researchReviewQueueTitleForRouteOutcome({
-        routeOutcome,
+        routeOutcome: researchTask.routeOutcome,
         title: activeItem.title,
         index,
         total: researchTasks.length
       }),
-      researchReviewQueueStateForRouteOutcome(routeOutcome),
+      researchReviewQueueStateForRouteOutcome(researchTask.routeOutcome),
       projectionAfterAnsweredItem.version,
       command.issuedAt
     ), projectionAfterAnsweredItem);
-  const nextOpenIssues = state.openIssues.map((issue) =>
-    issue.queueItemId === queueItemId
-      ? {
-          ...issue,
-          status: "answered" as const,
-          submittedAnswer: answer,
-          submittedAnswerRef: answerRef,
-          answerRouteOutcome: routeOutcome
-        }
-      : issue
-  );
   const followUpIssues = createFollowUpIssuesForAnswer({
     sessionId: command.sessionId,
     sourceQuestion,

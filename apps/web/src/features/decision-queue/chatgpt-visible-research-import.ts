@@ -68,7 +68,7 @@ export function researchImportMetadataForTask(input: {
     limitationNotes: input.copy.chatGptResearchLimitationNotes,
     decisionContext:
       run?.userVisibleExplanation ??
-      "Visible ChatGPT Pro/Deep Research request was shown from the user's onboarding permission; the user reviewed and pasted the result from their own browser session.",
+      "Visible ChatGPT Deep Research request was shown from the user's onboarding permission; the user reviewed and pasted the result from their own browser session.",
     questionRef: run?.promptPreviewRef ?? `visible_chatgpt_handoff:${input.researchTaskId}`,
     implicationScope: "visible_chatgpt_deep_research_import",
     staleSensitive: true
@@ -108,7 +108,7 @@ export function buildChatGptVisibleResultImportDelegationRequest(input: {
     idempotencyKey: `chatgpt-visible-result-import:${run.runId}:${resultImportRef}`,
     researchTaskId: run.researchTaskId,
     status: "completed",
-    userVisibleExplanation: "Visible ChatGPT Pro/Deep Research result was imported into Research Evidence.",
+    userVisibleExplanation: "Visible ChatGPT Deep Research result was imported into Research Evidence.",
     nextAction: "Review the generated evidence matrix, uncertainty notes, and follow-up questions before using this result for planning.",
     promptPreviewRef: run.promptPreviewRef,
     dataDisclosurePreview: run.dataDisclosurePreview,

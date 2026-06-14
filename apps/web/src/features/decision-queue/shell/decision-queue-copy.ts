@@ -358,7 +358,7 @@ const EN_COPY = {
     workflowSteps: "Workspace steps",
     progressAria: "Live queue progress",
     progress: "Progress",
-    completeness: "Completeness",
+    completeness: "Question progress",
     pendingQuestions: "Pending questions",
     blockedQuestions: "Blocked questions",
     reconnectSidecar: "Reconnect local service",
@@ -420,9 +420,9 @@ const EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "The first question is already being created.",
-      chatgpt_login: "Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.",
+      chatgpt_login: "Confirm direct ChatGPT login before preparing a visible ChatGPT Deep Research request.",
       codex_login:
-        "Local Codex CLI login must be confirmed before backend questions or research prep can start.",
+        "Confirm local Codex CLI login before Solo Superman prepares questions or research.",
       sidecar_connection: "Local service is not connected.",
       project_purpose: "Choose either business validation or personal workflow build before starting.",
       business_critic_intensity:
@@ -459,7 +459,7 @@ const EN_COPY = {
       knownRiskNextValidationActionRequired:
         "A next check is required to keep a business review item for later.",
       activeSessionRequiredImportResearch: "An active session is required before importing research.",
-      researchResultTextRequired: "Research result text is required.",
+      researchResultTextRequired: "Paste a ChatGPT Deep Research result or research note first.",
       activeSessionRequiredResolveResearchCard: "An active session is required before resolving a research card."
     },
     sessionActionLabels: {
@@ -489,7 +489,7 @@ const EN_COPY = {
       businessCriticKnownRiskDeferred: "User kept the business review item for later checking.",
       manualResearchSourceTitle: "Manual desk research",
       manualResearchLimitationNotes: "Manual import from founder-provided source.",
-      chatGptResearchSourceTitle: "User-supplied ChatGPT Pro/Deep Research result",
+      chatGptResearchSourceTitle: "User-supplied ChatGPT Deep Research result",
       chatGptResearchLimitationNotes:
         "Imported from a visible user-owned ChatGPT session; verify cited sources, uncertainty, counterpoints, and freshness before planning.",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -504,8 +504,8 @@ const EN_COPY = {
     chatGptLoginOpen: "Open ChatGPT",
     chatGptLoginAcknowledge: "I signed in to ChatGPT directly in this browser/profile.",
     codexLoginAria: "Codex CLI login gate",
-    codexLoginTitle: "Sign in to Codex CLI for backend questions and research",
-    codexLoginDescription: "The local sidecar checks Codex CLI before backend question or research preview work starts. If needed, open a background Terminal that runs `codex auth login`; Codex opens the browser login screen for you.",
+    codexLoginTitle: "Confirm Codex CLI login for question and research prep",
+    codexLoginDescription: "Solo Superman checks whether Codex CLI is signed in before preparing questions or research requests. If needed, open a Terminal that runs `codex auth login`; Codex will show the browser login screen.",
     codexCredentialBoundary: "Solo Superman only reads Codex account status. It never asks for or stores access tokens, API keys, passwords, or cookies.",
     codexLoginStatus: "Codex status",
     codexLoginCommandLabel: "Background terminal command",
@@ -537,8 +537,8 @@ const EN_COPY = {
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Codex + visible ChatGPT Pro/Deep Research",
-        description: "Enable public web research, let Codex prepare the ChatGPT request, and use ChatGPT Pro/Deep Research only in your own visible browser."
+        label: "Codex + visible ChatGPT Deep Research",
+        description: "Enable public web research, let Codex prepare the ChatGPT request, and use ChatGPT Deep Research only in your own visible browser."
       }
     ],
     initialResearchAutomationPermissionHelp:
@@ -553,11 +553,11 @@ const EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "Waiting to start.",
       generating: "Still creating the first planning question.",
-      delayed: "Live generation is taking longer than 30 seconds or is not ready. You can keep waiting, start with fallback questions, or retry.",
-      fallback: "Starting with fallback planning questions.",
+      delayed: "First-question preparation is taking longer than expected. You can keep waiting, start with the basic questions, or retry.",
+      fallback: "Starting with the basic planning questions.",
       retrying: "Retrying live question generation."
     },
-    initialQuestionUseFallback: "Start with fallback questions",
+    initialQuestionUseFallback: "Start with basic questions",
     initialQuestionRetry: "Retry",
     queue: "Queue",
     refreshQuestionList: "Refresh question list",
@@ -653,7 +653,7 @@ const EN_COPY = {
     questionContextGoal: "Goal",
     questionContextQuestion: "Question",
     whyItMatters: "Why ask this",
-    unansweredRisk: "Risk if unanswered",
+    unansweredRisk: "What this answer clarifies",
     narrowedScope: "Scope narrowed by answering",
     decisionItUnlocks: "What this answer decides",
     nextValidation: "Next check",
@@ -809,6 +809,11 @@ const EN_COPY = {
     visibleChatGptOpen: "Open ChatGPT",
     visibleChatGptPromptLabel: "Prompt to paste into ChatGPT Deep Research",
     visibleChatGptChecklistLabel: "Before importing the result",
+    visibleChatGptSteps: [
+      "Copy the research request.",
+      "Run it with ChatGPT Deep Research.",
+      "Paste the reviewed result below."
+    ],
     visibleChatGptHandoffBoundary:
       "Review the request, run it in your own browser session, then paste only the reviewed result and public source refs below. Solo Superman does not use your account in the background.",
     routingReadiness: "Research route",
@@ -820,7 +825,7 @@ const EN_COPY = {
     startReadOnlyRun: "Start public web run",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0
-        ? "No ready public web runs"
+        ? "No ready public web research yet"
         : count === 1
           ? "Start 1 ready public web run"
           : `Start ${count} ready public web runs`,
@@ -831,14 +836,14 @@ const EN_COPY = {
         : `${count} planned read-only research tasks will start with the current source settings.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "Research tasks exist, but public web sources must be enabled before they can run.",
-      no_ready_tasks: "No public web research task is executable with the current source settings."
+      no_ready_tasks: "Answer a little more before sending this to public web research."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
       activeProjectRequiredPauseAllowlist: "An active project is required before pausing a research allowlist.",
       activeProjectRequiredRevokeAllowlist: "An active project is required before revoking a research allowlist.",
       activeSessionRequiredPlanResearch: "An active session is required before planning public-safe research.",
-      sidecarConnectionRequiredStartRun: "A sidecar connection is required before starting a research run.",
+      sidecarConnectionRequiredStartRun: "Reconnect the local service before starting research.",
       activeProjectRequiredStartRun: "An active project is required before starting a research run.",
       plannedTaskRequiredStartRun: "Select a planned research task before starting a read-only research run.",
       plannedTaskStatusRequiredStartRun: "Only planned research tasks can start a new read-only research run.",
@@ -847,7 +852,7 @@ const EN_COPY = {
       activeProjectRequiredReadyRuns: "An active project is required before starting ready research runs.",
       readyRunsMissingAllowlist:
         "Enable public web research sources before starting research runs.",
-      readyRunsNoReadyTasks: "No planned public web research tasks are ready with the current source settings.",
+      readyRunsNoReadyTasks: "Answer a little more before sending this to public web research.",
       maxConcurrentRunsInvalid: "Max simultaneous research runs must be a positive whole number.",
       maxSessionRunsInvalid:
         "Max research runs per session must be a whole number greater than or equal to the simultaneous run limit.",
@@ -896,8 +901,8 @@ const EN_COPY = {
     limitationRefs: "Limitations",
     evidenceMatrix: "Evidence matrix",
     balanceStatus: "Balance status",
-    decisionBlocked: "Risk remains before planning handoff",
-    decisionReady: "No planning handoff blocker",
+    decisionBlocked: "More planning detail is still needed",
+    decisionReady: "Ready to reflect in the planning draft",
     proEvidence: "Supporting signals",
     conEvidence: "Counterpoints / risks",
     uncertainties: "Uncertainties",
@@ -923,7 +928,7 @@ const EN_COPY = {
     defaultInsufficientReason: "The current public evidence is not strong enough to support this planning decision.",
     manualValidationFallback:
       "Try narrower search terms and ask 3 target users which current alternative they would keep using.",
-    planningBlockedSuffix: "Risk remains before planning handoff",
+    planningBlockedSuffix: "More planning detail is still needed",
     routeOutcomeLabels: {
       research_needed: "Research needed",
       missing_con_evidence: "Counter-evidence needed",
@@ -1466,7 +1471,7 @@ const EN_COPY = {
   },
   rightRail: {
     aria: "Live project summary",
-    planningCompleteness: "Planning completeness",
+    planningCompleteness: "Planning readiness",
     researchStatus: "Research status",
     tasks: "tasks",
     activeRuns: "active runs",
@@ -1742,7 +1747,7 @@ const EN_COPY = {
         summary: "External AI workspace has not been prepared.",
         explanation: "No per-run local browser workspace has been recorded for this session.",
         visibleHandoffLabel:
-          "ChatGPT Pro/Deep Research is prepared only as visible delegation in a user-owned browser.",
+          "ChatGPT Deep Research is prepared only as a visible request in a user-owned browser.",
         nextAction:
           "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
         retentionLabel: "No prompt/result/screenshot/log artifacts are stored yet."
@@ -1913,7 +1918,7 @@ const JA_COPY: typeof EN_COPY = {
     workflowSteps: "作業ステップ",
     progressAria: "ライブキュー進捗",
     progress: "進捗",
-    completeness: "完成度",
+    completeness: "質問の進捗",
     pendingQuestions: "待機中の質問",
     blockedQuestions: "ブロック中の質問",
     reconnectSidecar: "ローカルサービスに再接続",
@@ -1975,9 +1980,9 @@ const JA_COPY: typeof EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "最初の質問はすでに作成中です。",
-      chatgpt_login: "見えるChatGPT Pro/Deep Researchリクエストを準備する前に、ChatGPTへ直接ログインしたことを確認してください。",
+      chatgpt_login: "見えるChatGPT Deep Researchリクエストを準備する前に、ChatGPTへ直接ログインしたことを確認してください。",
       codex_login:
-        "バックエンド質問またはリサーチ準備を始める前に、ローカルCodex CLIログインを確認する必要があります。",
+        "Solo Supermanが質問やリサーチを準備する前に、ローカルCodex CLIログインを確認してください。",
       sidecar_connection: "ローカルサービスが接続されていません。",
       project_purpose: "開始前に事業検証または個人ワークフロー構築のどちらかを選んでください。",
       business_critic_intensity: "事業検証キューを確定する前に、事業レビュー強度を選んでください。",
@@ -2011,7 +2016,7 @@ const JA_COPY: typeof EN_COPY = {
       knownRiskNextValidationActionRequired:
         "事業レビュー項目を後で確認する項目に移すには、次の確認アクションが必要です。",
       activeSessionRequiredImportResearch: "リサーチを取り込むにはアクティブなセッションが必要です。",
-      researchResultTextRequired: "リサーチ結果テキストが必要です。",
+      researchResultTextRequired: "ChatGPT Deep Researchの結果またはリサーチメモを先に貼り付けてください。",
       activeSessionRequiredResolveResearchCard: "リサーチカードを解決するにはアクティブなセッションが必要です。"
     },
     sessionActionLabels: {
@@ -2040,7 +2045,7 @@ const JA_COPY: typeof EN_COPY = {
       businessCriticKnownRiskDeferred: "ユーザーが事業レビュー項目を後で確認する項目に移しました。",
       manualResearchSourceTitle: "手動デスクリサーチ",
       manualResearchLimitationNotes: "創業者が提供した情報源からの手動取り込みです。",
-      chatGptResearchSourceTitle: "ユーザー提供のChatGPT Pro/Deep Research結果",
+      chatGptResearchSourceTitle: "ユーザー提供のChatGPT Deep Research結果",
       chatGptResearchLimitationNotes:
         "ユーザー所有の見えるChatGPTセッションから取り込みました。計画に使う前に引用元、不確実性、反証、鮮度を確認してください。",
       researchCardOutcomeRationale: (outcome: ResearchQueueTerminalOutcome, title: string) =>
@@ -2055,8 +2060,8 @@ const JA_COPY: typeof EN_COPY = {
     chatGptLoginOpen: "ChatGPTを開く",
     chatGptLoginAcknowledge: "このブラウザ/プロファイルでChatGPTに直接ログインしました。",
     codexLoginAria: "Codex CLIログイン確認",
-    codexLoginTitle: "backendの質問・リサーチ用にCodex CLIへログイン",
-    codexLoginDescription: "ローカルsidecarは、backendの質問やリサーチpreviewを始める前にCodex CLI状態を確認します。必要なら`codex auth login`を実行するバックグラウンドTerminalを開き、Codexがブラウザのログイン画面を表示します。",
+    codexLoginTitle: "質問とリサーチ準備のためにCodex CLIログインを確認",
+    codexLoginDescription: "Solo Supermanは、質問やリサーチ依頼を準備する前にCodex CLIへログイン済みか確認します。必要なら`codex auth login`を実行するTerminalを開き、Codexがブラウザのログイン画面を表示します。",
     codexCredentialBoundary: "Solo SupermanはCodexのアカウント状態だけを読み取ります。access token、API key、password、cookieは要求・保存しません。",
     codexLoginStatus: "Codex状態",
     codexLoginCommandLabel: "バックグラウンドTerminalコマンド",
@@ -2088,8 +2093,8 @@ const JA_COPY: typeof EN_COPY = {
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
-        label: "Codex + 見えるChatGPT Pro/Deep Research",
-        description: "公開Webリサーチを有効化し、CodexでChatGPTに貼り付けるリクエストを準備します。ChatGPT Pro/Deep Researchは自分のブラウザで確認して使います。"
+        label: "Codex + 見えるChatGPT Deep Research",
+        description: "公開Webリサーチを有効化し、CodexでChatGPTに貼り付けるリクエストを準備します。ChatGPT Deep Researchは自分のブラウザで確認して使います。"
       }
     ],
     initialResearchAutomationPermissionHelp:
@@ -2104,11 +2109,11 @@ const JA_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "開始待ちです。",
       generating: "最初の計画質問をまだ生成しています。",
-      delayed: "ライブ質問生成に30秒以上かかっているか、まだ準備できていません。待ち続ける、フォールバック質問で始める、再試行を選べます。",
-      fallback: "フォールバックの計画質問で開始しています。",
+      delayed: "最初の質問準備に想定より時間がかかっています。待ち続ける、基本質問で始める、再試行を選べます。",
+      fallback: "基本の計画質問で開始しています。",
       retrying: "ライブ質問生成を再試行しています。"
     },
-    initialQuestionUseFallback: "フォールバック質問で開始",
+    initialQuestionUseFallback: "基本質問で開始",
     initialQuestionRetry: "再試行",
     queue: "キュー",
     refreshQuestionList: "質問リストを更新",
@@ -2202,7 +2207,7 @@ const JA_COPY: typeof EN_COPY = {
     questionContextGoal: "目標",
     questionContextQuestion: "質問",
     whyItMatters: "なぜ重要か",
-    unansweredRisk: "答えない場合のリスク",
+    unansweredRisk: "この答えで整理されること",
     narrowedScope: "答えると絞れる範囲",
     decisionItUnlocks: "この回答で決まる判断",
     nextValidation: "次の検証",
@@ -2358,8 +2363,13 @@ const JA_COPY: typeof EN_COPY = {
     visibleChatGptOpen: "ChatGPT を開く",
     visibleChatGptPromptLabel: "ChatGPT Deep Research に貼り付けるプロンプト",
     visibleChatGptChecklistLabel: "結果を取り込む前に",
+    visibleChatGptSteps: [
+      "リサーチ依頼文をコピーします。",
+      "ChatGPT Deep Researchで実行します。",
+      "確認した結果を下に貼り付けます。"
+    ],
     visibleChatGptHandoffBoundary:
-      "これはユーザーが見える形で確認して使うリサーチ依頼であり、アカウント共有やバックエンド ChatGPT 自動化ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
+      "これはユーザーが見える形で確認して使うリサーチ依頼であり、アカウント共有や見えない自動実行ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
     routingReadiness: "リサーチ経路",
     routingReadinessLabels: {
       codex_quick_search: "短い公開検索",
@@ -2368,7 +2378,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
-      count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
+      count === 0 ? "まだ開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
     readyReadOnlyRunsPlanTitle: "準備済み公開Webバッチ計画",
     readyReadOnlyRunsPlanReady: (count: number) =>
       count === 1
@@ -2376,14 +2386,14 @@ const JA_COPY: typeof EN_COPY = {
         : `読み取り専用リサーチタスク${count}件を有効な公開Webソース設定の範囲で開始します。`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "リサーチタスクはありますが、実行するには公開Webソースを有効にする必要があります。",
-      no_ready_tasks: "現在の公開Webソース設定で実行できる公開Webリサーチタスクはありません。"
+      no_ready_tasks: "公開Webリサーチに渡す前に、もう少し質問に答えてください。"
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
       activeProjectRequiredPauseAllowlist: "リサーチallowlistを一時停止するにはアクティブなプロジェクトが必要です。",
       activeProjectRequiredRevokeAllowlist: "リサーチallowlistを取り消すにはアクティブなプロジェクトが必要です。",
       activeSessionRequiredPlanResearch: "public-safeリサーチを計画するにはアクティブなセッションが必要です。",
-      sidecarConnectionRequiredStartRun: "リサーチ実行を開始するにはsidecar接続が必要です。",
+      sidecarConnectionRequiredStartRun: "リサーチを始める前にローカルサービスへ再接続してください。",
       activeProjectRequiredStartRun: "リサーチ実行を開始するにはアクティブなプロジェクトが必要です。",
       plannedTaskRequiredStartRun: "読み取り専用リサーチ実行を始める前に、計画済みリサーチタスクを選択してください。",
       plannedTaskStatusRequiredStartRun: "新しい読み取り専用リサーチ実行を開始できるのは計画済みタスクだけです。",
@@ -2393,7 +2403,7 @@ const JA_COPY: typeof EN_COPY = {
       readyRunsMissingAllowlist:
         "リサーチ実行を始める前に公開Webソース設定を作成または再有効化してください。",
       readyRunsNoReadyTasks:
-        "現在の公開Webソース設定で開始できる計画済み公開Webリサーチタスクはありません。",
+        "公開Webリサーチに渡す前に、もう少し質問に答えてください。",
       maxConcurrentRunsInvalid: "同時に動かす最大リサーチ数は1以上の整数にしてください。",
       maxSessionRunsInvalid:
         "セッションあたりの最大リサーチ数は、同時実行上限以上の整数にしてください。",
@@ -2441,8 +2451,8 @@ const JA_COPY: typeof EN_COPY = {
     limitationRefs: "制約",
     evidenceMatrix: "エビデンスマトリクス",
     balanceStatus: "バランス状態",
-    decisionBlocked: "計画引き継ぎ前にリスクが残っています",
-    decisionReady: "計画引き継ぎのブロックはありません",
+    decisionBlocked: "まだ整理が必要な点があります",
+    decisionReady: "計画下書きに反映できます",
     proEvidence: "確認できた手がかり",
     conEvidence: "別視点/反例",
     uncertainties: "不確実性",
@@ -2468,7 +2478,7 @@ const JA_COPY: typeof EN_COPY = {
     defaultInsufficientReason: "この公開根拠だけでは、まだ計画判断を支えるには不十分です。",
     manualValidationFallback:
       "検索語をさらに絞り、対象ユーザー3人に今使っている代替手段を続ける理由を確認してください。",
-    planningBlockedSuffix: "計画引き継ぎ前にリスクが残っています",
+    planningBlockedSuffix: "まだ整理が必要な点があります",
     routeOutcomeLabels: {
       research_needed: "リサーチが必要",
       missing_con_evidence: "別視点の確認が必要",
@@ -3022,7 +3032,7 @@ const JA_COPY: typeof EN_COPY = {
   },
   rightRail: {
     aria: "ライブプロジェクト概要",
-    planningCompleteness: "計画完成度",
+    planningCompleteness: "計画準備度",
     researchStatus: "リサーチ状況",
     tasks: "タスク",
     activeRuns: "実行中",
@@ -3298,7 +3308,7 @@ const JA_COPY: typeof EN_COPY = {
         summary: "外部AI作業スペースはまだ準備されていません。",
         explanation: "このセッションでは実行ごとのローカルブラウザ作業スペースがまだ記録されていません。",
         visibleHandoffLabel:
-          "ChatGPT Pro/Deep Researchは、ユーザー所有ブラウザで見える委任としてのみ準備します。",
+          "ChatGPT Deep Researchは、ユーザー所有ブラウザで見える依頼としてのみ準備します。",
         nextAction:
           "外部AI作業スペースを使う前に、リサーチタスクを計画し、安全なブラウザ引き継ぎプレビューを準備してください。",
         retentionLabel: "プロンプト/結果/スクリーンショット/ログ資料はまだ保存されていません。"
@@ -3469,7 +3479,7 @@ const KO_COPY: typeof EN_COPY = {
     workflowSteps: "작업 단계",
     progressAria: "실시간 큐 진행률",
     progress: "진행률",
-    completeness: "완성도",
+    completeness: "질문 처리율",
     pendingQuestions: "대기 중인 질문",
     blockedQuestions: "차단된 질문",
     reconnectSidecar: "로컬 서비스 다시 연결",
@@ -3549,8 +3559,8 @@ const KO_COPY: typeof EN_COPY = {
     sessionActionErrors: {
       activeSessionRequiredProjectPurpose: "프로젝트 목적을 변경하려면 활성 세션이 필요합니다.",
       projectPurposeAlreadySelected: "프로젝트 목적이 이미 선택한 값으로 설정되어 있습니다.",
-      activeSessionRequiredBusinessCriticIntensity: "사업 리뷰 강도를 변경하려면 활성 세션이 필요합니다.",
-      businessCriticIntensityBusinessOnly: "사업 리뷰 강도는 비즈니스 검증 프로젝트에서만 변경할 수 있습니다.",
+      activeSessionRequiredBusinessCriticIntensity: "질문 방식을 변경하려면 활성 세션이 필요합니다.",
+      businessCriticIntensityBusinessOnly: "질문 방식은 서비스 기획 구체화 프로젝트에서만 변경할 수 있습니다.",
       activeSessionRequiredSubmitAnswer: "답변을 제출하려면 활성 세션이 필요합니다.",
       answerTextRequired: "답변 내용을 입력해야 합니다.",
       activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
@@ -3566,7 +3576,7 @@ const KO_COPY: typeof EN_COPY = {
       knownRiskNextValidationActionRequired:
         "사업 점검 항목을 나중에 확인하려면 다음 확인 내용을 적어야 합니다.",
       activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
-      researchResultTextRequired: "리서치 결과 내용을 입력해야 합니다.",
+      researchResultTextRequired: "ChatGPT Deep Research 결과나 리서치 메모를 먼저 붙여 넣어주세요.",
       activeSessionRequiredResolveResearchCard: "리서치 카드를 해결하려면 활성 세션이 필요합니다."
     },
     sessionActionLabels: {
@@ -3611,8 +3621,8 @@ const KO_COPY: typeof EN_COPY = {
     chatGptLoginOpen: "ChatGPT 열기",
     chatGptLoginAcknowledge: "이 브라우저/프로필에서 ChatGPT에 직접 로그인했습니다.",
     codexLoginAria: "Codex CLI 로그인 확인",
-    codexLoginTitle: "backend 질문·리서치를 위해 Codex CLI에 로그인",
-    codexLoginDescription: "로컬 sidecar는 backend 질문 또는 리서치 preview를 시작하기 전에 Codex CLI 상태를 확인합니다. 필요하면 `codex auth login`을 실행하는 백그라운드 Terminal을 열고, Codex가 브라우저 로그인 화면을 띄웁니다.",
+    codexLoginTitle: "질문과 리서치 준비를 위해 Codex CLI 로그인 확인",
+    codexLoginDescription: "Solo Superman은 질문이나 리서치 요청을 준비하기 전에 Codex CLI 로그인 상태를 확인합니다. 필요하면 `codex auth login`을 실행하는 Terminal을 열고, Codex가 브라우저 로그인 화면을 띄웁니다.",
     codexCredentialBoundary: "Solo Superman은 Codex 계정 상태만 읽습니다. access token, API key, 비밀번호, cookie를 요구하거나 저장하지 않습니다.",
     codexLoginStatus: "Codex 상태",
     codexLoginCommandLabel: "백그라운드 Terminal 명령",
@@ -3660,11 +3670,11 @@ const KO_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "시작 대기 중입니다.",
       generating: "첫 기획 질문을 계속 생성 중입니다.",
-      delayed: "라이브 질문 생성이 30초 이상 걸리거나 아직 준비되지 않았습니다. 계속 기다리거나, 폴백 질문으로 시작하거나, 다시 시도할 수 있습니다.",
-      fallback: "폴백 기획 질문으로 시작합니다.",
+      delayed: "첫 질문 준비가 예상보다 오래 걸립니다. 계속 기다리거나, 기본 질문으로 시작하거나, 다시 시도할 수 있습니다.",
+      fallback: "기본 기획 질문으로 시작합니다.",
       retrying: "라이브 질문 생성을 다시 시도합니다."
     },
-    initialQuestionUseFallback: "폴백 질문으로 시작",
+    initialQuestionUseFallback: "기본 질문으로 시작",
     initialQuestionRetry: "재시도",
     queue: "큐",
     refreshQuestionList: "질문 목록 새로고침",
@@ -3697,8 +3707,8 @@ const KO_COPY: typeof EN_COPY = {
     questionLoopNextActionLoadNext: (count: number) =>
       `남은 질문 부채를 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
     questionLoopNextActionBlocked: (count: number) =>
-      `completion 채점 전에 막힌 리서치 또는 리스크 카드 ${count}개를 해결하세요.`,
-    questionLoopNextActionComplete: "질문 부채가 정리되었습니다. Planning readiness로 이동해 completion을 채점하세요.",
+      `계획 준비도를 보기 전에 막힌 리서치 또는 나중에 확인할 항목 ${count}개를 해결하세요.`,
+    questionLoopNextActionComplete: "질문이 정리되었습니다. 계획 준비도 화면으로 이동해 남은 부분을 확인하세요.",
     questionFatigueStatusLabels: {
       checkpoint: "피로 체크포인트",
       break_recommended: "잠시 쉬기 권장"
@@ -3758,7 +3768,7 @@ const KO_COPY: typeof EN_COPY = {
     questionContextGoal: "목표",
     questionContextQuestion: "질문",
     whyItMatters: "왜 묻나요",
-    unansweredRisk: "답하지 않으면 생기는 리스크",
+    unansweredRisk: "이 답변으로 정리되는 것",
     narrowedScope: "답하면 좁혀지는 범위",
     decisionItUnlocks: "이 답으로 정해지는 것",
     nextValidation: "다음 확인",
@@ -3914,6 +3924,11 @@ const KO_COPY: typeof EN_COPY = {
     visibleChatGptOpen: "ChatGPT 열기",
     visibleChatGptPromptLabel: "ChatGPT Deep Research에 붙여 넣을 프롬프트",
     visibleChatGptChecklistLabel: "결과를 가져오기 전에",
+    visibleChatGptSteps: [
+      "리서치 요청문을 복사합니다.",
+      "ChatGPT Deep Research에서 실행합니다.",
+      "검토한 결과를 아래에 붙여 넣습니다."
+    ],
     visibleChatGptHandoffBoundary:
       "본인 브라우저 세션에서 요청을 검토·실행한 뒤, 검토한 결과와 공개 출처 참조만 아래에 붙여 넣으세요. Solo Superman은 사용자 계정을 백그라운드에서 사용하지 않습니다.",
     routingReadiness: "리서치 경로",
@@ -3924,20 +3939,20 @@ const KO_COPY: typeof EN_COPY = {
     },
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
-      count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
+      count === 0 ? "아직 바로 시작할 공개 웹 리서치가 없습니다" : `준비된 공개 웹 리서치 ${count}개 시작`,
     readyReadOnlyRunsPlanTitle: "준비된 공개 웹 배치 계획",
     readyReadOnlyRunsPlanReady: (count: number) =>
       `읽기 전용 리서치 작업 ${count}개가 현재 리서치 소스 설정 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
-      no_ready_tasks: "현재 리서치 소스 설정 안에서 실행 가능한 공개 웹 리서치 작업이 없습니다."
+      no_ready_tasks: "공개 웹 리서치로 넘기기 전에 질문에 조금 더 답해주세요."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "리서치 소스 설정을 변경하려면 활성 프로젝트가 필요합니다.",
       activeProjectRequiredPauseAllowlist: "리서치 소스를 일시 중지하려면 활성 프로젝트가 필요합니다.",
       activeProjectRequiredRevokeAllowlist: "리서치 소스를 끄려면 활성 프로젝트가 필요합니다.",
       activeSessionRequiredPlanResearch: "public-safe 리서치를 계획하려면 활성 세션이 필요합니다.",
-      sidecarConnectionRequiredStartRun: "리서치 실행을 시작하려면 sidecar 연결이 필요합니다.",
+      sidecarConnectionRequiredStartRun: "리서치를 시작하기 전에 로컬 서비스를 다시 연결하세요.",
       activeProjectRequiredStartRun: "리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
       plannedTaskRequiredStartRun: "읽기 전용 리서치 실행을 시작하기 전에 planned 리서치 작업을 선택하세요.",
       plannedTaskStatusRequiredStartRun: "planned 리서치 작업만 새 읽기 전용 리서치 실행을 시작할 수 있습니다.",
@@ -3947,7 +3962,7 @@ const KO_COPY: typeof EN_COPY = {
       readyRunsMissingAllowlist:
         "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       readyRunsNoReadyTasks:
-        "현재 리서치 소스 설정 안에서 시작할 수 있는 planned public web research task가 없습니다.",
+        "공개 웹 리서치로 넘기기 전에 질문에 조금 더 답해주세요.",
       maxConcurrentRunsInvalid: "동시에 실행할 최대 리서치 수는 1 이상의 정수여야 합니다.",
       maxSessionRunsInvalid:
         "세션당 최대 리서치 실행 수는 동시 실행 한도 이상인 정수여야 합니다.",
@@ -3962,14 +3977,14 @@ const KO_COPY: typeof EN_COPY = {
       reactivateAllowlist: "리서치 소스 다시 활성화",
       pauseAllowlist: "리서치 소스 일시정지",
       revokeAllowlist: "리서치 소스 끄기",
-      planPublicSafeResearchTask: "공개 안전 리서치 task 계획",
+      planPublicSafeResearchTask: "공개 자료 리서치 준비",
       updateMaxConcurrentRuns: "리서치 실행 제한 업데이트",
       updateMaxSessionRuns: "세션 리서치 제한 업데이트",
       prepareVisibleChatGptResearchDelegation: "ChatGPT 리서치 요청 준비",
-      startPublicWebResearchRun: "공개 웹 리서치 run 시작",
-      startBackgroundPublicWebResearchRun: "백그라운드 공개 웹 리서치 run 시작",
-      cancelRun: "리서치 run 취소",
-      retryRun: "리서치 run 재시도"
+      startPublicWebResearchRun: "공개 웹 리서치 시작",
+      startBackgroundPublicWebResearchRun: "공개 웹 리서치 자동 시작",
+      cancelRun: "리서치 실행 취소",
+      retryRun: "리서치 재시도"
     },
     researchActionReasons: {
       pauseAllowlist: "리서치 운영 화면에서 일시 중지했습니다.",
@@ -3980,9 +3995,9 @@ const KO_COPY: typeof EN_COPY = {
     },
     readyReadOnlyRunsPlanTaskIds: "이번 배치에서 시작할 작업 ID",
     validationSummary: "검증 요약",
-    knownRisks: "알려진 리스크",
-    nextValidationAction: "다음 검증 액션",
-    nextValidationActions: "다음 검증 액션",
+    knownRisks: "나중에 확인할 점",
+    nextValidationAction: "다음 확인",
+    nextValidationActions: "다음 확인",
     evidencePacks: "근거 패키지",
     evidencePackSource: "출처",
     decisionContext: "판단 맥락",
@@ -3995,8 +4010,8 @@ const KO_COPY: typeof EN_COPY = {
     limitationRefs: "제약",
     evidenceMatrix: "근거 매트릭스",
     balanceStatus: "균형 상태",
-    decisionBlocked: "지금 계획으로 넘기면 위험함",
-    decisionReady: "계획 인계 차단 없음",
+    decisionBlocked: "아직 더 정리할 점이 있음",
+    decisionReady: "계획 초안에 반영 가능",
     proEvidence: "확인된 단서",
     conEvidence: "다른 관점/기존 대안",
     uncertainties: "불확실성",
@@ -4022,7 +4037,7 @@ const KO_COPY: typeof EN_COPY = {
     defaultInsufficientReason: "현재 공개 근거만으로는 이 기획 판단을 뒷받침하기에 부족합니다.",
     manualValidationFallback:
       "검색어를 더 좁히고 타깃 사용자 3명에게 지금 쓰는 대체재를 계속 쓸 이유를 확인하세요.",
-    planningBlockedSuffix: "지금 만들면 위험한 이유가 남아 있습니다",
+    planningBlockedSuffix: "아직 더 정리할 점이 있습니다",
     routeOutcomeLabels: {
       research_needed: "리서치 필요",
       missing_con_evidence: "기존 대안 확인 필요",
@@ -4576,7 +4591,7 @@ const KO_COPY: typeof EN_COPY = {
   },
   rightRail: {
     aria: "실시간 프로젝트 요약",
-    planningCompleteness: "계획 완성도",
+    planningCompleteness: "계획 준비도",
     researchStatus: "리서치 상태",
     tasks: "작업",
     activeRuns: "활성 실행",

@@ -95,7 +95,7 @@ const DEFAULT_CHATGPT_DELEGATION_VIEW_MODEL_COPY: ChatGptDelegationViewModelCopy
   notStarted: {
     summary: "External AI workspace has not been prepared.",
     explanation: "No per-run local browser workspace has been recorded for this session.",
-    visibleHandoffLabel: "ChatGPT Pro/Deep Research is prepared only as visible delegation in a user-owned browser.",
+    visibleHandoffLabel: "ChatGPT Deep Research is prepared only as a visible request in a user-owned browser.",
     nextAction:
       "Plan a research task and prepare a safe browser handoff preview before using an external AI workspace.",
     retentionLabel: "No prompt/result/screenshot/log artifacts are stored yet."

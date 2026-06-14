@@ -104,7 +104,7 @@ describe("OnboardingView", () => {
     expect(markup).not.toContain("Allow read-only public web research");
     expect(markup).toContain("Research setup");
     expect(markup).toContain("Codex + read-only public web research");
-    expect(markup).toContain("Codex + visible ChatGPT Pro/Deep Research");
+    expect(markup).toContain("Codex + visible ChatGPT Deep Research");
     expect(markup).not.toContain("Sign in to ChatGPT in your browser first");
     expect(markup.indexOf("First-question readiness checklist")).toBeLessThan(
       markup.indexOf("Idea summary")
@@ -134,9 +134,9 @@ describe("OnboardingView", () => {
       }
     });
 
-    expect(markup).toContain("Live generation is taking longer than 30 seconds or is not ready");
+    expect(markup).toContain("First-question preparation is taking longer than expected");
     expect(markup).not.toContain("Keep generating");
-    expect(markup).toContain("Start with fallback questions");
+    expect(markup).toContain("Start with basic questions");
     expect(markup).toContain("Retry");
   });
 
@@ -159,11 +159,11 @@ describe("OnboardingView", () => {
       visibleMarkup.indexOf("Sign in to ChatGPT in your browser first")
     );
     expect(visibleMarkup.indexOf("Sign in to ChatGPT in your browser first")).toBeLessThan(
-      visibleMarkup.indexOf("Sign in to Codex CLI for backend questions and research")
+      visibleMarkup.indexOf("Confirm Codex CLI login for question and research prep")
     );
   });
 
-  it("renders backend Codex CLI login status before the first queue can start", () => {
+  it("renders Codex CLI login status before the first queue can start", () => {
     const markup = renderOnboardingView({
       runtimeStatus: {
         ...codexRuntimeStatus(),
@@ -171,7 +171,8 @@ describe("OnboardingView", () => {
       }
     });
 
-    expect(markup).toContain("Sign in to Codex CLI for backend questions and research");
+    expect(markup).toContain("Confirm Codex CLI login for question and research prep");
+    expect(markup).not.toContain("backend");
     expect(markup).toContain("Codex status");
     expect(markup).toContain("Login required");
     expect(markup).toContain("codex auth login");
@@ -183,7 +184,7 @@ describe("OnboardingView", () => {
       markup.indexOf("Research setup")
     );
     expect(markup.indexOf("Research setup")).toBeLessThan(
-      markup.indexOf("Sign in to Codex CLI for backend questions and research")
+      markup.indexOf("Confirm Codex CLI login for question and research prep")
     );
   });
 
@@ -200,7 +201,7 @@ describe("OnboardingView", () => {
   it("explains every missing item before the first-question button can be enabled", () => {
     const markup = renderOnboardingView({
       initialQueueStartBlockerMessages: [
-        "Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.",
+        "Confirm direct ChatGPT login before preparing a visible ChatGPT Deep Research request.",
         "Choose either business validation or personal workflow build before starting.",
         "Enter an idea summary before starting."
       ]
@@ -209,7 +210,7 @@ describe("OnboardingView", () => {
     expect(markup).toContain("First-question readiness checklist");
     expect(markup).toContain("Before you can start");
     expect(markup).toContain("Complete these items, then the Create first questions button will turn on.");
-    expect(markup).toContain("Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.");
+    expect(markup).toContain("Confirm direct ChatGPT login before preparing a visible ChatGPT Deep Research request.");
     expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
     expect(markup).toContain("Enter an idea summary before starting.");
     expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');
