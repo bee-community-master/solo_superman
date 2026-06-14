@@ -1288,11 +1288,7 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
     score += 3;
   }
 
-  if (
-    /\bpet\b/iu.test(haystack) &&
-    /(검사|암|뇌질환|ct|mri|양전자|tomography|scan|oncology|brain)/iu.test(haystack) &&
-    !/(반려|보호자|동물병원|수의|veterinary|guardian|insurance|care|lifecycle|record)/iu.test(haystack)
-  ) {
+  if (isPetScanMedicalNoiseCandidate(candidate)) {
     score -= 16;
   }
 
@@ -1314,6 +1310,16 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
   return score;
 }
 
+function isPetScanMedicalNoiseCandidate(candidate: SearchCandidate) {
+  const haystack = `${candidate.title} ${candidate.snippet}`.toLowerCase();
+
+  return (
+    /\bpet\b/iu.test(haystack) &&
+    /(검사|암|뇌질환|ct|mri|양전자|tomography|scan|oncology|brain)/iu.test(haystack) &&
+    !/(반려|보호자|동물병원|수의|veterinary|guardian|insurance|care|lifecycle|record)/iu.test(haystack)
+  );
+}
+
 export function rankedSearchCandidates(
   candidates: readonly WebSearchReadOnlySearchCandidate[],
   query: string,
@@ -1322,14 +1328,16 @@ export function rankedSearchCandidates(
   const scoredCandidates = candidates.map((candidate) => ({
     candidate,
     relevanceScore: searchCandidateRelevanceScore(candidate, query),
-    sourceQualityScore: searchCandidateSourceQualityScore(candidate)
+    sourceQualityScore: searchCandidateSourceQualityScore(candidate),
+    petScanMedicalNoise: isPetScanMedicalNoiseCandidate(candidate)
   }));
   const hasPositiveQualityCandidate = scoredCandidates.some(({ sourceQualityScore }) => sourceQualityScore > 0);
 
   return scoredCandidates
     .filter(
-      ({ relevanceScore, sourceQualityScore }) =>
+      ({ relevanceScore, sourceQualityScore, petScanMedicalNoise }) =>
         relevanceScore > 0 &&
+        !petScanMedicalNoise &&
         (!hasPositiveQualityCandidate || sourceQualityScore >= 0)
     )
     .sort(

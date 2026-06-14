@@ -605,6 +605,22 @@ describe("web_search_readonly background research adapter", () => {
     ]);
   });
 
+  it("drops PET scan medical noise even when no better candidate is available", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "PET scan oncology imaging overview",
+          url: "https://example.com/pet-scan-oncology",
+          snippet: "PET scan brain oncology imaging protocol and radiology diagnosis guide."
+        }
+      ],
+      "pet owner lifecycle insurance care record",
+      2
+    );
+
+    expect(ranked).toEqual([]);
+  });
+
   it("drops fallback candidates when public search exposes no relevance signal", () => {
     const ranked = rankedSearchCandidates(
       [

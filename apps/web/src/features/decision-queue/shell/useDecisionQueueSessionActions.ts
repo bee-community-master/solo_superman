@@ -319,9 +319,12 @@ export function useDecisionQueueSessionActions({
       canKeepWaiting: false,
       countdownSeconds: initialSeconds
     });
-    initialQuestionCountdownTimerRef.current = setInterval(() => {
+    const countdownTimer = setInterval(() => {
       if (initialQuestionControlRef.current?.attemptId !== attemptId) {
-        clearInitialQuestionDelayTimer();
+        clearInterval(countdownTimer);
+        if (initialQuestionCountdownTimerRef.current === countdownTimer) {
+          initialQuestionCountdownTimerRef.current = null;
+        }
         return;
       }
 
@@ -335,8 +338,12 @@ export function useDecisionQueueSessionActions({
           }
         : current);
     }, 1_000);
-    initialQuestionDelayTimerRef.current = setTimeout(() => {
+    initialQuestionCountdownTimerRef.current = countdownTimer;
+    const delayTimer = setTimeout(() => {
       if (initialQuestionControlRef.current?.attemptId !== attemptId) {
+        if (initialQuestionDelayTimerRef.current === delayTimer) {
+          initialQuestionDelayTimerRef.current = null;
+        }
         return;
       }
 
@@ -349,6 +356,7 @@ export function useDecisionQueueSessionActions({
         canKeepWaiting: true
       });
     }, INITIAL_QUESTION_GENERATION_DECISION_MS);
+    initialQuestionDelayTimerRef.current = delayTimer;
   }, [clearInitialQuestionDelayTimer]);
 
   useEffect(() => () => {
@@ -402,8 +410,11 @@ export function useDecisionQueueSessionActions({
       return;
     }
 
-    armInitialQuestionDecisionTimer(control.attemptId, "generating");
-  }, [armInitialQuestionDecisionTimer]);
+    armInitialQuestionDecisionTimer(
+      control.attemptId,
+      initialQuestionGeneration.status === "retrying" ? "retrying" : "generating"
+    );
+  }, [armInitialQuestionDecisionTimer, initialQuestionGeneration.status]);
 
   const runInitialQuestionGenerationAttempt = useCallback(
     async (

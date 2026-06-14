@@ -49,15 +49,18 @@ function latestResearchRunForTask(
   runs: readonly ResearchRunControlProjection["runs"][number][],
   researchTaskId: ResearchTaskProjection["researchTaskId"]
 ) {
-  for (let index = runs.length - 1; index >= 0; index -= 1) {
-    const run = runs[index];
+  return [...runs]
+    .filter((run) => run.researchTaskId === researchTaskId)
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.updatedAt || left.createdAt);
+      const rightTime = Date.parse(right.updatedAt || right.createdAt);
 
-    if (run?.researchTaskId === researchTaskId) {
-      return run;
-    }
-  }
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+        return 0;
+      }
 
-  return undefined;
+      return rightTime - leftTime;
+    })[0];
 }
 
 function safeExternalUrl(value: string | undefined) {

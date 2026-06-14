@@ -185,11 +185,25 @@ function normalizedCompactText(value: string) {
 }
 
 function significantContextPhrases(contextText: string | undefined) {
-  return (contextText ?? "")
-    .split(/\n+/u)
+  const normalizedSentences = (contextText ?? "")
+    .split(/[\n.!?。！？]+/u)
     .map(normalizedCompactText)
-    .filter((phrase) => phrase.length >= 24)
-    .map((phrase) => phrase.slice(0, 90));
+    .filter((phrase) => phrase.length >= 24);
+  const normalizedContext = normalizedCompactText(contextText ?? "");
+  const words = normalizedContext.split(/\s+/u).filter(Boolean);
+  const wordWindows = words.flatMap((_, index) => {
+    const window = words.slice(index, index + 8);
+
+    if (window.length < 6) {
+      return [];
+    }
+
+    const phrase = window.join(" ");
+
+    return phrase.length >= 24 ? [phrase] : [];
+  });
+
+  return [...new Set([...normalizedSentences, ...wordWindows].map((phrase) => phrase.slice(0, 90)))];
 }
 
 interface BusinessCriticPressureMetadataValidation {

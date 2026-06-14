@@ -509,6 +509,38 @@ describe("ResearchView", () => {
     expect(markup).not.toContain("/api/v1/projects/proj_research_batch/research-runs/research_run_selected/status");
   });
 
+  it("shows the newest research run status for each task regardless of array order", () => {
+    const runs = researchRunProjectionWithRuns();
+    const oldRun = {
+      ...runs.runs[0]!,
+      researchRunId: "research_run_old_task_1" as ResearchRunId,
+      status: "accepted" as const,
+      createdAt: "2026-05-22T00:00:00.000Z",
+      updatedAt: "2026-05-22T00:05:00.000Z"
+    };
+    const newerRun = {
+      ...runs.runs[0]!,
+      researchRunId: "research_run_new_task_1" as ResearchRunId,
+      status: "running" as const,
+      createdAt: "2026-05-22T00:10:00.000Z",
+      updatedAt: "2026-05-22T00:10:00.000Z"
+    };
+    const markup = renderResearchView({
+      readyReadOnlyResearchTaskIds: ["research_task_ready_batch_2" as ResearchTaskId],
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        runs: {
+          ...runs,
+          runs: [newerRun, oldRun, runs.runs[1]!]
+        }
+      }
+    });
+
+    expect(markup).toContain("Research run status");
+    expect(markup).toContain("<dd>Running</dd>");
+    expect(markup).not.toContain("<dd>Accepted</dd>");
+  });
+
   it("renders the blocked ready-batch reason when the active allowlist is missing", () => {
     const markup = renderResearchView({
       hasActiveResearchAllowlist: false,
