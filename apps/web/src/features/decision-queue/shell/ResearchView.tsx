@@ -45,22 +45,25 @@ function latestResearchResultForTask(
   return undefined;
 }
 
+function researchRunTimestamp(run: ResearchRunControlProjection["runs"][number]) {
+  const updatedAt = Date.parse(run.updatedAt);
+
+  if (!Number.isNaN(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(run.createdAt);
+
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
 function latestResearchRunForTask(
   runs: readonly ResearchRunControlProjection["runs"][number][],
   researchTaskId: ResearchTaskProjection["researchTaskId"]
 ) {
   return [...runs]
     .filter((run) => run.researchTaskId === researchTaskId)
-    .sort((left, right) => {
-      const leftTime = Date.parse(left.updatedAt || left.createdAt);
-      const rightTime = Date.parse(right.updatedAt || right.createdAt);
-
-      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
-        return 0;
-      }
-
-      return rightTime - leftTime;
-    })[0];
+    .sort((left, right) => researchRunTimestamp(right) - researchRunTimestamp(left))[0];
 }
 
 function safeExternalUrl(value: string | undefined) {

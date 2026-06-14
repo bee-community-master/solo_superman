@@ -611,6 +611,62 @@ function generatedQuestionSetPreviewFailureReason(error: unknown) {
     : "Codex live preview failed before producing a usable question artifact.";
 }
 
+const LOCAL_COMMERCE_FALLBACK_CONTEXT_PATTERN =
+  /(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|전화)/u;
+const PET_LIFECYCLE_FALLBACK_CONTEXT_PATTERN = /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu;
+const CAREER_TRANSITION_FALLBACK_CONTEXT_PATTERN = /(?:이직|퇴사|커리어|직장인|career|job)/iu;
+const FOUNDER_PLANNING_FALLBACK_CONTEXT_PATTERN = /(?:창업자|스타트업|founder|startup)/iu;
+
+function isLocalCommerceFallbackContext(context: string) {
+  return LOCAL_COMMERCE_FALLBACK_CONTEXT_PATTERN.test(context);
+}
+
+function fallbackShortSubjectForContext(context: string) {
+  if (isLocalCommerceFallbackContext(context)) {
+    return "소상공인 예약/주문";
+  }
+
+  if (PET_LIFECYCLE_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "반려동물 기록";
+  }
+
+  if (CAREER_TRANSITION_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "커리어 전환";
+  }
+
+  if (FOUNDER_PLANNING_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "창업자 기획";
+  }
+
+  return "이 아이디어";
+}
+
+function localCommerceFirstSituationOptions() {
+  return [
+    {
+      id: "solo_salon_reservation_gap",
+      label: "1인 미용실/네일샵 예약 누락",
+      value: "전화와 카카오톡 예약이 섞여 누락이 생기는 1인 미용실/네일샵을 먼저 본다.",
+      primaryDetail: "첫 고객군과 첫 문제를 예약 누락으로 좁힙니다.",
+      secondaryDetail: "주문 관리와 단골 관리는 첫 버전에서 제외하거나 나중에 확인합니다."
+    },
+    {
+      id: "small_restaurant_order_check",
+      label: "소형 음식점 주문 확인",
+      value: "전화, 채팅, 배달앱 주문 확인이 반복되는 소형 음식점을 먼저 본다.",
+      primaryDetail: "첫 고객군과 첫 기능을 주문 확인으로 좁힙니다.",
+      secondaryDetail: "예약형 업종과 단골 관리는 별도 검증이 필요합니다."
+    },
+    {
+      id: "regular_customer_followup",
+      label: "단골 재방문 관리",
+      value: "단골 고객 재방문 연락과 혜택 관리를 어려워하는 매장을 먼저 본다.",
+      primaryDetail: "첫 가치를 단골 재방문 관리로 좁힙니다.",
+      secondaryDetail: "예약/주문 누락보다 돈을 낼 만큼 급한지는 확인해야 합니다."
+    }
+  ];
+}
+
 function generatedQuestionSetLocalFallback(input: {
   readonly rawIdea: string;
   readonly intakeGoal: string;
@@ -618,40 +674,9 @@ function generatedQuestionSetLocalFallback(input: {
 }) {
   const context = [input.rawIdea, input.intakeGoal].filter(Boolean).join(" ").trim();
   const ideaLabel = (input.rawIdea || context || "이 아이디어").slice(0, 80);
-  const isLocalCommerce = /(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|전화)/u.test(context);
-  const shortSubject = isLocalCommerce
-    ? "소상공인 예약/주문"
-    : /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(context)
-      ? "반려동물 기록"
-      : /(?:이직|퇴사|커리어|직장인|career|job)/iu.test(context)
-        ? "커리어 전환"
-      : /(?:창업자|스타트업|founder|startup)/iu.test(context)
-        ? "창업자 기획"
-        : "이 아이디어";
-  const firstSituationOptions = isLocalCommerce
-    ? [
-        {
-          id: "solo_salon_reservation_gap",
-          label: "1인 미용실/네일샵 예약 누락",
-          value: "전화와 카카오톡 예약이 섞여 누락이 생기는 1인 미용실/네일샵을 먼저 본다.",
-          primaryDetail: "첫 고객군과 첫 문제를 예약 누락으로 좁힙니다.",
-          secondaryDetail: "주문 관리와 단골 관리는 첫 버전에서 제외하거나 나중에 확인합니다."
-        },
-        {
-          id: "small_restaurant_order_check",
-          label: "소형 음식점 주문 확인",
-          value: "전화, 채팅, 배달앱 주문 확인이 반복되는 소형 음식점을 먼저 본다.",
-          primaryDetail: "첫 고객군과 첫 기능을 주문 확인으로 좁힙니다.",
-          secondaryDetail: "예약형 업종과 단골 관리는 별도 검증이 필요합니다."
-        },
-        {
-          id: "regular_customer_followup",
-          label: "단골 재방문 관리",
-          value: "단골 고객 재방문 연락과 혜택 관리를 어려워하는 매장을 먼저 본다.",
-          primaryDetail: "첫 가치를 단골 재방문 관리로 좁힙니다.",
-          secondaryDetail: "예약/주문 누락보다 돈을 낼 만큼 급한지는 확인해야 합니다."
-        }
-      ]
+  const shortSubject = fallbackShortSubjectForContext(context);
+  const firstSituationOptions = isLocalCommerceFallbackContext(context)
+    ? localCommerceFirstSituationOptions()
     : [];
   const pressureMinimum =
     input.businessCriticIntensity === "investor_grade"

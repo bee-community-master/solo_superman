@@ -296,7 +296,7 @@ export function useDecisionQueueSessionActions({
     readonly resolveAction: (action: InitialQuestionGenerationAction) => void;
   } | null>(null);
 
-  const clearInitialQuestionDelayTimer = useCallback(() => {
+  const clearInitialQuestionGenerationTimers = useCallback(() => {
     if (initialQuestionDelayTimerRef.current) {
       clearTimeout(initialQuestionDelayTimerRef.current);
       initialQuestionDelayTimerRef.current = null;
@@ -308,7 +308,7 @@ export function useDecisionQueueSessionActions({
   }, []);
 
   const armInitialQuestionDecisionTimer = useCallback((attemptId: number, status: InitialQuestionGenerationAttemptStatus) => {
-    clearInitialQuestionDelayTimer();
+    clearInitialQuestionGenerationTimers();
     const control = initialQuestionControlRef.current;
 
     if (control?.attemptId === attemptId) {
@@ -357,7 +357,7 @@ export function useDecisionQueueSessionActions({
         return;
       }
 
-      clearInitialQuestionDelayTimer();
+      clearInitialQuestionGenerationTimers();
       setInitialQuestionGeneration({
         status: "delayed",
         delayed: true,
@@ -367,13 +367,13 @@ export function useDecisionQueueSessionActions({
       });
     }, INITIAL_QUESTION_GENERATION_DECISION_MS);
     initialQuestionDelayTimerRef.current = delayTimer;
-  }, [clearInitialQuestionDelayTimer]);
+  }, [clearInitialQuestionGenerationTimers]);
 
   useEffect(() => () => {
-    clearInitialQuestionDelayTimer();
+    clearInitialQuestionGenerationTimers();
     initialQuestionControlRef.current?.abortController.abort();
     initialQuestionControlRef.current = null;
-  }, [clearInitialQuestionDelayTimer]);
+  }, [clearInitialQuestionGenerationTimers]);
 
   const requestInitialQuestionFallback = useCallback(() => {
     const control = initialQuestionControlRef.current;
@@ -453,7 +453,7 @@ export function useDecisionQueueSessionActions({
         abortController,
         resolveAction
       };
-      clearInitialQuestionDelayTimer();
+      clearInitialQuestionGenerationTimers();
       if (generationMode === "live_preview") {
         armInitialQuestionDecisionTimer(attemptId, status);
       } else {
@@ -490,7 +490,7 @@ export function useDecisionQueueSessionActions({
       ]);
 
       if (result.kind === "error" && generationMode === "live_preview") {
-        clearInitialQuestionDelayTimer();
+        clearInitialQuestionGenerationTimers();
         if (initialQuestionControlRef.current?.attemptId === attemptId) {
           setInitialQuestionGeneration({
             status: "delayed",
@@ -503,7 +503,7 @@ export function useDecisionQueueSessionActions({
           if (initialQuestionControlRef.current?.attemptId === attemptId) {
             initialQuestionControlRef.current = null;
           }
-          clearInitialQuestionDelayTimer();
+          clearInitialQuestionGenerationTimers();
 
           return { kind: "action", action };
         }
@@ -512,7 +512,7 @@ export function useDecisionQueueSessionActions({
       if (initialQuestionControlRef.current?.attemptId === attemptId) {
         initialQuestionControlRef.current = null;
       }
-      clearInitialQuestionDelayTimer();
+      clearInitialQuestionGenerationTimers();
 
       if (result.kind === "error") {
         throw result.error;
@@ -522,7 +522,7 @@ export function useDecisionQueueSessionActions({
     },
     [
       armInitialQuestionDecisionTimer,
-      clearInitialQuestionDelayTimer,
+      clearInitialQuestionGenerationTimers,
       client,
       generateInitialQuestionSet,
       initialQueueStartBlockers.sidecar_connection
@@ -700,7 +700,7 @@ export function useDecisionQueueSessionActions({
       } catch (error) {
         setWorkflowError(displayError(error));
       } finally {
-        clearInitialQuestionDelayTimer();
+        clearInitialQuestionGenerationTimers();
         initialQuestionControlRef.current = null;
         setInitialQuestionGeneration(INITIAL_QUESTION_GENERATION_IDLE);
         setIsBusy(false);
@@ -718,7 +718,7 @@ export function useDecisionQueueSessionActions({
       initialBusinessCriticIntensityReason,
       initialResearchAutomationPermission,
       client,
-      clearInitialQuestionDelayTimer,
+      clearInitialQuestionGenerationTimers,
       enableInitialResearchSources,
       generateInitialQuestionSetWithControls,
       idea,
