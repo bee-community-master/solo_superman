@@ -34,7 +34,6 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
     activePage,
     activePageMeta,
     blockedQueueCount,
-    confidence,
     connect,
     connectionLabel,
     connectionState,
@@ -47,6 +46,7 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
     totalQueueCount,
     workflowError
   } = controller;
+  const questionProgressPercent = projections.queue?.progress?.completionPercent ?? 0;
 
   return (
     <main className="desktop-shell">
@@ -119,10 +119,10 @@ export function DecisionQueueDesktopLayout({ controller, children, rightRail }: 
             <p className="rail-label">{copy.layout.progress}</p>
             <div className="progress-row">
               <span>{copy.layout.completeness}</span>
-              <strong>{confidence?.compositeScore ?? 0}%</strong>
+              <strong>{questionProgressPercent}%</strong>
             </div>
             <div className="progress-track">
-              <span style={{ width: `${Math.min(100, confidence?.compositeScore ?? 0)}%` }} />
+              <span style={{ width: `${Math.min(100, questionProgressPercent)}%` }} />
             </div>
             <dl>
               <div>

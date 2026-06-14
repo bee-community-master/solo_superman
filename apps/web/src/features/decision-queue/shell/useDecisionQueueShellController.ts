@@ -14,6 +14,7 @@ import {
   type CreateAutoImplementationRunRequest,
   type ExecutionAuthorityLedgerProjection,
   type Phase15bUpgradeHintProjection,
+  type ProjectId,
   type ProjectPurposeMode,
   type RecordAutoImplementationPullRequestMutationRequest,
   type ResearchRunControlProjection,
@@ -97,11 +98,77 @@ import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { planningRadarAxes } from "./planning-radar-model";
 import { useCommandLogActions } from "./useCommandLogActions";
 import { useDecisionQueuePlanningPermissionActions } from "./useDecisionQueuePlanningPermissionActions";
-import { useDecisionQueueRefreshers } from "./useDecisionQueueRefreshers";
+import {
+  loadResearchSettledDecisionQueueRefresh,
+  useDecisionQueueRefreshers
+} from "./useDecisionQueueRefreshers";
 import { useDecisionQueueResearchActions } from "./useDecisionQueueResearchActions";
 import { useDecisionQueueSessionActions } from "./useDecisionQueueSessionActions";
 
 export const RESEARCH_RUN_BACKGROUND_POLL_INTERVAL_MS = 10_000;
+const RESTORE_SESSION_STORAGE_KEY = "solo-superman:last-decision-queue-session";
+const RESTORE_QUERY_PROJECT_ID = "projectId";
+const RESTORE_QUERY_SESSION_ID = "sessionId";
+
+interface RestorableDecisionQueueSession {
+  readonly projectId: ProjectId;
+  readonly sessionId: SessionId;
+}
+
+export function readRestorableSession(): RestorableDecisionQueueSession | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const query = new URLSearchParams(window.location.search);
+  const queryProjectId = query.get(RESTORE_QUERY_PROJECT_ID);
+  const querySessionId = query.get(RESTORE_QUERY_SESSION_ID);
+
+  if (queryProjectId && querySessionId) {
+    return {
+      projectId: queryProjectId as ProjectId,
+      sessionId: querySessionId as SessionId
+    };
+  }
+
+  try {
+    const stored = window.localStorage.getItem(RESTORE_SESSION_STORAGE_KEY);
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<RestorableDecisionQueueSession>;
+
+    if (typeof parsed.projectId === "string" && typeof parsed.sessionId === "string") {
+      return {
+        projectId: parsed.projectId as ProjectId,
+        sessionId: parsed.sessionId as SessionId
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function persistRestorableSession(session: RestorableDecisionQueueSession) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(RESTORE_SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // Local storage can be unavailable in private or locked-down browsers.
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set(RESTORE_QUERY_PROJECT_ID, session.projectId);
+  url.searchParams.set(RESTORE_QUERY_SESSION_ID, session.sessionId);
+  window.history.replaceState(window.history.state, "", url);
+}
 
 function unavailableCodexLoginStart(message: string): CodexRuntimeLoginStartDto {
   return {
@@ -286,6 +353,7 @@ export function useDecisionQueueShellController() {
   const [initialBusinessCriticIntensityReason, setInitialBusinessCriticIntensityReason] = useState("");
   const [businessCriticIntensityChangeReason, setBusinessCriticIntensityChangeReason] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [recentResearchAnswers, setRecentResearchAnswers] = useState<readonly string[]>([]);
   const [questionBatchSize, setQuestionBatchSize] = useState(1);
   const [knownRiskDrafts, setKnownRiskDrafts] = useState<Record<string, string>>({});
   const [researchDrafts, setResearchDrafts] = useState<Record<string, string>>({});
@@ -324,6 +392,34 @@ export function useDecisionQueueShellController() {
 
     setClient(nextClient);
     setConnectionState({ status: "connected", connection });
+    const restorableSession = readRestorableSession();
+
+    if (restorableSession) {
+      loadResearchSettledDecisionQueueRefresh(nextClient, restorableSession.projectId, restorableSession.sessionId)
+        .then(({ projections: restoredProjections, researchOperations: restoredResearchOperations }) => {
+          if (!restoredProjections.session) {
+            throw new Error("복구할 세션 정보를 찾을 수 없습니다.");
+          }
+
+          setProjections((current) => ({
+            ...current,
+            ...restoredProjections
+          }));
+          setResearchOperations(restoredResearchOperations);
+          setProjectPurposeMode(restoredProjections.session.projectPurposeMode ?? null);
+          setBusinessCriticIntensity(restoredProjections.session.businessCriticIntensity ?? null);
+          setInitialResearchAutomationPermission(
+            restoredProjections.session.initialResearchAutomationPermission ?? "allow_codex"
+          );
+          setActivePage("questions");
+          persistRestorableSession(restorableSession);
+        })
+        .catch((error) => {
+          const message = displayError(error);
+
+          setWorkflowError(`이전 작업을 다시 여는 데 실패했습니다: ${message}`);
+        });
+    }
     nextClient
       .getRuntimeStatus()
       .then((status) => {
@@ -455,6 +551,7 @@ export function useDecisionQueueShellController() {
     client,
     copy,
     projections,
+    recentResearchAnswers,
     refreshProjections,
     refreshResearchOperations,
     researchOperations,
@@ -517,7 +614,14 @@ export function useDecisionQueueShellController() {
     setStatuses,
     setWorkflowError,
     startReadyReadOnlyResearchRunsAfterAnswer,
-    onInitialQueueCreated: () => setActivePage("questions")
+    onSessionCreatedForRestore: (session) => persistRestorableSession({
+      projectId: session.projectId,
+      sessionId: session.sessionId
+    }),
+    onInitialQueueCreated: () => setActivePage("questions"),
+    onAnswerSubmittedForResearchContext: (answer) => {
+      setRecentResearchAnswers((current) => [answer, ...current.filter((item) => item !== answer)].slice(0, 5));
+    }
   });
 
   const {
@@ -1505,6 +1609,7 @@ export function useDecisionQueueShellController() {
     setKnownRiskDrafts,
     researchDrafts,
     setResearchDrafts,
+    recentResearchAnswers,
     workerLedgerImportDraft,
     setWorkerLedgerImportDraft,
     projections,

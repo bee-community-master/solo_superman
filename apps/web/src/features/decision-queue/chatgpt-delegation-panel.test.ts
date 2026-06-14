@@ -51,14 +51,14 @@ describe("chatGptDelegationViewModel", () => {
 
     expect(view.status).toBe("blocked");
     expect(view.canRevoke).toBe(false);
-    expect(view.visibleHandoffLabel).toContain("fully headless");
+    expect(view.visibleHandoffLabel).toContain("user-reviewed prompt request");
     expect(view.fallbackLabel).toContain("manual_prompt_handoff");
-    expect(view.fallbackReason).toContain("Policy risk blocks");
+    expect(view.fallbackReason).toContain("should not start unattended");
     expect(view.blockReasonItems.join("\n")).toContain("policy_risk_blocked");
     expect(view.policyRiskVerdictLabel).toContain("block");
     expect(view.policyRiskEvidenceRefs).toContain("policy:blocked:unattended-queue");
     expect(view.browserActionAuthorityLabel).toContain("missing browser action authority");
-    expect(view.nextAction).toContain("Known Risk");
+    expect(view.nextAction).toContain("official integration path");
     expect(view.auditItems.join("\n")).toContain("DelegationFallbackApplied");
   });
 

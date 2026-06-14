@@ -25,6 +25,7 @@ import {
   webPublicResearchAllowlistPolicy
 } from "../phase15a-research-run-request";
 import { readyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
+import { taskCanStartPublicSearchResearch } from "../research-routing-readiness";
 import {
   displayError,
   latestCommandBackedProjectionVersion,
@@ -40,6 +41,7 @@ interface DecisionQueueResearchActionsProps {
   readonly client: SidecarClient | null;
   readonly copy: DecisionQueueCopy;
   readonly projections: ProjectionState;
+  readonly recentResearchAnswers?: readonly string[];
   readonly refreshProjections: (projectId: ProjectId, sessionId: SessionShellProjection["sessionId"]) => Promise<void>;
   readonly refreshResearchOperations: (projectId: ProjectId) => Promise<void>;
   readonly researchOperations: ResearchOperationsState;
@@ -57,6 +59,7 @@ export function useDecisionQueueResearchActions({
   client,
   copy,
   projections,
+  recentResearchAnswers = [],
   refreshProjections,
   refreshResearchOperations,
   researchOperations,
@@ -209,6 +212,7 @@ export function useDecisionQueueResearchActions({
                 projectId,
                 buildWebResearchRunRequest({
                   allowlist: activatedAllowlist,
+                  detailedAnswers: recentResearchAnswers,
                   spec: projections.spec,
                   task
                 })
@@ -231,6 +235,13 @@ export function useDecisionQueueResearchActions({
                 runs: refreshedRuns
               }));
             }
+
+            const listedRuns = await client.listResearchRuns(projectId);
+
+            setResearchOperations((current) => ({
+              ...current,
+              runs: listedRuns
+            }));
           }
 
           await refreshResearchEvidenceSurfaces(projectId, projections.session.sessionId);
@@ -245,9 +256,10 @@ export function useDecisionQueueResearchActions({
   }, [
     appendCommand,
     client,
+    projections.spec,
     projections.research,
     projections.session,
-    projections.spec?.title,
+    recentResearchAnswers,
     refreshResearchEvidenceSurfaces,
     refreshResearchOperations,
     researchActionErrors,
@@ -290,7 +302,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const revokeAllowlist = useCallback(
@@ -328,7 +348,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const updateAllowlistMaxConcurrentRuns = useCallback(
@@ -502,6 +530,7 @@ export function useDecisionQueueResearchActions({
     projections,
     refreshProjections,
     researchActionErrors,
+    researchActionLabels,
     researchActionReasons
   ]);
 
@@ -521,12 +550,17 @@ export function useDecisionQueueResearchActions({
         throw new Error(researchActionErrors.sidecarConnectionRequiredStartRun);
       }
 
+      if (!taskCanStartPublicSearchResearch({ task })) {
+        throw new Error(researchActionErrors.readyRunsNoReadyTasks);
+      }
+
       const response = await appendCommand(
         label,
         await client.startResearchRun(
           projectId,
           buildWebResearchRunRequest({
             allowlist,
+            detailedAnswers: recentResearchAnswers,
             spec: projections.spec,
             task
           })
@@ -548,8 +582,15 @@ export function useDecisionQueueResearchActions({
           runs: refreshedRuns
         }));
       }
+
+      const listedRuns = await client.listResearchRuns(projectId);
+
+      setResearchOperations((current) => ({
+        ...current,
+        runs: listedRuns
+      }));
     },
-    [appendCommand, client, projections.spec, researchActionErrors, setResearchOperations]
+    [appendCommand, client, projections.spec, recentResearchAnswers, researchActionErrors, setResearchOperations]
   );
 
   const startReadOnlyResearchRun = useCallback(async (researchTaskId: ResearchTaskId) => {
@@ -601,6 +642,7 @@ export function useDecisionQueueResearchActions({
     refreshResearchOperations,
     researchOperations.allowlists,
     researchActionErrors,
+    researchActionLabels,
     startReadOnlyResearchRunForTask
   ]);
 
@@ -700,6 +742,7 @@ export function useDecisionQueueResearchActions({
     refreshResearchOperations,
     researchOperations.allowlists,
     researchActionErrors,
+    researchActionLabels,
     setResearchOperations,
     startReadyReadOnlyResearchRunsForPlan
   ]);
@@ -736,7 +779,10 @@ export function useDecisionQueueResearchActions({
         runs: latestRuns
       }));
       await prepareVisibleChatGptResearchDelegations({
-        expectedStateVersion: latestResearch.version as unknown as StateVersion,
+        expectedStateVersion: latestCommandBackedProjectionVersion({
+          ...projections,
+          research: latestResearch
+        }),
         research: latestResearch,
         sessionId
       });
@@ -764,10 +810,11 @@ export function useDecisionQueueResearchActions({
   }, [
     client,
     prepareVisibleChatGptResearchDelegations,
-    projections.session,
+    projections,
     refreshResearchEvidenceSurfaces,
     refreshResearchOperations,
     researchActionErrors,
+    researchActionLabels,
     setProjections,
     setResearchOperations,
     setWorkflowError,
@@ -831,7 +878,15 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
 
   const retryResearchRun = useCallback(
@@ -864,9 +919,16 @@ export function useDecisionQueueResearchActions({
         setIsBusy(false);
       }
     },
-    [appendCommand, client, projections.session, refreshResearchOperations, researchActionErrors, researchActionReasons]
+    [
+      appendCommand,
+      client,
+      projections.session,
+      refreshResearchOperations,
+      researchActionErrors,
+      researchActionLabels,
+      researchActionReasons
+    ]
   );
-
 
   return {
     createOrReactivateAllowlist,

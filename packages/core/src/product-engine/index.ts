@@ -292,7 +292,7 @@ const PROJECT_PURPOSE_MODE_DETAILS = {
 
 const BUSINESS_CRITIC_PRESSURE_SUMMARY = {
   balanced: "균형 점검: 주요 판단 영역마다 최소 1개의 다른 관점 질문을 유지합니다.",
-  strong: "강한 점검: 중요한 사업 가정이 약하면 핵심 가정을 다시 묻는 질문을 다음 질문으로 보냅니다.",
+  strong: "강한 점검: 중요한 사업 판단이 약하면 필요한 내용을 다시 묻는 질문을 다음 질문으로 보냅니다.",
   investor_grade:
     "꼼꼼한 점검: 가격, 채널, 반복 사용, 운영, 시장 타이밍, 만드는 사람/팀 강점을 확인하거나 다음 확인 항목으로 남기게 합니다."
 } as const satisfies Record<BusinessCriticIntensity, string>;
@@ -401,55 +401,66 @@ const FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS = [
 ] as const satisfies readonly AmbiguityAnswerOption[];
 
 const MISSING_CON_EVIDENCE_FOLLOW_UP_QUESTION_TEMPLATE = {
-  text: "답변 검증 질문: 방금 답한 “{answer}”를 더 안전하게 판단하려면, 반례나 한계를 더 찾아야 할까요? 아니면 현재 단서로 조건부 진행해도 될까요?",
-  expectedAnswerType: "evidence",
-  answerSelectionMode: "single"
+  text: "기존 방법으로도 충분하다고 느끼는 사용자는 어떤 상황에서 이 서비스를 다시 떠올릴까요?",
+  expectedAnswerType: "text"
 } as const satisfies FollowUpQuestionTemplate;
 
 const FOLLOW_UP_QUESTION_TEMPLATES = [
   {
-    text: "답변 검증 질문: 방금 답한 “{answer}”를 실제 판단 기준으로 바꾸려면, 누가 어떤 상황에서 이 답이 맞다고 확인할 수 있나요?",
+    text: "그 사용자는 지금 어떤 방법으로 이 문제를 해결하고 있나요?",
     expectedAnswerType: "text"
   },
   {
-    text: "범위 축소 질문: 방금 답한 “{answer}”를 다음 단계로 옮길 때 지금 하나만 먼저 확정해야 한다면 어떤 기준을 고르시겠습니까?",
+    text: "사용자가 답변을 마치면 어떤 기획서 조각이 생기면 좋나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "초보 사용자와 이미 문서가 있는 사용자는 어떤 질문이 달라야 하나요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 서비스를 처음 써본 사람이 바로 이해해야 하는 첫 화면은 무엇인가요?",
+    expectedAnswerType: "text"
+  },
+  {
+    text: "이 답을 기준으로 다음에 하나만 정한다면 무엇을 먼저 정하시겠습니까?",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_SINGLE_DECISION_ANSWER_OPTIONS
   },
   {
-    text: "핵심 판단 질문: 방금 답한 “{answer}”를 지금 스펙이나 다음 검증 단계에 진행 후보로 둘지, 보류하거나 좁힐지, 조건을 붙여 진행할지 골라주세요.",
+    text: "방금 정한 방향을 그대로 진행할지, 더 좁힐지, 조건을 붙일지 골라주세요.",
     expectedAnswerType: "choice",
     answerSelectionMode: "single",
     answerOptions: FOLLOW_UP_BINARY_ANSWER_OPTIONS
   },
   {
-    text: "범위 축소 질문: 이 답을 첫 구현 범위에 반영하면 반드시 넣을 것과 의도적으로 뺄 후보를 하나 이상 선택하거나 적어주세요.",
+    text: "첫 버전에 꼭 넣을 것과 나중으로 미룰 것은 무엇인가요?",
     expectedAnswerType: "choice",
     answerSelectionMode: "multiple",
     optionTopicKey: "mvp_validation_scope"
   },
   {
-    text: "답변 검증 질문: 이 답이 맞는지 공개 정보나 사용자 행동으로 확인하려면 어떤 검증 방법을 먼저 쓸까요?",
+    text: "이 방향이 맞는지 가장 작게 확인하려면 어떤 행동을 먼저 보면 좋을까요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "범위 축소 질문: 이 답을 기준으로 다음 결정을 내리기 전에 아직 애매한 단어, 숫자, 대상은 무엇인가요?",
+    text: "아직 애매한 단어, 숫자, 대상은 무엇인가요?",
     expectedAnswerType: "text"
   },
   {
-    text: "답변 검증 질문: 이 답이 틀렸을 때 가장 빨리 드러나는 실패 신호는 무엇이고, 그때의 다음 행동은 무엇인가요?",
+    text: "이 방향이 잘 안 맞는다면 어떤 장면에서 가장 먼저 티가 날까요?",
     expectedAnswerType: "experiment",
     answerSelectionMode: "single"
   },
   {
-    text: "범위 축소 질문: 이 답을 실제 제작 순서로 옮기면 첫 1주일 안에 끝낼 검증/구현 조각의 우선순위는 무엇인가요?",
+    text: "첫 1주일 안에 끝낼 수 있는 가장 작은 작업은 무엇인가요?",
     expectedAnswerType: "rank",
     answerSelectionMode: "ranked"
   },
   {
-    text: "핵심 판단 질문: 이 답을 한 문장 제품 약속으로 바꾸면 무엇이며, 사용자가 그 약속을 믿지 않을 이유는 무엇인가요?",
+    text: "이 답을 한 문장 제품 약속으로 바꾸면 무엇인가요?",
     expectedAnswerType: "text"
   }
 ] as const satisfies readonly FollowUpQuestionTemplate[];
@@ -1176,7 +1187,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         operational_risk_boundary:
           "반려동물 의료·보험·장례 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 법률, 운영 리스크는 무엇인가요?",
         evidence_balance:
-          "반려동물 보호자가 의료·급여·보험·장례 정보를 한곳에 모으려 한다는 단서와, 기존 방식으로 충분하다는 반례는 각각 무엇인가요?"
+          "반려동물 보호자가 의료·급여·보험·장례 정보를 한곳에 모으고 싶어지는 장면과 지금 방식으로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1214,7 +1225,7 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         operational_risk_boundary:
           "매장 주문·예약·고객 정보를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 결제, 운영 리스크는 무엇인가요?",
         evidence_balance:
-          "매장이나 손님이 예약·주문·단골 혜택을 한곳에 모으려 한다는 단서와 기존 도구로 충분하다는 반례는 각각 무엇인가요?"
+          "매장이나 손님이 예약·주문·단골 혜택을 한곳에 모으고 싶어지는 장면과 기존 도구로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1230,11 +1241,11 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         value_prop_switching_reason:
           `창업자가 문서 템플릿, ChatGPT 대화, 멘토 피드백을 두고 ${IDEA_CONTEXT_LABEL}를 선택할 이유 하나는 무엇인가요?`,
         alternative_dissatisfaction_gap:
-          "창업자는 지금 아이디어 검증 질문과 스펙을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
+          "창업자는 지금 아이디어 확인 질문과 기획서 초안을 어떤 방식으로 만들고, 그 방식이 괜찮을 때와 답답할 때는 언제인가요?",
         payment_hesitation_reason:
           "창업자가 돈을 내기 망설일 가장 큰 이유는 무엇이고, 이번 주 어떤 창업자에게 어떻게 확인할까요?",
         mvp_validation_scope:
-          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 스펙 handoff 중 반드시 검증할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
+          `${GOAL_CONTEXT_LABEL}에 맞춰 첫 버전에서 질문 품질, 리서치 근거 추적, 기획서 초안 작성 중 반드시 확인할 흐름 하나와 제외할 흐름 하나는 무엇인가요?`,
         first_validation_experiment:
           "제품을 만들기 전에 실제 창업자 아이디어로 질문 후보를 보여주고 맞지 않는 질문 수와 사용 의향을 어떻게 확인할 수 있나요?",
         success_metric_measurability:
@@ -1244,15 +1255,15 @@ function ideaFitBusinessQuestionText(topicKey: string, context: OnboardingQuesti
         acquisition_channel_realism:
           "유료 고객 인터뷰나 제품 스펙 준비 중인 창업자는 어디서 어떻게 모집할 수 있나요?",
         implementation_resource_fit:
-          "현재 리소스로 질문 품질, 근거 추적, 스펙 handoff 중 어떤 창업자 검증 흐름만 구현할 수 있나요?",
+          "현재 리소스로 질문 품질, 근거 추적, 기획서 초안 작성 중 어떤 창업자 지원 흐름만 구현할 수 있나요?",
         founder_advantage:
           "이 만드는 사람/팀이 창업자의 아이디어 모호성, 질문 품질, 근거 추적 문제를 더 잘 풀 수 있는 근거는 무엇인가요?",
         job_context_specificity:
-          "창업자는 아이디어를 처음 정리할 때, 고객 인터뷰 전, 스펙 handoff 전 중 어떤 순간에 이 제품을 쓰나요?",
+          "창업자는 아이디어를 처음 정리할 때, 고객 인터뷰 전, 기획서 초안 작성 전 중 어떤 순간에 이 제품을 쓰나요?",
         operational_risk_boundary:
           "창업자 아이디어와 리서치 근거를 다룰 때 첫 버전에 반드시 남겨야 할 보안, 신뢰, 책임 리스크는 무엇인가요?",
         evidence_balance:
-          "창업자가 맞춤 질문과 근거 추적 스펙을 원한다는 단서와 기존 ChatGPT/템플릿으로 충분하다는 반례는 각각 무엇인가요?"
+          "창업자가 맞춤 질문과 근거 추적 기획서를 원하게 되는 장면과 기존 ChatGPT/템플릿으로도 괜찮은 장면은 각각 무엇인가요?"
       };
 
       return questionByTopic[topicKey];
@@ -1426,7 +1437,7 @@ function weakeningCueForSeed(seed: AmbiguityIssueSeed) {
     case "founder_advantage":
       return "창업자/팀의 유리함이 약하거나 경쟁자가 더 쉽게 풀 수 있는 사례";
     default:
-      return "현재 가정을 약하게 만들거나 다른 범위·고객·검증 방식을 요구하는 반례";
+      return "현재 방향을 다시 생각하게 만드는 다른 범위·고객·확인 방식의 사례";
   }
 }
 
@@ -1626,13 +1637,13 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     topicKey: "evidence_balance",
     uncertaintyType: "unsupported",
     severity: "medium",
-    summary: "핵심 claim의 리서치 단서와 반례 균형이 부족함",
-    whyItMatters: "한쪽 단서만 있으면 중요한 claim을 완료 상태로 승격할 수 없습니다.",
-    question: "핵심 claim을 뒷받침하는 단서와 흔들 수 있는 반례는 무엇이며 어느 쪽이 비어 있는가?",
+    summary: "핵심 claim의 리서치 단서와 다른 사용 장면이 부족함",
+    whyItMatters: "한쪽 장면만 보면 중요한 claim을 너무 빨리 확정할 수 있습니다.",
+    question: "핵심 claim을 뒷받침하는 단서와 사용자가 기존 방법으로도 괜찮다고 느끼는 장면은 무엇인가요?",
     expectedAnswerType: "evidence",
-    decisionItUnlocks: "Evidence Matrix와 반례 확인 route를 결정합니다.",
+    decisionItUnlocks: "Evidence Matrix와 추가 확인 경로를 결정합니다.",
     routes: ["research_needed", "missing_con_evidence"],
-    suggestedResearchTask: "핵심 claim별 지지 단서와 반례 coverage를 점검합니다."
+    suggestedResearchTask: "핵심 claim별 지지 단서, 기존 대안, 막힐 상황을 확인합니다."
   },
   {
     sectionRef: "Non-goals",
@@ -1679,7 +1690,7 @@ const BUSINESS_AMBIGUITY_ISSUE_SEEDS: readonly AmbiguityIssueSeed[] = [
     severity: "medium",
     summary: "창업자만의 유리함이나 방어 가능성이 근거로 연결되지 않음",
     whyItMatters: "차별화 근거가 약하면 Founder Brief와 acquisition story가 설득력을 잃습니다.",
-    question: "이 founder/team이 이 문제를 더 잘 풀 수 있는 근거는 무엇인가?",
+    question: "이 만드는 사람이나 팀이 이 문제를 더 잘 풀 수 있는 근거는 무엇인가?",
     expectedAnswerType: "evidence",
     decisionItUnlocks: "Differentiation section과 Founder Brief의 핵심 narrative를 엽니다.",
     routes: ["research_needed", "spec_update_candidate"]
@@ -1766,7 +1777,7 @@ const STRONG_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     nextValidationAction: "Identify one reachable channel and one fallback if it fails.",
     uncertaintyType: "unsupported",
     severity: "high",
-    summary: "초기 획득 채널 핵심 가설이 반박되지 않음",
+    summary: "초기 획득 채널 판단이 아직 충분히 확인되지 않음",
     whyItMatters: "첫 사용자에게 도달하지 못하면 MVP validation이 실행되지 않습니다.",
     question: "첫 사용자 모집 채널이 실패한다면 가장 가능성 높은 원인은 무엇인가?",
     expectedAnswerType: "evidence",
@@ -1857,13 +1868,13 @@ const INVESTOR_GRADE_BUSINESS_CRITIC_SEEDS: readonly AmbiguityIssueSeed[] = [
     nextValidationAction: "이 팀이 더 잘 풀 수 있다는 근거를 확인하거나 다음 확인 항목으로 남깁니다.",
     uncertaintyType: "unsupported",
     severity: "high",
-    summary: "founder advantage pressure item이 근거 없이 남아 있음",
+    summary: "만드는 사람/팀의 강점이 근거 없이 남아 있음",
     whyItMatters: "만드는 사람/팀의 강점이 약하면 왜 우리가 이 문제를 더 잘 풀 수 있는지 설명하기 어렵습니다.",
     question: "왜 이 만드는 사람/팀이 이 문제를 더 잘 풀 수 있고, 그 생각이 틀릴 수 있는 이유는 무엇인가요?",
     expectedAnswerType: "evidence",
     decisionItUnlocks: "만드는 사람/팀의 강점을 근거로 남길지, 아직 모르는 항목으로 남길지 정합니다.",
     routes: ["question", "research_needed", "deferred", "repeat_limit_reached"],
-    suggestedResearchTask: "founder advantage 주장과 그 주장을 약하게 만드는 사례를 수집합니다."
+    suggestedResearchTask: "만드는 사람/팀의 강점 주장과 그 주장을 다시 살펴보게 하는 사례를 수집합니다."
   }
 ] satisfies readonly AmbiguityIssueSeed[];
 
@@ -2827,7 +2838,7 @@ function researchFollowUpEvidenceContext(input: {
   return [
     "리서치 메모리 요약:",
     proSummary ? `- 확인된 단서: ${proSummary}` : null,
-    conSummary ? `- 다른 관점/반례: ${conSummary}` : null,
+    conSummary ? `- 보완할 관점: ${conSummary}` : null,
     uncertaintySummary ? `- 한계/불확실성: ${uncertaintySummary}` : null,
     `- 출처 단서: ${readableEvidenceContextExcerpt(input.sourceLabel)}`
   ]
@@ -2871,20 +2882,24 @@ function answerRequestsBroaderResearch(answer: string) {
   return BROADER_RESEARCH_REQUEST_PATTERN.test(answer) && !BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
 }
 
+function answerRejectsBroaderResearch(answer: string) {
+  return BROADER_RESEARCH_REJECTION_PATTERN.test(answer);
+}
+
 function ambiguityRoutingPathInstruction(path: AmbiguityIssueSnapshot["ambiguityRoutingPath"] | undefined) {
   if (path === "existing_fact_check") {
-    return "First verify facts that can be checked from existing public records or known documents, then separate the user's remaining judgment.";
+    return "공개 자료로 바로 확인되는 사실과 사용자가 직접 정해야 할 판단을 나눠 정리합니다.";
   }
 
   if (path === "current_research") {
-    return "Collect current public evidence with source freshness, limitations, and counterexamples before treating the answer as implementation-ready.";
+    return "최신 공개 자료를 모아 사용 장면, 기존 대안, 막힐 상황을 함께 정리합니다.";
   }
 
   if (path === "human_judgment") {
-    return "Do not replace the user's choice with research; use research only to clarify consequences, risks, and observable validation signals.";
+    return "사용자의 선택을 대신 결정하지 않고, 선택 뒤에 생기는 장면과 확인할 행동만 정리합니다.";
   }
 
-  return "Separate checkable facts, current research, and remaining user judgment before recommending the next question or spec update.";
+  return "확인 가능한 사실, 더 찾아볼 자료, 사용자가 직접 정할 내용을 나눠 다음 질문으로 연결합니다.";
 }
 
 function researchObjectiveForAnswer(input: {
@@ -2897,33 +2912,33 @@ function researchObjectiveForAnswer(input: {
   const broaden = answerRequestsBroaderResearch(input.answer);
 
   if (!researchTarget) {
-    const baseObjective = `Validate evidence for: ${subject}`;
+    const baseObjective = `다음 기획 판단을 더 구체화할 공개 자료를 찾습니다: ${plainUserFacingDecisionQueueText(subject)}`;
 
     if (!broaden) {
       return baseObjective;
     }
 
     return [
-      `Broaden research beyond existing notes for: ${subject}`,
-      `User asked for additional or wider research after answering: “${compactAnswerExcerpt(input.answer)}”.`,
-      "Use any existing research memory as baseline context, but collect wider sources and counter-evidence instead of treating the previous memo as complete."
+      `다음 기획 판단을 더 넓게 살펴봅니다: ${plainUserFacingDecisionQueueText(subject)}`,
+      `사용자 답변에서 추가 자료가 필요하다고 했습니다: “${compactAnswerExcerpt(input.answer)}”.`,
+      "기존 메모가 있으면 참고하되, 사용자 미래, 기존 대안, 막힐 상황, 대응 선택지를 함께 정리합니다."
     ].join(" ");
   }
 
   return [
-    broaden ? `Broaden research for: ${plainUserFacingDecisionQueueText(researchTarget)}` : `Find decision evidence for: ${plainUserFacingDecisionQueueText(researchTarget)}`,
-    `Original ambiguity: ${plainUserFacingDecisionQueueText(subject)}`,
-    `User answer to account for: “${compactAnswerExcerpt(input.answer)}”.`,
+    broaden ? `다음 리서치 주제를 더 넓게 살펴봅니다: ${plainUserFacingDecisionQueueText(researchTarget)}` : `다음 리서치 주제를 확인합니다: ${plainUserFacingDecisionQueueText(researchTarget)}`,
+    `관련 질문: ${plainUserFacingDecisionQueueText(subject)}`,
+    `사용자 답변: “${compactAnswerExcerpt(input.answer)}”.`,
     input.sourceQuestion?.decisionItUnlocks
-      ? `Decision this should inform: ${plainUserFacingDecisionQueueText(input.sourceQuestion.decisionItUnlocks)}`
+      ? `이 자료가 도와야 할 결정: ${plainUserFacingDecisionQueueText(input.sourceQuestion.decisionItUnlocks)}`
       : null,
     input.sourceQuestion?.ambiguityDimension
-      ? `Ambiguity dimension: ${input.sourceQuestion.ambiguityDimension}`
+      ? `구체화할 부분: ${plainUserFacingDecisionQueueText(input.sourceQuestion.ambiguityDimension)}`
       : null,
     ambiguityRoutingPathInstruction(input.sourceQuestion?.ambiguityRoutingPath),
     broaden
-      ? "Use existing research memory only as baseline context; look for wider sources, counterexamples, and stale assumptions."
-      : "Return source-linked findings, limitations, other perspectives, and what still needs a human decision."
+      ? "더 넓은 출처에서 사용자 미래, 기존 대안, 막힐 상황, 대응 선택지를 정리합니다."
+      : "출처가 있는 내용, 한계, 다음 질문을 함께 정리합니다."
   ].filter(Boolean).join(" ");
 }
 
@@ -2984,7 +2999,7 @@ function answerJudgmentLabel(
       sourceQuestion.topicKey ?? ""
     )
   ) {
-    return "대체재 반례 판단";
+    return "기존 대안 판단";
   }
 
   if (routeOutcome === "research_needed") {
@@ -3005,11 +3020,11 @@ function followUpQuestionText(answerLabel: string, template: FollowUpQuestionTem
 function routeOutcomePlanningAction(routeOutcome: ResearchRouteOutcome) {
   switch (routeOutcome) {
     case "missing_con_evidence":
-      return "반례/대체재 리서치와 known risk 후보로 보내야 합니다.";
+      return "기존 대안과 사용자가 막힐 상황을 조금 더 살펴봅니다.";
     case "conflict_review":
-      return "상충 근거를 비교한 뒤 스펙 반영 또는 방향 전환을 결정해야 합니다.";
+      return "서로 다른 자료를 비교해 어느 상황에 맞는지 정리합니다.";
     case "research_needed":
-      return "스펙 확정 전에 공개 근거 또는 사용자 행동 신호를 확인해야 합니다.";
+      return "공개 자료나 작은 사용자 행동으로 확인할 점을 정리합니다.";
   }
 }
 
@@ -3017,11 +3032,11 @@ function planningChangeSummaryForAnswer(input: {
   readonly sourceQuestion: AmbiguityIssueSnapshot;
   readonly routeOutcome: ResearchRouteOutcome;
 }) {
-  const section = input.sourceQuestion.sectionRef ?? "현재 스펙";
+  const section = input.sourceQuestion.sectionRef ?? "현재 기획";
   const answer = answerJudgmentLabel(input.sourceQuestion, input.routeOutcome);
   const routeAction = routeOutcomePlanningAction(input.routeOutcome);
 
-  return `기획 변화: ${section} 판단이 “${answer}” 쪽으로 좁혀졌습니다. 다음에는 ${routeAction}`;
+  return `${section}에서 “${answer}”이 조금 더 정리되었습니다. 다음에는 ${routeAction}`;
 }
 
 function followUpSuggestedResearchTask(
@@ -3031,7 +3046,7 @@ function followUpSuggestedResearchTask(
   const answerLabel = answerJudgmentLabel(sourceQuestion, routeOutcome);
 
   if (routeOutcome === "missing_con_evidence") {
-    return `${answerLabel}을 반박하거나 약하게 만드는 공개 근거를 우선 찾습니다.`;
+    return `${answerLabel}과 관련해 기존 대안, 사용자가 멈출 상황, 대응 선택지를 찾습니다.`;
   }
 
   const researchTarget = sourceQuestion.researchQuestion ?? sourceQuestion.suggestedResearchTask;
@@ -3079,32 +3094,73 @@ function answerFollowUpBranches(answer: string): readonly string[] {
   return uniqueBranches.slice(0, MAX_IMMEDIATE_FOLLOW_UP_BRANCHES);
 }
 
-function branchAnswerRef(answerRef: string, branchCount: number, branchIndex: number) {
-  return branchCount === 1 ? answerRef : `${answerRef}:branch:${branchIndex + 1}`;
+const PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD = 3;
+
+function planningDetailResearchTaskId(sessionId: SessionId) {
+  return `research_task_${stableToken(`${sessionId}:planning_detail_research`)}` as ResearchTaskId;
 }
 
-function researchObjectiveForAnswerBranch(input: {
-  readonly explicitObjective: string | undefined;
-  readonly activeItem: QueueItemProjection;
-  readonly branchAnswer: string;
-  readonly branchCount: number;
-  readonly branchIndex: number;
-  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+function planningDetailResearchTaskIdForAnswer(input: {
+  readonly sessionId: SessionId;
+  readonly answerRef: string;
+  readonly researchState: ProductEngineStateSnapshot["researchState"];
 }) {
-  const { activeItem, branchAnswer, branchCount, branchIndex, explicitObjective, sourceQuestion } = input;
-  const objective =
-    explicitObjective ??
-    researchObjectiveForAnswer({
-      activeItem,
-      answer: branchAnswer,
-      sourceQuestion
-    });
+  const baseTaskId = planningDetailResearchTaskId(input.sessionId);
+  const baseTaskHasResult = input.researchState.results.some((result) => result.researchTaskId === baseTaskId);
 
-  if (branchCount === 1) {
-    return objective;
+  if (!baseTaskHasResult) {
+    return baseTaskId;
   }
 
-  return `답변의 ${branchIndex + 1}번째 판단 가지 “${compactAnswerExcerpt(branchAnswer)}” 기준으로 ${plainUserFacingDecisionQueueText(objective)}`;
+  return `research_task_${stableToken(`${input.sessionId}:planning_detail_research:${input.answerRef}`)}` as ResearchTaskId;
+}
+
+function answeredPlanningQuestionCount(issues: readonly AmbiguityIssueSnapshot[]) {
+  return issues.filter((issue) => issue.status === "answered" && Boolean(issue.submittedAnswer)).length;
+}
+
+function currentPlanningIdeaTitle(state: ProductEngineStateSnapshot) {
+  return plainUserFacingDecisionQueueText(state.currentSpec.title ?? state.project.rawIdeaText ?? "현재 아이디어");
+}
+
+function researchObjectiveForPlanningDetailAnswer(input: {
+  readonly explicitObjective: string | undefined;
+  readonly activeItem: QueueItemProjection;
+  readonly answer: string;
+  readonly answeredQuestionCount: number;
+  readonly state: ProductEngineStateSnapshot;
+  readonly sourceQuestion: AmbiguityIssueSnapshot | undefined;
+}) {
+  if (input.explicitObjective) {
+    return input.explicitObjective;
+  }
+
+  if (
+    answerRequestsBroaderResearch(input.answer) ||
+    answerRejectsBroaderResearch(input.answer) ||
+    Boolean(input.sourceQuestion?.researchQuestion) ||
+    Boolean(input.sourceQuestion?.suggestedResearchTask)
+  ) {
+    return researchObjectiveForAnswer({
+      activeItem: input.activeItem,
+      answer: input.answer,
+      sourceQuestion: input.sourceQuestion
+    });
+  }
+
+  if (input.answeredQuestionCount < PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD) {
+    return "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다.";
+  }
+
+  const title = currentPlanningIdeaTitle(input.state);
+  const question = input.sourceQuestion?.questionText ?? input.activeItem.title;
+
+  return [
+    `여러 공개 자료를 비교해 “${title}” 아이디어의 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지를 종합합니다.`,
+    `최근 질문: ${plainUserFacingDecisionQueueText(question)}`,
+    `최근 사용자 답변: “${compactAnswerExcerpt(input.answer)}”.`,
+    "첫 사용자, 기존 방법, 결과물, 첫 화면 판단을 기획서 초안에 반영할 수 있게 정리합니다."
+  ].join(" ");
 }
 
 function createFollowUpIssuesForAnswer(input: {
@@ -3176,18 +3232,18 @@ function createFollowUpIssuesForAnswer(input: {
       uncertaintyType: routeOutcome === "missing_con_evidence" ? "missing_con_evidence" : "decision_required",
       severity,
       summary: branches.length === 1
-        ? `이전 답변을 더 구체화해야 함: ${sourceQuestion.summary}`
-        : `이전 답변의 ${branchIndex + 1}번째 판단 가지를 더 구체화해야 함: ${sourceQuestion.summary}`,
+        ? `${answerLabel}을 한 단계 더 구체화합니다.`
+        : `${answerLabel}의 ${branchIndex + 1}번째 선택지를 한 단계 더 구체화합니다.`,
       whyItMatters:
-        `${planningChangeSummary} 답하지 않으면 이 판단은 스펙 반영, 추가 리서치, known risk, 검증 액션 중 어디로 갈지 흐려집니다.`,
+        `${planningChangeSummary} 답하면 다음 질문, 리서치 주제, 첫 결과물 범위가 더 선명해집니다.`,
       status: "open" as const,
       questionText: followUpQuestionText(answerLabel, followUpTemplate),
       expectedAnswerType,
       ...(answerSelectionMode ? { answerSelectionMode } : {}),
       answerOptions,
       decisionItUnlocks:
-        `${sourceQuestion.decisionItUnlocks ?? "이전 답변을 스펙, 근거, 첫 구현 범위 판단으로 연결합니다."} 이 후속 답변은 다음 범위를 한 단계 더 좁힙니다.`,
-      nextValidationAction: planningChangeSummary,
+        `${answerLabel}을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다.`,
+      nextValidationAction: `다음에는 ${routeOutcomePlanningAction(routeOutcome)}`,
       ...(suggestedResearchTask ? { suggestedResearchTask } : {}),
       repeatCount: nextRepeatCount,
       repeatLimit,
@@ -3384,8 +3440,8 @@ function researchObjectiveForFollowUpIssue(issue: AmbiguityIssueSnapshot) {
     issue.suggestedResearchTask ??
     issue.researchQuestion ??
     (issue.questionText
-      ? `추가 질문 “${compactAnswerExcerpt(issue.questionText)}”에 답할 공개 근거, 반례, 한계를 확인합니다.`
-      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 근거, 반례, 한계를 확인합니다.`);
+      ? `추가 질문 “${compactAnswerExcerpt(issue.questionText)}”에 답할 공개 단서, 기존 대안, 막힐 상황을 확인합니다.`
+      : `리서치 후속 질문 ${issue.queueItemId}에 필요한 공개 단서, 기존 대안, 막힐 상황을 확인합니다.`);
 
   return (
     issue.sourceRef?.startsWith("research:")
@@ -4757,7 +4813,7 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
     !candidateIssues.some(isCoreAssumptionChallengeIssue)
   ) {
     return reject(
-      "ActivateQuestionBatch requires at least one core-assumption challenge for stronger business review intensity.",
+      "ActivateQuestionBatch requires at least one important-detail check for a stronger question style.",
       "COMMAND_PRECONDITION_FAILED",
       {
         businessCriticIntensity: state.project.businessCriticIntensity,
@@ -5033,44 +5089,51 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const routeOutcome = routeOutcomeForAnswer(command);
   const impact = validResearchImpact(command.payload.claimImpact);
   const sourceQuestion = state.openIssues.find((issue) => issue.queueItemId === queueItemId);
-  const answerBranches = answerFollowUpBranches(answer);
   const explicitResearchObjective = requiredString(command.payload.researchObjective) ?? undefined;
-  const researchTasks = answerBranches.map((branchAnswer, branchIndex) => {
-    const branchCount = answerBranches.length;
-    const branchSourceAnswerRef = branchAnswerRef(answerRef, branchCount, branchIndex);
-    const objective = researchObjectiveForAnswerBranch({
+  const nextOpenIssues = state.openIssues.map((issue) =>
+    issue.queueItemId === queueItemId
+      ? {
+          ...issue,
+          status: "answered" as const,
+          submittedAnswer: answer,
+          submittedAnswerRef: answerRef,
+          answerRouteOutcome: routeOutcome
+        }
+      : issue
+  );
+  const answeredQuestionCount = answeredPlanningQuestionCount(nextOpenIssues);
+  const researchRouteOutcome =
+    answeredQuestionCount >= PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD ? "research_needed" : routeOutcome;
+  const researchTask = planResearchTask({
+    researchTaskId: planningDetailResearchTaskIdForAnswer({
+      sessionId: command.sessionId,
+      answerRef,
+      researchState: state.researchState
+    }),
+    sessionId: command.sessionId,
+    sourceQueueItemId: queueItemId as QueueItemId,
+    sourceAnswerRef: answerRef,
+    objective: researchObjectiveForPlanningDetailAnswer({
       explicitObjective: explicitResearchObjective,
       activeItem,
-      branchAnswer,
-      branchCount,
-      branchIndex,
+      answer,
+      answeredQuestionCount,
+      state,
       sourceQuestion
-    });
-    const researchTaskId = `research_task_${stableToken(
-      branchCount === 1
-        ? `${command.sessionId}:${queueItemId}:${answer}:${routeOutcome}`
-        : `${command.sessionId}:${queueItemId}:${branchAnswer}:${routeOutcome}:${branchIndex}`
-    )}` as ResearchTaskId;
-
-    return planResearchTask({
-      researchTaskId,
-      sessionId: command.sessionId,
-      sourceQueueItemId: queueItemId as QueueItemId,
-      sourceAnswerRef: branchSourceAnswerRef,
-      objective,
-      projectPurposeMode: confirmedMode,
-      projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
-      projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
-      skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
-      ...(state.project.businessCriticIntensity
-        ? { businessCriticIntensity: state.project.businessCriticIntensity }
-        : {}),
-      ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
-      routeOutcome,
-      impact,
-      createdAt: command.issuedAt
-    });
+    }),
+    projectPurposeMode: confirmedMode,
+    projectPurposeModeLabel: projectPurposeModeLabel(confirmedMode),
+    projectPurposeModeEffect: projectPurposeModeEffect(confirmedMode),
+    skippedCommercializationAxes: skippedCommercializationAxes(confirmedMode),
+    ...(state.project.businessCriticIntensity
+      ? { businessCriticIntensity: state.project.businessCriticIntensity }
+      : {}),
+    ...(activeItem.businessCriticCategory ? { businessCriticCategory: activeItem.businessCriticCategory } : {}),
+    routeOutcome: researchRouteOutcome,
+    impact,
+    createdAt: command.issuedAt
   });
+  const researchTasks = [researchTask];
   const firstResearchTask = researchTasks[0];
 
   if (!firstResearchTask) {
@@ -5083,26 +5146,15 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
       projection,
       researchTask.researchTaskId,
       researchReviewQueueTitleForRouteOutcome({
-        routeOutcome,
+        routeOutcome: researchTask.routeOutcome,
         title: activeItem.title,
         index,
         total: researchTasks.length
       }),
-      researchReviewQueueStateForRouteOutcome(routeOutcome),
+      researchReviewQueueStateForRouteOutcome(researchTask.routeOutcome),
       projectionAfterAnsweredItem.version,
       command.issuedAt
     ), projectionAfterAnsweredItem);
-  const nextOpenIssues = state.openIssues.map((issue) =>
-    issue.queueItemId === queueItemId
-      ? {
-          ...issue,
-          status: "answered" as const,
-          submittedAnswer: answer,
-          submittedAnswerRef: answerRef,
-          answerRouteOutcome: routeOutcome
-        }
-      : issue
-  );
   const followUpIssues = createFollowUpIssuesForAnswer({
     sessionId: command.sessionId,
     sourceQuestion,
@@ -5561,7 +5613,7 @@ function reduceSynthesizeEvidence(command: ProductEngineCommand, state: ProductE
       task.routeOutcome === "conflict_review"
         ? `후속 상충 근거 검토 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
         : task.routeOutcome === "missing_con_evidence"
-          ? `후속 반례 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
+          ? `후속 대안 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`
           : `후속 리서치 대기${researchFollowUpTasks.length > 1 ? ` ${index + 1}/${researchFollowUpTasks.length}` : ""}: ${compactAnswerExcerpt(task.objective)}`,
       researchReviewQueueStateForRouteOutcome(task.routeOutcome),
       researchProjectionWithFollowUpTasks.version,

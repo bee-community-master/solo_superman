@@ -5,7 +5,8 @@ import {
   type LivingSpecProjection,
   type ProjectId,
   type ProjectionVersion,
-  type ResearchRunControlProjection
+  type ResearchRunControlProjection,
+  type SessionId
 } from "@solo-superman/contracts";
 import { SidecarClientError } from "../../../shared/api/sidecar-client";
 import {
@@ -16,6 +17,8 @@ import {
   implementationNavSublabel,
   permissionNavStatusLabel,
   planningNavSublabel,
+  persistRestorableSession,
+  readRestorableSession,
   researchRunControlHasPollableRuns
 } from "./useDecisionQueueShellController";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
@@ -37,6 +40,51 @@ describe("Decision Queue shell chrome labels", () => {
     expect(permissionNavStatusLabel("not_started", DECISION_QUEUE_COPY.en)).toBe("Not started");
     expect(permissionNavStatusLabel("waiting_for_approval", DECISION_QUEUE_COPY.ko)).toBe("승인 대기");
     expect(permissionNavStatusLabel("final_submit_requested", DECISION_QUEUE_COPY.ja)).toBe("最終送信リクエスト済み");
+  });
+});
+
+describe("decision queue session restore helpers", () => {
+  it("persists and reads the last active project/session for reload recovery", () => {
+    const originalWindow = globalThis.window;
+    const storage = new Map<string, string>();
+    const fakeWindow = {
+      location: new URL("https://solo-superman.local/decision-queue"),
+      history: {
+        state: null,
+        replaceState: (_state: unknown, _title: string, url: URL) => {
+          fakeWindow.location = new URL(url);
+        }
+      },
+      localStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          storage.set(key, value);
+        }
+      }
+    };
+
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: fakeWindow
+    });
+
+    try {
+      persistRestorableSession({
+        projectId: "proj_restore" as ProjectId,
+        sessionId: "sess_restore" as SessionId
+      });
+
+      expect(fakeWindow.location.search).toContain("projectId=proj_restore");
+      expect(readRestorableSession()).toEqual({
+        projectId: "proj_restore",
+        sessionId: "sess_restore"
+      });
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow
+      });
+    }
   });
 });
 

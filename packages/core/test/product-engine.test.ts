@@ -988,8 +988,8 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(researchTask).toMatchObject({
       objective: expect.stringContaining("보호자 유형별로 의료·보험·일상 기록 관리 니즈")
     });
-    expect(String(researchTask?.objective)).toContain("Ambiguity dimension: scope");
-    expect(String(researchTask?.objective)).toContain("Find decision evidence");
+    expect(String(researchTask?.objective)).toContain("구체화할 부분: 범위");
+    expect(String(researchTask?.objective)).toContain("다음 리서치 주제를 확인합니다");
   });
 
   it("rejects ambiguity analysis when generated questions are missing", () => {
@@ -2808,7 +2808,7 @@ describe("PR-04 ProductEngine reducer", () => {
         expect.objectContaining({
           cardType: "follow_up_question",
           state: "active",
-          title: expect.stringContaining("타깃 고객 판단"),
+          title: expect.stringContaining("지금 어떤 방법"),
           answerOptions: []
         })
       ],
@@ -2822,99 +2822,99 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(answer.accepted).toBe(true);
     expect(broaderResearchAnswer.accepted).toBe(true);
     expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderResearchOptionValueAnswer.accepted).toBe(true);
     expect(broaderResearchOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderResearchOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderCounterEvidenceOptionValueAnswer.accepted).toBe(true);
     expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderNaturalLanguageAnswer.accepted).toBe(true);
     expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderNaturalLanguageAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderEnglishSourceAnswer.accepted).toBe(true);
     expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderEnglishSourceAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderKoreanEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderKoreanEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderEnglishEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderEnglishEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(broaderEnglishPassiveEvidenceNeededAnswer.accepted).toBe(true);
     expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(broaderEnglishPassiveEvidenceNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain(
-      "wider sources"
+      "사용자 미래"
     );
     expect(noMoreResearchAnswer.accepted).toBe(true);
-    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(noMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(noMoreSourcesAnswer.accepted).toBe(true);
-    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(noMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(noNeedToFindMoreSourcesAnswer.accepted).toBe(true);
-    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(noNeedToFindMoreSourcesAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(noNeedToCollectMoreEvidenceAnswer.accepted).toBe(true);
-    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(noNeedToCollectMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(noMoreEnglishResearchAnswer.accepted).toBe(true);
-    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(noMoreEnglishResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(doNotNeedMoreResearchAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(doNotNeedMoreResearchAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(doNotNeedMoreEvidenceAnswer.accepted).toBe(true);
-    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(doNotNeedMoreEvidenceAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(moreResearchNotNeededAnswer.accepted).toBe(true);
-    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("Validate evidence for:");
+    expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).toContain("다음 기획 판단");
     expect(moreResearchNotNeededAnswer.nextState.researchState.tasks[0]?.objective).not.toContain(
-      "Broaden research"
+      "더 넓게 살펴봅니다"
     );
     expect(answer.effectPlan).toMatchObject([
       {
@@ -2970,7 +2970,7 @@ describe("PR-04 ProductEngine reducer", () => {
           repeatCount: 1,
           repeatLimit: 16,
           expectedAnswerType: "text",
-          questionText: expect.stringContaining("타깃 고객 판단"),
+          questionText: expect.stringContaining("지금 어떤 방법"),
           possibleRoutes: expect.arrayContaining(["question", "research_needed"])
         })
       ])
@@ -3057,6 +3057,108 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("keeps imported planning-detail research results when later answers plan more research", () => {
+    const firstQueueItemId = "queue_first_user_context" as QueueItemId;
+    const secondQueueItemId = "queue_output_detail" as QueueItemId;
+    const openIssues = [
+      {
+        queueItemId: firstQueueItemId,
+        sectionRef: "Target Customer",
+        topicKey: "first_user_context",
+        summary: "첫 사용자 상황",
+        status: "open" as const,
+        questionText: "처음 쓰는 사용자는 누구이고 언제 이 도구를 쓰나요?",
+        expectedAnswerType: "text" as const,
+        sourceRef: "test:first_user_context"
+      },
+      {
+        queueItemId: secondQueueItemId,
+        sectionRef: "Output",
+        topicKey: "output_detail",
+        summary: "답변 뒤 결과물",
+        status: "open" as const,
+        questionText: "답변을 마치면 어떤 문서 조각이 생겨야 하나요?",
+        expectedAnswerType: "text" as const,
+        sourceRef: "test:output_detail"
+      }
+    ];
+    const state = {
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
+      stateVersion: 4 as StateVersion,
+      openIssues,
+      queueProjection: {
+        kind: "DecisionQueueProjection" as const,
+        version: 4 as ProjectionVersion,
+        active: openIssues.map((issue) => ({
+          queueItemId: issue.queueItemId,
+          title: issue.questionText,
+          state: "active" as const,
+          cardType: "question" as const,
+          topicKey: issue.topicKey
+        })),
+        next: [],
+        blocked: [],
+        deferred: []
+      }
+    };
+    const firstAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 4, {
+        queueItemId: firstQueueItemId,
+        answer: "초기 창업자가 혼자 서비스 아이디어를 문서로 정리하려고 막힐 때 씁니다."
+      }, 5),
+      state
+    );
+
+    expect(firstAnswer.accepted).toBe(true);
+
+    const stateAfterFirstAnswer = {
+      ...state,
+      ...firstAnswer.nextState
+    };
+    const firstResearchTaskId = stateAfterFirstAnswer.researchState.taskIds[0];
+
+    if (!firstResearchTaskId) {
+      throw new Error("Expected the first answer to plan a research task.");
+    }
+
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", Number(stateAfterFirstAnswer.stateVersion), {
+        researchTaskId: firstResearchTaskId,
+        result: "초기 창업자는 기존 노트와 문서로 아이디어를 정리하지만, 질문 흐름과 사례 비교가 없으면 실행 범위가 흐려진다는 공개 사례가 있습니다.",
+        sourceTitle: "User-reviewed Deep Research notes"
+      }, 6),
+      stateAfterFirstAnswer
+    );
+
+    expect(imported.accepted).toBe(true);
+    expect(imported.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
+      "handoff_ready"
+    );
+    const stateAfterImport = {
+      ...stateAfterFirstAnswer,
+      researchState: imported.nextState.researchState,
+      stateVersion: imported.nextState.stateVersion
+    };
+
+    const secondAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", Number(stateAfterImport.stateVersion), {
+        queueItemId: secondQueueItemId,
+        answer: "사용자 유형, 현재 대안, 첫 결과물 범위가 들어간 한 페이지 기획서 초안이 생겨야 합니다."
+      }, 7),
+      stateAfterImport
+    );
+
+    expect(secondAnswer.accepted).toBe(true);
+    expect(secondAnswer.nextState.researchState.taskIds).toHaveLength(2);
+    expect(secondAnswer.nextState.researchState.taskIds[0]).toBe(firstResearchTaskId);
+    expect(secondAnswer.nextState.researchState.taskIds[1]).not.toBe(firstResearchTaskId);
+    expect(secondAnswer.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
+      "handoff_ready"
+    );
+    expect(secondAnswer.nextState.researchState.results).toHaveLength(1);
+    expect(secondAnswer.nextState.researchState.results[0]?.researchTaskId).toBe(firstResearchTaskId);
+  });
+
   it("splits multi-line answers into multiple immediate follow-up ambiguity branches", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];
@@ -3079,11 +3181,7 @@ describe("PR-04 ProductEngine reducer", () => {
 
     expect(answer.accepted).toBe(true);
     expect(answer.events[0]?.payload).toMatchObject({
-      researchTaskIds: [
-        expect.stringMatching(/^research_task_/),
-        expect.stringMatching(/^research_task_/),
-        expect.stringMatching(/^research_task_/)
-      ],
+      researchTaskId: expect.stringMatching(/^research_task_/),
       followUpQueueItemIds: [
         expect.stringMatching(/^queue_followup_/),
         expect.stringMatching(/^queue_followup_/),
@@ -3092,24 +3190,14 @@ describe("PR-04 ProductEngine reducer", () => {
       followUpRepeatCounts: [1, 2, 3]
     });
     expect(answer.events[1]?.payload).toMatchObject({
-      researchTasks: [
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:1"),
-          objective: expect.stringContaining("노령·만성질환 반려동물 보호자")
-        }),
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:2"),
-          objective: expect.stringContaining("보험·의료비 지불의향")
-        }),
-        expect.objectContaining({
-          sourceAnswerRef: expect.stringContaining("branch:3"),
-          objective: expect.stringContaining("장례와 생애 후반 정보")
-        })
-      ]
+      researchTask: expect.objectContaining({
+        sourceAnswerRef: expect.not.stringContaining("branch:"),
+        objective: expect.stringContaining("더 넓게 살펴봅니다")
+      })
     });
-    expect(answer.effectPlan.map((effect) => effect.inputRef.refId)).toEqual(answer.events[0]?.payload.researchTaskIds);
-    expect(answer.nextState.researchState.tasks).toHaveLength(3);
-    expect(answer.nextState.queueProjection.next.filter((item) => item.cardType === "research_review")).toHaveLength(3);
+    expect(answer.effectPlan.map((effect) => effect.inputRef.refId)).toEqual([answer.events[0]?.payload.researchTaskId]);
+    expect(answer.nextState.researchState.tasks).toHaveLength(1);
+    expect(answer.nextState.queueProjection.next.filter((item) => item.cardType === "research_review")).toHaveLength(1);
 
     const followUpIssues = answer.nextState.openIssues.filter((issue) =>
       issue.queueItemId.startsWith("queue_followup_")
@@ -3122,7 +3210,11 @@ describe("PR-04 ProductEngine reducer", () => {
       expect.stringContaining("branch:2"),
       expect.stringContaining("branch:3")
     ]);
-    expect(followUpIssues.every((issue) => issue.questionText?.includes("타깃 고객 판단"))).toBe(true);
+    expect(followUpIssues.map((issue) => issue.questionText)).toEqual([
+      expect.stringContaining("지금 어떤 방법"),
+      expect.stringContaining("기획서 조각"),
+      expect.stringContaining("초보 사용자와 이미 문서가 있는 사용자")
+    ]);
     expect(followUpIssues[0]?.questionText).not.toContain("노령·만성질환 반려동물 보호자");
     expect(followUpIssues[1]?.questionText).not.toContain("보험·의료비 지불의향");
     expect(followUpIssues[2]?.questionText).not.toContain("장례와 생애 후반 정보");
@@ -3155,12 +3247,8 @@ describe("PR-04 ProductEngine reducer", () => {
     ]);
 
     expect(replayed.openIssues.filter((issue) => issue.queueItemId.startsWith("queue_followup_"))).toHaveLength(3);
-    expect(replayed.researchState.tasks).toHaveLength(3);
-    expect(replayed.researchState.tasks.map((task) => task.sourceAnswerRef)).toEqual([
-      expect.stringContaining("branch:1"),
-      expect.stringContaining("branch:2"),
-      expect.stringContaining("branch:3")
-    ]);
+    expect(replayed.researchState.tasks).toHaveLength(1);
+    expect(replayed.researchState.tasks[0]?.sourceAnswerRef).not.toContain("branch:");
     expect(replayed.queueProjection.progress).toMatchObject({
       followUpQuestionCount: 3,
       followUpOpenQuestionCount: 3
@@ -3322,7 +3410,7 @@ describe("PR-04 ProductEngine reducer", () => {
           expect.objectContaining({
             cardType: "research_review",
             state: "blocked",
-            title: expect.stringContaining("후속 반례 리서치 대기")
+            title: expect.stringContaining("후속 대안 리서치 대기")
           })
         ]),
         progress: expect.objectContaining({

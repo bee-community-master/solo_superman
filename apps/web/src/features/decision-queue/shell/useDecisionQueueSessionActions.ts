@@ -93,7 +93,9 @@ interface DecisionQueueSessionActionsProps {
     options?: { readonly signal?: AbortSignal }
   ) => Promise<unknown | undefined>;
   readonly startReadyReadOnlyResearchRunsAfterAnswer?: () => Promise<void>;
+  readonly onSessionCreatedForRestore?: (session: SessionShellProjection) => void;
   readonly onInitialQueueCreated?: () => void;
+  readonly onAnswerSubmittedForResearchContext?: (answer: string) => void;
 }
 
 type InitialQuestionGenerationMode = "live_preview" | "local_fallback";
@@ -280,7 +282,9 @@ export function useDecisionQueueSessionActions({
   setWorkflowError,
   generateInitialQuestionSet,
   startReadyReadOnlyResearchRunsAfterAnswer,
-  onInitialQueueCreated
+  onSessionCreatedForRestore,
+  onInitialQueueCreated,
+  onAnswerSubmittedForResearchContext
 }: DecisionQueueSessionActionsProps) {
   const { initialQueueStartBlockers, sessionActionErrors, sessionActionLabels, sessionActionReasons } = copy.questions;
   const [initialQuestionGeneration, setInitialQuestionGeneration] = useState<InitialQuestionGenerationState>(
@@ -655,6 +659,7 @@ export function useDecisionQueueSessionActions({
           ...emptyProjectionState(),
           session,
         });
+        onSessionCreatedForRestore?.(session);
         if (initialResearchAutomationEnablesPublicWebSources(initialResearchAutomationPermission)) {
           await enableInitialResearchSources(client, session.projectId);
         }
@@ -675,6 +680,9 @@ export function useDecisionQueueSessionActions({
           projectPurposeMode,
           businessCriticIntensity: projectPurposeMode === "business" ? businessCriticIntensity : null
         });
+        clearInitialQuestionGenerationTimers();
+        initialQuestionControlRef.current = null;
+        setInitialQuestionGeneration(INITIAL_QUESTION_GENERATION_IDLE);
         const analyzeResponse = await appendCommand(
           sessionActionLabels.analyzeAmbiguity,
           await client.analyzeAmbiguity(
@@ -728,6 +736,7 @@ export function useDecisionQueueSessionActions({
       refetchQueueAfterSseNotification,
       refreshProjections,
       sessionActionReasons,
+      onSessionCreatedForRestore,
       onInitialQueueCreated
     ]
   );
@@ -937,6 +946,7 @@ export function useDecisionQueueSessionActions({
           ...current,
           [queueItemId]: ""
         }));
+        onAnswerSubmittedForResearchContext?.(answer);
         setProjections((current) => ({
           ...current,
           queue
@@ -960,6 +970,7 @@ export function useDecisionQueueSessionActions({
       continueQuestionLoopAfterQueueUpdate,
       projections,
       sessionActionErrors,
+      onAnswerSubmittedForResearchContext
     ]
   );
 
@@ -1005,6 +1016,7 @@ export function useDecisionQueueSessionActions({
         expectedStateVersion = commandResponseVersion(response);
         latestQueue = requiredCommandProjection<DecisionQueueProjection>(response, "DecisionQueueProjection");
         submittedQueueItemIds.push(queueItemId);
+        onAnswerSubmittedForResearchContext?.(answer);
       }
 
       setAnswerDrafts((current) => answerDraftsWithClearedItems(current, submittedQueueItemIds));
@@ -1049,6 +1061,7 @@ export function useDecisionQueueSessionActions({
     appendCommand,
     client,
     continueQuestionLoopAfterQueueUpdate,
+    onAnswerSubmittedForResearchContext,
     projections,
     sessionActionErrors,
     refreshProjections

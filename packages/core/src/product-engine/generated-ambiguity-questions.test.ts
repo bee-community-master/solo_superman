@@ -280,7 +280,7 @@ function generatedFounderValidationQuestionSet() {
 }
 
 describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
-  it("accepts pet lifecycle questions with pet guardian answer options", () => {
+  it("accepts pet lifecycle questions with domain-specific answer options", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
       validGeneratedQuestionSet(),
       {
@@ -504,7 +504,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
 
     expect(parsed.ok).toBe(false);
     expect(parsed.questions).toEqual([]);
-    expect(parsed.issues.join("\n")).toContain("pet lifecycle generated questions must use pet guardian/domain choices");
+    expect(parsed.issues.join("\n")).toContain("pet lifecycle generated questions must use domain-specific choices");
   });
 
   it("does not allow founder/builder choices just because an unrelated operations idea names operators", () => {
@@ -848,7 +848,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.issues.join("\n")).toContain("must include research_needed");
   });
 
-  it("rejects current research tasks that do not say where to look and what could weaken the assumption", () => {
+  it("rejects current research tasks that do not say where to look and what uncertainty remains", () => {
     const generatedSet = validGeneratedQuestionSet();
     const parsed = parseGeneratedAmbiguityQuestionSet(
       {
@@ -872,7 +872,7 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
 
     expect(parsed.ok).toBe(false);
     expect(parsed.issues.join("\n")).toContain("must name the source area or public evidence to inspect");
-    expect(parsed.issues.join("\n")).toContain("must name what would weaken the assumption");
+    expect(parsed.issues.join("\n")).toContain("must name the remaining uncertainty or limitation to inspect");
     expect(parsed.issues.join("\n")).toContain("must name the remaining human judgment after current research");
   });
 

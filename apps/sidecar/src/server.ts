@@ -667,13 +667,13 @@ function localCommerceFirstSituationOptions() {
   ];
 }
 
-function generatedQuestionSetLocalFallback(input: {
+export function generatedQuestionSetLocalFallback(input: {
   readonly rawIdea: string;
   readonly intakeGoal: string;
   readonly businessCriticIntensity?: string | null;
 }) {
   const context = [input.rawIdea, input.intakeGoal].filter(Boolean).join(" ").trim();
-  const ideaLabel = (input.rawIdea || context || "이 아이디어").slice(0, 80);
+  const ideaLabel = (input.rawIdea || context || "이 아이디어").replace(/\s+/gu, " ").trim().slice(0, 80);
   const shortSubject = fallbackShortSubjectForContext(context);
   const firstSituationOptions = isLocalCommerceFallbackContext(context)
     ? localCommerceFirstSituationOptions()
@@ -700,66 +700,66 @@ function generatedQuestionSetLocalFallback(input: {
         topicKey: "first_user_situation",
         uncertaintyType: "decision_required",
         severity: "high",
-        summary: "첫 사용자 상황이 아직 넓습니다.",
+        summary: "첫 사용자 상황을 더 구체화해야 합니다.",
         whyItMatters: "먼저 도울 상황을 정하지 않으면 질문, 리서치, 첫 화면이 서로 다른 사용자를 향할 수 있습니다.",
         questionText: `${shortSubject}에서 가장 먼저 도울 실제 사용자 상황은 무엇인가요?`,
         expectedAnswerType: firstSituationOptions.length ? "choice" : "text",
         ...(firstSituationOptions.length
           ? { answerSelectionMode: "single", answerOptions: firstSituationOptions }
           : { answerOptions: [] }),
-        decisionItUnlocks: "첫 인터뷰 대상과 첫 문제 문장을 좁힙니다.",
+        decisionItUnlocks: "첫 사용자와 첫 문제 문장을 좁힙니다.",
         ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
         possibleRoutes: ["question", "decision_candidate"]
       },
       {
         sectionRef: "MVP Scope",
-        topicKey: "first_version_scope",
+        topicKey: "planning_artifact_after_answers",
         uncertaintyType: "vague",
         severity: "high",
-        summary: "첫 버전 범위가 아직 넓습니다.",
-        whyItMatters: "첫 버전 범위가 넓으면 사용자가 실제로 달라지는 한 가지 순간을 확인하기 어렵습니다.",
-        questionText: `${shortSubject} 첫 버전에서 반드시 도울 일 하나와 일부러 빼는 일은 무엇인가요?`,
+        summary: "답변 뒤에 생길 기획서 조각이 아직 흐립니다.",
+        whyItMatters: "사용자가 질문에 답한 보람을 느끼려면 바로 채워지는 기획 항목이 보여야 합니다.",
+        questionText: `${shortSubject} 사용자가 질문에 답하고 나면 어떤 기획서 조각이 생겨야 하나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
-        decisionItUnlocks: "첫 기능 범위와 제외할 범위를 나눕니다.",
+        decisionItUnlocks: "질문 답변이 채울 기획서 항목을 정합니다.",
         ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
         possibleRoutes: ["question", "decision_candidate"]
       },
       {
-        sectionRef: "Success Criteria",
-        topicKey: "this_week_success_signal",
+        sectionRef: "JTBD / Use Case",
+        topicKey: "case_response_shape",
         uncertaintyType: "missing",
         severity: "high",
-        summary: "이번 주 성공 기준이 아직 없습니다.",
-        whyItMatters: "계속 만들지 판단하려면 말이 아니라 실제 행동으로 볼 기준이 필요합니다.",
-        questionText: `${shortSubject}에서 이번 주 어떤 사용자 행동이 나오면 계속 만들 기준으로 볼 건가요?`,
+        summary: "사용자 유형별 대응 방식이 아직 없습니다.",
+        whyItMatters: "초보자, 문서가 있는 사용자, 팀 사용자마다 필요한 질문과 결과물이 다를 수 있습니다.",
+        questionText: `${shortSubject}에서 초보자, 문서가 있는 사용자, 팀 사용자는 각각 무엇이 달라야 하나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
-        decisionItUnlocks: "이번 주 검증 액션과 통과 기준을 정합니다.",
-        ambiguityDimension: "success_criteria",
+        decisionItUnlocks: "사용 케이스별 질문 흐름과 결과물 차이를 정합니다.",
+        ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
         possibleRoutes: ["question", "decision_candidate"]
       },
       {
         sectionRef: "Current Alternatives",
-        topicKey: "existing_alternative_counterexample",
+        topicKey: "public_research_scenario_options",
         uncertaintyType: "missing_con_evidence",
         severity: "medium",
-        summary: "기존 대체재로 충분하다는 반례가 필요합니다.",
-        whyItMatters: "기존 방법보다 나은 이유가 약하면 첫 고객과 첫 기능을 다시 좁혀야 합니다.",
-        questionText: `${shortSubject} 사용자가 기존 방법으로 충분하다고 말한다면 어떤 반례 때문에 계획을 바꿔야 하나요?`,
+        summary: "리서치로 볼 사용자 미래, 기존 대안, 막힐 상황이 아직 없습니다.",
+        whyItMatters: "공개 자료를 보면 가능한 사용 케이스, 기존 대안, 막힐 상황, 다른 관점을 먼저 그려볼 수 있습니다.",
+        questionText: `${shortSubject} 관련 공개 자료를 보면 어떤 사용 케이스와 기존 대안이 먼저 확인되나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
-        decisionItUnlocks: "버릴 선택지와 유지할 가정을 분리합니다.",
+        decisionItUnlocks: "리서치가 만들 미래 시나리오와 다음 질문을 정합니다.",
         ambiguityDimension: "assumption_pressure",
         ambiguityRoutingPath: "current_research",
         businessCriticPressureKind: pressureKind,
         businessCriticIntensityMinimum: pressureMinimum,
-        researchQuestion: `${ideaLabel}의 기존 대체재, 공개 후기, 커뮤니티 반응에서 새 도구가 필요 없다는 근거를 확인합니다.`,
+        researchQuestion: `${ideaLabel}와 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 한계는 무엇인가?`,
         possibleRoutes: ["question", "research_needed", "missing_con_evidence"],
-        suggestedResearchTask: `${ideaLabel} 관련 공개 커뮤니티, 후기, 가격, 경쟁/대체재 자료에서 기존 방법으로 충분하다는 반례를 찾고, 어떤 근거가 이 가정을 약하게 만드는지와 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다.`
+        suggestedResearchTask: `${ideaLabel} 관련 공개 사례, 후기, 커뮤니티 글, 경쟁/대체 도구를 확인해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다.`
       }
     ]
   };

@@ -67,7 +67,7 @@ import {
   fixtureCodexWorkerExecutionOutput
 } from "./runtime";
 import type { CodexRuntimeAdapter } from "./runtime";
-import { createSidecarApp } from "./server";
+import { createSidecarApp, generatedQuestionSetLocalFallback } from "./server";
 import {
   generatedFounderQuestionSet,
   generatedPetLifecycleQuestionSet
@@ -93,6 +93,7 @@ const fixtureCodexRuntimeAdapter = createCodexRuntimeAdapter({
   env: {}
 });
 const storageByTestApp = new WeakMap<object, Awaited<ReturnType<typeof createSoloStorage>>>();
+const earlyQuestionPressureTerms = /반례|계획을 바꿔|지불 의향|투자 심사|핵심 가설/u;
 
 async function makeTempAppDataDir() {
   const tempDir = await mkdtemp(join(tmpdir(), "solo-superman-sidecar-test-"));
@@ -2309,11 +2310,11 @@ describe("PR-02 sidecar health shell", () => {
         generatedQuestionSet
       });
       expect(seenPrompt).toContain("Prompt artifact: generated-ambiguity-questions.v1.md");
-      expect(seenPrompt).toContain("Do not use a fixed question template");
+      expect(seenPrompt).toContain("first four questions should follow this planning-detail flow");
       expect(seenPrompt).toContain("Apply an Idea-Fit Gate");
       expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
       expect(seenPrompt).toContain("Business critic intensity: balanced");
-      expect(seenPrompt).toContain('businessCriticPressureKind "core_assumption_challenge"');
+      expect(seenPrompt).toContain("Do not force a pressure question into the first set");
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
     } finally {
       await storage.close();
@@ -2416,6 +2417,9 @@ describe("PR-02 sidecar health shell", () => {
         })
       });
       const body = await jsonBody(response);
+      const generatedQuestionSet = (body.data as Readonly<Record<string, unknown>>).generatedQuestionSet as Readonly<{
+        questions: readonly Readonly<{ questionText: string; topicKey: string; suggestedResearchTask?: string }>[];
+      }>;
 
       expect(response.status).toBe(200);
       expect(body).toMatchObject({
@@ -2434,8 +2438,46 @@ describe("PR-02 sidecar health shell", () => {
           }
         }
       });
+      expect(generatedQuestionSet.questions.map((question) => question.topicKey)).toEqual([
+        "first_user_situation",
+        "planning_artifact_after_answers",
+        "case_response_shape",
+        "public_research_scenario_options"
+      ]);
+      expect(generatedQuestionSet.questions.slice(0, 3).map((question) => question.questionText).join("\n"))
+        .not.toMatch(earlyQuestionPressureTerms);
+      expect(generatedQuestionSet.questions.map((question) => question.questionText).join("\n"))
+        .not.toContain("커리어 전환 플래너에서");
+      expect(generatedQuestionSet.questions[3]?.suggestedResearchTask).toContain("가능한 사용자 미래");
     } finally {
       await storage.close();
+    }
+  });
+
+  it("keeps fallback planning questions readable across five early idea examples", () => {
+    const ideas = [
+      "초기 창업자가 막연한 서비스 아이디어를 실행 가능한 기획서로 구체화하도록 돕는 도구. 사용자가 아이디어를 한두 문장으로 적으면 쉬운 질문을 던지",
+      "반려동물 의료 기록과 보험 서류를 한 곳에서 관리하는 앱",
+      "동네 가게들이 단골에게 오늘의 재고와 할인 정보를 보내는 로컬 커머스",
+      "가족 일정과 학교 공지를 자동으로 모아주는 일정 앱",
+      "사람들이 매일 쓰는 좋은 앱"
+    ];
+
+    for (const rawIdea of ideas) {
+      const generatedQuestionSet = generatedQuestionSetLocalFallback({
+        rawIdea,
+        intakeGoal: "초기 사용자가 답하기 쉬운 질문으로 실행 가능한 기획서 조각을 만들고 싶다.",
+        businessCriticIntensity: "strong"
+      });
+      const questionTexts = generatedQuestionSet.questions.map((question) => question.questionText);
+
+      expect(questionTexts).toHaveLength(4);
+      expect(questionTexts.slice(0, 3).join("\n")).not.toMatch(earlyQuestionPressureTerms);
+      expect(questionTexts.join("\n")).not.toContain(`${rawIdea.slice(0, 40)}에서`);
+      expect(questionTexts.join("\n")).not.toContain("쉬운 질문을 던지에서");
+      expect(questionTexts.every((questionText) => questionText.length <= 90)).toBe(true);
+      expect(generatedQuestionSet.questions[3]?.suggestedResearchTask).toContain("대응 선택지");
+      expect(generatedQuestionSet.questions[3]?.suggestedResearchTask).toContain("다음 질문");
     }
   });
 
@@ -7686,7 +7728,7 @@ describe("PR-02 sidecar health shell", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 16,
+              issueCount: 19,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -7739,8 +7781,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 16,
-          openQuestionCount: 16,
+          generatedQuestionCount: 19,
+          openQuestionCount: 19,
           answeredQuestionCount: 0,
           visibleQuestionDebtCount: 1,
           completionPercent: 0
@@ -7750,10 +7792,9 @@ describe("PR-02 sidecar health shell", () => {
       expect(activeItems[0]).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
-        topicKey: "buyer_user_split",
+        topicKey: "first_user_situation",
         severity: "high",
-        expectedAnswerType: "choice",
-        answerSelectionMode: "single",
+        expectedAnswerType: "text",
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
@@ -7916,11 +7957,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 17,
-          openQuestionCount: 16,
+          generatedQuestionCount: 20,
+          openQuestionCount: 19,
           answeredQuestionCount: 1,
           followUpQuestionCount: 1,
-          completionPercent: 6
+          completionPercent: 5
         },
         active: expect.arrayContaining([
           expect.objectContaining({

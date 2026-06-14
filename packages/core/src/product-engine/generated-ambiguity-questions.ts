@@ -394,6 +394,7 @@ function contextualGeneratedQuestionIssues(
 
   questions.forEach((question, questionIndex) => {
     const normalizedQuestionText = normalizedCompactText(question.question);
+    const questionAnchorText = generatedQuestionUserFacingTexts(question).join("\n");
 
     if (question.question.length > MAX_USER_FACING_QUESTION_CHARS) {
       issue(
@@ -424,9 +425,9 @@ function contextualGeneratedQuestionIssues(
 
     if (
       (domainAnchorTerms.length > 0 &&
-        !textHasIdeaFitDomainAnchor(question.question, domainSignals) &&
-        !(ideaFitCuePattern?.test(question.question))) ||
-      (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(question.question))
+        !textHasIdeaFitDomainAnchor(questionAnchorText, domainSignals) &&
+        !(ideaFitCuePattern?.test(questionAnchorText))) ||
+      (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(questionAnchorText))
     ) {
       issue(
         issues,
@@ -488,7 +489,7 @@ function contextualGeneratedQuestionIssues(
         issue(
           issues,
           `$.questions[${questionIndex}].answerOptions[${optionIndex}]`,
-          "pet lifecycle generated questions must use pet guardian/domain choices, not generic founder/builder/team personas"
+          "pet lifecycle generated questions must use domain-specific choices, not generic founder/builder/team personas"
         );
       }
     });
@@ -635,7 +636,7 @@ function parseGeneratedQuestion(
         issue(issues, `${path}.suggestedResearchTask`, "must name the source area or public evidence to inspect");
       }
       if (!researchTaskHasSkepticalCue(suggestedResearchTask)) {
-        issue(issues, `${path}.suggestedResearchTask`, "must name what would weaken the assumption or what uncertainty should remain");
+        issue(issues, `${path}.suggestedResearchTask`, "must name the remaining uncertainty or limitation to inspect");
       }
       if (!researchTaskHasRemainingHumanJudgmentCue(suggestedResearchTask)) {
         issue(issues, `${path}.suggestedResearchTask`, "must name the remaining human judgment after current research");
