@@ -22,13 +22,6 @@ function compactText(value: string | undefined) {
   return (value ?? "").replace(/\s+/gu, " ").trim();
 }
 
-function compactSpecContext(spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined) {
-  return [spec?.title, ...(spec?.sections ?? [])]
-    .map((value) => compactText(value))
-    .filter(Boolean)
-    .join(" ");
-}
-
 export function researchRoutingReadinessForTask(input: {
   readonly task: ResearchTaskProjection;
   readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
@@ -36,8 +29,7 @@ export function researchRoutingReadinessForTask(input: {
   const text = compactText([
     input.task.objective,
     input.task.routeOutcome,
-    input.task.sourceAnswerRef,
-    compactSpecContext(input.spec)
+    input.task.sourceAnswerRef
   ].filter(Boolean).join(" "));
 
   if (NEEDS_MORE_CLARIFICATION_PATTERNS.some((pattern) => pattern.test(text))) {

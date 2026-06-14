@@ -25,6 +25,7 @@ import {
   webPublicResearchAllowlistPolicy
 } from "../phase15a-research-run-request";
 import { readyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
+import { taskCanStartPublicSearchResearch } from "../research-routing-readiness";
 import {
   displayError,
   latestCommandBackedProjectionVersion,
@@ -530,6 +531,10 @@ export function useDecisionQueueResearchActions({
     }) => {
       if (!client) {
         throw new Error(researchActionErrors.sidecarConnectionRequiredStartRun);
+      }
+
+      if (!taskCanStartPublicSearchResearch({ task, spec: projections.spec })) {
+        throw new Error(researchActionErrors.readyRunsNoReadyTasks);
       }
 
       const response = await appendCommand(

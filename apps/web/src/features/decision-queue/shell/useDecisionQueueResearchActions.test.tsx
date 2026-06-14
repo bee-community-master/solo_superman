@@ -455,6 +455,44 @@ describe("useDecisionQueueResearchActions", () => {
     expect(props.setWorkflowError).toHaveBeenCalledWith(null);
   });
 
+  it("blocks manual public-web research starts when the task needs more clarification first", async () => {
+    const startResearchRun = vi.fn();
+    const { actions, props } = captureResearchActions({
+      client: {
+        startResearchRun,
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection()
+      },
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId,
+          sessionId,
+          version: 1 as ProjectionVersion,
+          phase: "validation",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: researchEvidenceProjection({
+          objective: "첫 사용자 상황을 더 구체화해야 합니다."
+        })
+      }
+    });
+
+    await actions.startReadOnlyResearchRun("research_task_visible_chatgpt" as ResearchTaskId);
+
+    expect(startResearchRun).not.toHaveBeenCalled();
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsNoReadyTasks
+    );
+  });
+
   it("updates the per-session research run limit without changing the simultaneous run limit", async () => {
     const updatedProjection = allowlistProjection(2, 8);
     const updateResearchAllowlist = vi.fn(async () => allowlistCommandResponse(updatedProjection));
