@@ -621,6 +621,30 @@ describe("Decision Queue view model phase15a", () => {
     ]);
   });
 
+  it("does not start Browser/Deep Research synthesis tasks as read-only quick-search runs", () => {
+    const [allowlist] = allowlistProjection().allowlists;
+    const [baseTask] = researchProjection(false).tasks;
+
+    if (!allowlist || !baseTask) {
+      throw new Error("Phase 1.5A deep-research routing fixture is incomplete.");
+    }
+
+    const research = {
+      ...researchProjection(false),
+      taskIds: ["research_task_deep_research" as ResearchTaskId],
+      tasks: [
+        {
+          ...baseTask,
+          researchTaskId: "research_task_deep_research" as ResearchTaskId,
+          status: "planned" as const,
+          objective: "여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다."
+        }
+      ]
+    };
+
+    expect(startableReadOnlyResearchTaskIds({ research, runs: runProjection("accepted"), allowlist })).toEqual([]);
+  });
+
   it("localizes Research operations dynamic labels for Japanese users", () => {
     const operations = phase15aOperationsViewModel(
       {

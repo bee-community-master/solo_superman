@@ -94,7 +94,7 @@ function activeQuestionState(repeatCount: number): ProductEngineStateSnapshot {
       businessCriticIntensity: "balanced",
       businessCriticIntensitySelectionStatus: "confirmed",
       businessCriticIntensityLabel: "균형 검증",
-      businessCriticIntensityEffect: "핵심 가정과 반례를 함께 확인합니다.",
+      businessCriticIntensityEffect: "중요한 판단과 보완할 관점을 함께 확인합니다.",
       rawIdeaText: "답변 형태가 다양한 질문 UX"
     },
     session: {
@@ -149,7 +149,12 @@ describe("answer follow-up variety", () => {
   it("keeps open narrative follow-ups as text without suggested choices", () => {
     const followUp = submitAnswerAndReadFollowUp(0);
 
-    expect(followUp.questionText).toContain("누가 어떤 상황");
+    expect(followUp.questionText).toContain("지금 어떤 방법");
+    expect(followUp.summary).toBe("타깃 고객 판단을 한 단계 더 구체화합니다.");
+    expect(followUp.decisionItUnlocks).toBe("타깃 고객 판단을 기획서 조각, 리서치 주제, 첫 작업 범위로 연결합니다.");
+    expect(followUp.summary).not.toContain("이전 답변");
+    expect(followUp.decisionItUnlocks).not.toContain("이 후속 답변");
+    expect(followUp.nextValidationAction).not.toContain("기획 메모");
     expect(followUp.expectedAnswerType).toBe("text");
     expect(followUp.answerSelectionMode).toBeUndefined();
     expect(followUp.answerOptions).toEqual([]);
@@ -158,7 +163,16 @@ describe("answer follow-up variety", () => {
   it("uses explicit proceed-or-hold choices only when the follow-up asks for a stance", () => {
     const followUp = submitAnswerAndReadFollowUp(2);
 
-    expect(followUp.questionText).toContain("진행 후보로 둘지");
+    expect(followUp.questionText).toContain("초보 사용자와 이미 문서가 있는 사용자");
+    expect(followUp.expectedAnswerType).toBe("text");
+    expect(followUp.answerSelectionMode).toBeUndefined();
+    expect(followUp.answerOptions).toEqual([]);
+  });
+
+  it("keeps explicit proceed-or-hold choices when the follow-up asks for a stance", () => {
+    const followUp = submitAnswerAndReadFollowUp(5);
+
+    expect(followUp.questionText).toContain("그대로 진행할지");
     expect(followUp.expectedAnswerType).toBe("choice");
     expect(followUp.answerSelectionMode).toBe("single");
     expect(followUp.answerOptions).toEqual(
@@ -171,9 +185,9 @@ describe("answer follow-up variety", () => {
   });
 
   it("uses multi-select choices when several implementation-scope options can stay together", () => {
-    const followUp = submitAnswerAndReadFollowUp(3);
+    const followUp = submitAnswerAndReadFollowUp(6);
 
-    expect(followUp.questionText).toContain("하나 이상 선택");
+    expect(followUp.questionText).toContain("첫 버전에 꼭 넣을 것");
     expect(followUp.expectedAnswerType).toBe("choice");
     expect(followUp.answerSelectionMode).toBe("multiple");
     expect(followUp.answerOptions).toEqual(
@@ -188,7 +202,16 @@ describe("answer follow-up variety", () => {
   it("rotates in one-of-many follow-ups instead of only text, stance, or multi-select prompts", () => {
     const followUp = submitAnswerAndReadFollowUp(1);
 
-    expect(followUp.questionText).toContain("하나만 먼저 확정");
+    expect(followUp.questionText).toContain("기획서 조각");
+    expect(followUp.expectedAnswerType).toBe("text");
+    expect(followUp.answerSelectionMode).toBeUndefined();
+    expect(followUp.answerOptions).toEqual([]);
+  });
+
+  it("rotates in one-of-many follow-ups after initial planning-detail questions", () => {
+    const followUp = submitAnswerAndReadFollowUp(4);
+
+    expect(followUp.questionText).toContain("다음에 하나만 정한다면");
     expect(followUp.expectedAnswerType).toBe("choice");
     expect(followUp.answerSelectionMode).toBe("single");
     expect(followUp.answerOptions).toEqual(
@@ -204,18 +227,12 @@ describe("answer follow-up variety", () => {
     );
   });
 
-  it("keeps missing-counter-evidence follow-ups in evidence judgment form instead of applying every mode", () => {
+  it("keeps missing-counter-evidence follow-ups as a planning-detail question before later risk checks", () => {
     const followUp = submitAnswerAndReadFollowUp(0, "missing_con_evidence");
 
-    expect(followUp.questionText).toContain("반례나 한계");
-    expect(followUp.expectedAnswerType).toBe("evidence");
-    expect(followUp.answerSelectionMode).toBe("single");
-    expect(followUp.answerOptions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: "이 방향을 우선 후보로 둔다" }),
-        expect.objectContaining({ label: "범위 축소나 방향 전환을 검토한다" }),
-        expect.objectContaining({ label: "추가 리서치로 근거자료를 더 보강한다" })
-      ])
-    );
+    expect(followUp.questionText).toContain("기존 방법으로도 충분");
+    expect(followUp.expectedAnswerType).toBe("text");
+    expect(followUp.answerSelectionMode).toBeUndefined();
+    expect(followUp.answerOptions).toEqual([]);
   });
 });

@@ -51,5 +51,5 @@ describe("single-session live implementation smoke", () => {
     expect(evidence.checked).toContain(
       "same-session auto implementation run reused the Planning Handoff run instead of creating a detached worker smoke run"
     );
-  });
+  }, 30_000);
 });

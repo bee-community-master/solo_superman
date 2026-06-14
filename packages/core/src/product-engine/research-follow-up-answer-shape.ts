@@ -584,7 +584,7 @@ function binaryChoiceAnswerOptions() {
       "진행 후보로 둔다",
       "현재 단서로는 이 방향을 다음 스펙 또는 검증 후보에 올린다.",
       "결정이 닫혀 다음 작업으로 넘어가기 쉽습니다.",
-      "숨은 반례가 있으면 너무 빠른 확정이 될 수 있습니다."
+      "보완할 관점이 남아 있으면 너무 빠른 확정이 될 수 있습니다."
     ),
     researchFollowUpAnswerOption(
       "disagree_or_stop",
@@ -603,7 +603,7 @@ function binaryChoiceAnswerOptions() {
     researchFollowUpAnswerOption(
       "need_more_research",
       "추가 리서치로 보강한다",
-      "결정을 내리기 전에 더 넓은 자료와 반례를 먼저 확인한다.",
+      "결정을 내리기 전에 더 넓은 자료와 보완할 관점을 먼저 확인한다.",
       "중요한 결정을 더 안전하게 만들 수 있습니다.",
       "결정 완료와 구현 시작이 늦어집니다."
     )
@@ -678,8 +678,8 @@ function evidenceJudgmentAnswerOptions(input: ResearchFollowUpAnswerInput) {
   if (!hasConEvidence) {
     options.push(
       researchFollowUpAnswerOption(
-        "find_counter_evidence",
-        "반례와 한계를 더 확인한다",
+        "check_additional_perspectives",
+        "보완할 관점과 한계를 더 확인한다",
         "아직 다른 관점의 사례가 부족하므로 결론을 미루고 한계를 더 조사한다.",
         "중요한 결정을 더 안전하게 만들 수 있습니다.",
         "질문/리서치 루프가 한 번 더 길어집니다."

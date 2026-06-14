@@ -996,7 +996,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
             expect.objectContaining({
               outputType: "ambiguity_analysis",
               payload: expect.objectContaining({
-                issueCount: intensity === "balanced" ? 16 : intensity === "strong" ? 17 : 19
+                issueCount: intensity === "balanced" ? 19 : intensity === "strong" ? 20 : 22
               })
             })
           ]
@@ -3351,7 +3351,7 @@ describe("PR-09 end-to-end dry-run hardening", () => {
           expect.objectContaining({
             outputType: "ambiguity_analysis",
             payload: expect.objectContaining({
-              issueCount: 16,
+              issueCount: 19,
               issues: expect.arrayContaining([
                 expect.objectContaining({
                   sectionRef: "Target Customer",
@@ -3415,10 +3415,9 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       expect(firstQuestion).toMatchObject({
         cardType: "question",
         sectionRef: "Target Customer",
-        topicKey: "buyer_user_split",
+        topicKey: "first_user_situation",
         severity: "high",
-        expectedAnswerType: "choice",
-        answerSelectionMode: "single",
+        expectedAnswerType: "text",
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 

@@ -40,7 +40,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.chatGptLoginTitle).toBe("Sign in to ChatGPT in your browser first");
     expect(DECISION_QUEUE_COPY.ko.questions.chatGptLoginTitle).toBe("먼저 브라우저에서 ChatGPT에 로그인");
     expect(DECISION_QUEUE_COPY.en.questions.codexLoginTitle).toBe(
-      "Sign in to Codex CLI for backend questions and research"
+      "Confirm Codex CLI login for question and research prep"
     );
     expect(DECISION_QUEUE_COPY.en.questions.codexLoginStart).toBe("Open Codex login");
     expect(DECISION_QUEUE_COPY.ja.questions.codexLoginStart).toBe("Codexログインを開く");
@@ -83,7 +83,7 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.questions.initialResearchAutomationPermission).toBe("Research setup");
     expect(DECISION_QUEUE_COPY.ko.questions.initialResearchAutomationPermission).toBe("리서치 설정");
     expect(DECISION_QUEUE_COPY.ko.questions.initialResearchAutomationPermissionHelp).toContain("이 한 가지 설정");
-    expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsMissingAllowlist).toContain("allowlist");
+    expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsMissingAllowlist).toContain("public web research sources");
     expect(DECISION_QUEUE_COPY.en.research.researchActionErrors.activeProjectRequiredStartRun).not.toMatch(
       /[가-힣]/u
     );
@@ -232,6 +232,12 @@ describe("decision queue language copy", () => {
     expect(
       DECISION_QUEUE_COPY.ko.permissions.permissionActionReasons.exportArtifactRefsLogMessage(3, "perm_1")
     ).toContain("3개");
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffTitle).toBe("ChatGPT Deep Research依頼");
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptImportHint).not.toMatch(/引き継ぎ|allowlist/u);
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffBoundary).not.toMatch(/引き継ぎ/u);
+    expect(DECISION_QUEUE_COPY.ja.research.gateStatus).toBe("確認状態");
+    expect(DECISION_QUEUE_COPY.ja.phase15a.terminalReasonLabels.provider_failed).toBe("リサーチ実行失敗");
+    expect(DECISION_QUEUE_COPY.ja.phase15a.qualityGateDisplay).toBe("根拠品質の確認");
     expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.statusVisible).toBe("Execution readiness notes visible");
     expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.statusVisible).toBe("実行準備ノートあり");
     expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.statusVisible).toBe("실행 준비 노트 있음");

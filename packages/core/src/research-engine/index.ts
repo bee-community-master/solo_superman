@@ -194,7 +194,7 @@ function compactDecisionTopic(value: string) {
     .trim();
 
   if (/유료\s*의향|돈을\s*낼\s*의향|결제\s*의향/iu.test(normalized) || /유료\s*의향|돈을\s*낼\s*의향|결제\s*의향/iu.test(translated)) {
-    return "유료 의향 핵심 가설";
+    return "유료 전환 여부";
   }
 
   if (!normalized) {
@@ -710,7 +710,7 @@ function questionLeadLinesForAnswerIntent(input: {
     return [
       `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 ${input.proSummary} 같은 단서가 확인되었습니다.`,
       "",
-      input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
+      input.conSummary ? `보완할 관점으로는 ${input.conSummary}도 확인되었습니다.` : null,
       `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
     ];
   }
@@ -720,7 +720,7 @@ function questionLeadLinesForAnswerIntent(input: {
       "답변 형식 요구사항을 살펴보면 질문마다 필요한 입력 방식이 달라져야 합니다.",
       "",
       `리서치 단서로는 ${input.proSummary} 같은 내용이 확인되었습니다.`,
-      input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
+      input.conSummary ? `보완할 관점으로는 ${input.conSummary}도 확인되었습니다.` : null,
       `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
     ];
   }
@@ -728,7 +728,7 @@ function questionLeadLinesForAnswerIntent(input: {
   return [
     `${input.topic}${koreanObjectParticleFor(input.topic)} 조금 더 구체화하기 위해 리서치 결과를 모아보니 ${input.proSummary} 같은 단서가 나타났습니다.`,
     "",
-    input.conSummary ? `다른 관점이나 반례로는 ${input.conSummary}도 확인되었습니다.` : null,
+    input.conSummary ? `보완할 관점으로는 ${input.conSummary}도 확인되었습니다.` : null,
     `한계와 불확실성은 ${input.uncertaintySummary}입니다.`
   ];
 }
@@ -804,8 +804,8 @@ function additionalQuestionForEvidenceGap(input: {
   );
   const conSummary = input.conEvidence.length
     ? usesStanceFraming
-      ? neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
-      : neutralEvidenceSummaryOrFallback(input.conEvidence, "다른 관점이나 반례가 아직 충분히 정리되지 않았습니다")
+      ? neutralEvidenceSummaryOrFallback(input.conEvidence, "보완할 관점이 아직 충분히 정리되지 않았습니다")
+      : neutralEvidenceSummaryOrFallback(input.conEvidence, "보완할 관점이 아직 충분히 정리되지 않았습니다")
     : null;
   const uncertaintySummary =
     (input.uncertainties.length
@@ -813,13 +813,13 @@ function additionalQuestionForEvidenceGap(input: {
       : null) ??
     (input.balanceStatus === "missing_con_evidence" || input.balanceStatus === "needs_con_evidence"
       ? usesStanceFraming
-        ? "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
-        : "다른 관점이나 반례가 부족해 과신 가능성이 남아 있습니다"
+        ? "보완할 관점이 부족해 과신 가능성이 남아 있습니다"
+        : "보완할 관점이 부족해 과신 가능성이 남아 있습니다"
       : "출처 폭과 실제 적용 가능성은 추가 확인이 필요합니다");
 
   const choiceSentence = conSummary
     ? `지금은 ‘이 방향을 우선 후보로 둔다’, ‘범위 축소나 방향 전환을 검토한다’, ‘추가 리서치로 근거자료를 더 보강한다’ 중에서 다음 판단을 고를 수 있습니다. 어느 방향으로 판단하시겠습니까?`
-    : `지금은 ‘이 방향을 우선 후보로 둔다’, ‘반례와 한계를 더 확인한다’, ‘지금은 스펙을 확정하기 어렵다’ 중에서 다음 판단을 고를 수 있습니다. 어느 방향으로 판단하시겠습니까?`;
+    : `지금은 ‘이 방향을 우선 후보로 둔다’, ‘보완할 관점과 한계를 더 확인한다’, ‘지금은 스펙을 확정하기 어렵다’ 중에서 다음 판단을 고를 수 있습니다. 어느 방향으로 판단하시겠습니까?`;
   const promptContext = {
     topic,
     proSummary,

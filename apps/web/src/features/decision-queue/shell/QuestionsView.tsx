@@ -60,7 +60,7 @@ const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
     "Source",
     "Confirmed clue",
     "Other perspective",
-    "Counterexample",
+    "Additional perspective",
     "Decision this unlocks"
   ],
   ja: [
@@ -69,7 +69,7 @@ const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
     "限界/不確実性",
     "出典の手がかり",
     "確認された手がかり",
-    "別の観点/反例",
+    "補足観点",
     "この回答で決まる判断"
   ],
   ko: [
@@ -79,7 +79,7 @@ const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
     "한계와 불확실성",
     "출처 단서",
     "확인된 단서",
-    "다른 관점/반례",
+    "보완할 관점",
     "다음 판단",
     "이 답으로 정해지는 내용",
     "이 답으로 정해지는 판단"

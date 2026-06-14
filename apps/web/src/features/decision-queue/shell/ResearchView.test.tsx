@@ -317,7 +317,7 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Start 2 ready public web runs");
     expect(markup).toContain("Ready public web batch plan");
-    expect(markup).toContain("2 planned read-only research tasks will start within the active allowlist budget.");
+    expect(markup).toContain("2 planned read-only research tasks will start with the current source settings.");
     expect(markup).not.toContain("Task IDs queued for this batch");
     expect(markup).not.toContain("research_task_ready_batch_1");
     expect(markup).not.toContain("research_task_ready_batch_2");
@@ -327,6 +327,47 @@ describe("ResearchView", () => {
     expect(markup).toContain("Validate public evidence path 1.");
     expect(markup).toContain("Validate public evidence path 2.");
     expect(markup).toContain("Review already returned evidence.");
+  });
+
+  it("hides result import for research tasks that need more clarification first", () => {
+    const research = researchProjection();
+    const task = {
+      ...research.tasks[0]!,
+      researchTaskId: "research_task_needs_more_context" as ResearchTaskId,
+      objective:
+        "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다."
+    };
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId: "proj_research_batch" as ProjectId,
+          sessionId: "sess_research_batch" as SessionId,
+          version: 1 as ProjectionVersion,
+          phase: "spec",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: {
+          ...research,
+          taskIds: [task.researchTaskId],
+          tasks: [task]
+        }
+      },
+      readyReadOnlyResearchTaskIds: [],
+      readyReadOnlyResearchStartPlan: {
+        status: "blocked",
+        reason: "no_ready_tasks",
+        message: "Answer a little more before sending this to public web research."
+      }
+    });
+
+    expect(markup).toContain("Ask one more question first");
+    expect(markup).not.toContain("Prompt to paste into ChatGPT Deep Research");
+    expect(markup).not.toContain("Research result");
   });
 
   it("shows visible ChatGPT import guidance on matching research tasks", () => {
@@ -363,13 +404,18 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
-    expect(markup).toContain("Visible ChatGPT research handoff");
+    expect(markup).toContain("A ChatGPT Deep Research request is ready for this task.");
+    expect(markup).toContain("ChatGPT Deep Research request");
     expect(markup).toContain("Open ChatGPT");
     expect(markup).toContain('href="https://chatgpt.com/"');
-    expect(markup).toContain("Prompt to paste into ChatGPT/Deep Research");
-    expect(markup).toContain("Research task: Use visible ChatGPT Deep Research for the buyer/user split.");
+    expect(markup).toContain("Prompt to paste into ChatGPT Deep Research");
+    expect(markup).toContain("Copy the research request.");
+    expect(markup).toContain("Run it with ChatGPT Deep Research.");
+    expect(markup).toContain("Paste the reviewed result below.");
+    expect(markup).toContain("Decision this research should narrow: Use visible ChatGPT Deep Research for the buyer/user split.");
+    expect(markup).toContain("Possible user futures");
     expect(markup).toContain("Do not include passwords, session cookies, API keys");
+    expect(markup).not.toContain("이번 리서치가 좁힐 결정");
     expect(markup).toContain("Before importing the result");
     expect(markup).toContain("Paste the user-reviewed result here");
   });
@@ -390,14 +436,28 @@ describe("ResearchView", () => {
           projectPurposeModeEffect: "Business validation mode keeps commercialization gates active.",
           initialResearchAutomationPermission: "allow_codex_and_chatgpt_visible"
         },
-        research: researchProjection()
+        research: {
+          ...researchProjection(),
+          taskIds: ["research_task_deep_research" as ResearchTaskId],
+          tasks: [
+            {
+              researchTaskId: "research_task_deep_research" as ResearchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Compare multiple sources for possible user futures, representative use cases, and existing alternatives.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "planned",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ]
+        }
       }
     });
 
-    expect(markup).toContain("Visible ChatGPT research handoff");
-    expect(markup).toContain("Research task: Validate public evidence path 1.");
-    expect(markup).toContain("This is a user-visible handoff, not account sharing or backend ChatGPT automation.");
-    expect(markup).not.toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
+    expect(markup).toContain("ChatGPT Deep Research request");
+    expect(markup).toContain("Decision this research should narrow: Compare multiple sources for possible user futures");
+    expect(markup).toContain("Solo Superman does not use your account in the background.");
+    expect(markup).not.toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
   });
 
   it("keeps imported handoff results visible while evidence synthesis is pending", () => {
@@ -455,7 +515,7 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("Ready for handoff");
+    expect(markup).toContain("Result ready to add");
     expect(markup).toContain("Imported result is being turned into evidence");
     expect(markup).toContain(
       "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared."
@@ -520,7 +580,7 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("No ready public web runs");
+    expect(markup).toContain("No ready public web research yet");
     expect(markup).toContain("Ready public web batch plan");
     expect(markup).toContain("Research tasks exist, but public web sources must be enabled before they can run.");
     expect(markup).not.toContain("Task IDs queued for this batch");
@@ -536,8 +596,8 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("No ready public web runs");
-    expect(markup).toContain("No public web research task is executable within the current allowlist budget.");
+    expect(markup).toContain("No ready public web research yet");
+    expect(markup).toContain("Answer a little more before sending this to public web research.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
@@ -754,7 +814,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Balance status");
     expect(markup).toContain("Missing counter-evidence");
     expect(markup).not.toContain(">missing_con_evidence<");
-    expect(markup).toContain("Risk remains before planning handoff");
+    expect(markup).toContain("More planning detail is still needed");
     expect(markup).toContain("Supporting signals");
     expect(markup).toContain("Founders report willingness to pay");
     expect(markup).toContain("Counterpoints / risks");
@@ -790,7 +850,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Run a skeptical pricing search before Planning-ready.");
     expect(markup).toContain("Evidence packs");
     expect(markup).toContain("Pricing willingness has source-backed support.");
-    expect(markup).toContain("Gate status");
+    expect(markup).toContain("Review status");
     expect(markup).toContain("Accepted");
     expect(markup).toContain("Source reliability");
     expect(markup).toContain("High reliability");
@@ -801,7 +861,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Founder interview pricing notes");
     expect(markup).toContain('href="https://example.com/pricing-notes"');
     expect(markup).not.toContain(">https://example.com/pricing-notes<");
-    expect(markup).toContain("Gate checks");
+    expect(markup).toContain("Review checks");
     expect(markup).toContain("Source reliability: Passed");
     expect(markup).toContain("The retained source is specific to the target founder workflow.");
     expect(markup).not.toContain("source_reliability:");

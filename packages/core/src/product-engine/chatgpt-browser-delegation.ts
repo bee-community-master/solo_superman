@@ -461,7 +461,7 @@ function chatGptDelegationBlockReasons(input: {
       reasons.push(
         chatGptDelegationBlockReason(
           "account_sharing_or_resale_risk",
-          "ChatGPT Pro account sharing/resale or third-party backend semantics are blocked.",
+          "Solo Superman must not use a ChatGPT account in the background or through account-sharing flows.",
           input.policyRiskVerdict.evidenceRefs
         )
       );
@@ -471,7 +471,7 @@ function chatGptDelegationBlockReasons(input: {
       reasons.push(
         chatGptDelegationBlockReason(
           "unattended_queue_risk",
-          "Unattended or project-level ChatGPT background queue semantics are blocked.",
+          "The user must remain in control of each ChatGPT Deep Research request.",
           input.policyRiskVerdict.evidenceRefs
         )
       );
@@ -546,9 +546,9 @@ function defaultChatGptDelegationFallback(
 ): ChatGptBrowserDelegationFallbackState {
   return {
     lane: "manual_prompt_handoff",
-    visibleState: "ChatGPT 브라우저 위임을 시작하지 않고 수동 프롬프트 전달 또는 Known Risk 처리로 전환해야 합니다.",
+    visibleState: "사용자가 직접 확인하는 Deep Research 요청으로 전환해야 합니다.",
     reason: blockReasons.map((reason) => reason.message).join(" "),
-    userAction: "redaction preview를 다시 확인한 뒤 수동으로 프롬프트를 전달하거나, official Codex path 또는 Known Risk로 기록하세요."
+    userAction: "프롬프트 요청을 다시 확인해 직접 붙여넣거나, 먼저 기획 질문을 더 좁히세요."
   };
 }
 
@@ -634,7 +634,7 @@ function chatGptDelegationVisibleState(input: {
         return "Start a new per-run approval if ChatGPT delegation is still needed.";
       case "blocked":
       case "failed":
-        return "Use manual prompt handoff, official Codex fallback, or record a Known Risk before proceeding.";
+        return "Use a user-reviewed prompt request, an official integration path, or ask another planning question before proceeding.";
     }
   }
 
