@@ -56,9 +56,13 @@ export function visibleChatGptResearchHandoffForTask(input: {
   readonly language?: AppLanguage | undefined;
 }): VisibleChatGptResearchHandoff {
   const { language = "en", spec, task } = input;
-  const ideaContext = spec?.title?.trim() || "아직 제목이 없는 서비스 아이디어";
-  const planningContext = compactResearchContextFromSpec(spec) || "아직 사용자 답변과 기획서 문맥이 충분히 쌓이지 않았습니다.";
   const isKorean = language === "ko";
+  const ideaContext = spec?.title?.trim() || (isKorean ? "아직 제목이 없는 서비스 아이디어" : "Untitled service idea");
+  const planningContext =
+    compactResearchContextFromSpec(spec) ||
+    (isKorean
+      ? "아직 사용자 답변과 기획서 문맥이 충분히 쌓이지 않았습니다."
+      : "User answers and planning context are not detailed yet.");
 
   return {
     openUrl: CHATGPT_VISIBLE_RESEARCH_OPEN_URL,
@@ -133,7 +137,7 @@ export function buildVisibleChatGptResearchDelegationRequest(input: {
     idempotencyKey: `chatgpt-visible-preflight:${sessionId}:${task.researchTaskId}`,
     researchTaskId: task.researchTaskId,
     userVisibleExplanation:
-      `ChatGPT Pro/Deep Research handoff is prepared as a visible, user-owned browser review for: ${task.objective}`,
+      `ChatGPT Pro/Deep Research request is prepared as a visible, user-owned browser review for: ${task.objective}`,
     nextAction:
       "Review the redacted prompt preview, then approve a visible browser action or keep using public-web/Codex research instead.",
     promptPreviewRef: `prompt_preview:${refSuffix}`,
@@ -157,7 +161,7 @@ export function buildVisibleChatGptResearchDelegationRequest(input: {
     policyRiskVerdict: {
       verdict: "pass",
       rationale:
-        "Prepared as per-run visible research handoff only; no account sharing, resale, backend custody, or unattended ChatGPT queue is authorized.",
+        "Prepared as a per-run visible research request only; no account sharing, resale, backend custody, or unattended ChatGPT queue is authorized.",
       evidenceRefs: [
         `research_task:${task.researchTaskId}`,
         "policy:chatgpt-visible-handoff:onboarding-permission"
@@ -166,7 +170,7 @@ export function buildVisibleChatGptResearchDelegationRequest(input: {
     sessionOwnershipVerdict: {
       verdict: "pass",
       rationale:
-        "User selected visible ChatGPT handoff permission; login, CAPTCHA, usage limits, and final submission remain user-owned.",
+        "User selected visible ChatGPT research permission; login, CAPTCHA, usage limits, and final submission remain user-owned.",
       evidenceRefs: [
         "session:chatgpt-visible:user-owned-browser-required",
         `research_task:${task.researchTaskId}`

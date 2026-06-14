@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { LivingSpecProjection, ResearchEvidenceProjection } from "@solo-superman/contracts";
-import { visibleChatGptResearchHandoffForTask } from "./chatgpt-browser-delegation-request";
+import {
+  buildVisibleChatGptResearchDelegationRequest,
+  visibleChatGptResearchHandoffForTask
+} from "./chatgpt-browser-delegation-request";
 
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
@@ -64,5 +67,48 @@ describe("visibleChatGptResearchHandoffForTask", () => {
     expect(handoff.prompt).toContain("Response options");
     expect(handoff.prompt).not.toContain("원문 아이디어");
     expect(handoff.checklist.join("\n")).toContain("current answer context");
+  });
+
+  it("does not leak Korean fallback copy into English prompts when planning context is missing", () => {
+    const task = {
+      researchTaskId: "research_task_english_fallback" as ResearchTaskProjection["researchTaskId"],
+      sessionId: "sess_english_fallback" as ResearchTaskProjection["sessionId"],
+      objective: "Narrow user futures for a vague product idea.",
+      routeOutcome: "research_needed",
+      impact: "medium",
+      status: "planned",
+      createdAt: "2026-06-14T00:00:00.000Z"
+    } satisfies ResearchTaskProjection;
+
+    const handoff = visibleChatGptResearchHandoffForTask({ language: "en", task });
+
+    expect(handoff.prompt).toContain("Original idea: Untitled service idea");
+    expect(handoff.prompt).toContain("User answers and planning context are not detailed yet.");
+    expect(handoff.prompt).not.toContain("아직 제목이 없는 서비스 아이디어");
+    expect(handoff.prompt).not.toContain("아직 사용자 답변");
+  });
+
+  it("keeps user-visible delegation copy action-oriented instead of handoff-oriented", () => {
+    const task = {
+      researchTaskId: "research_task_visible_copy" as ResearchTaskProjection["researchTaskId"],
+      sessionId: "sess_visible_copy" as ResearchTaskProjection["sessionId"],
+      objective: "Narrow representative use cases for a founder planning tool.",
+      routeOutcome: "research_needed",
+      impact: "high",
+      status: "planned",
+      createdAt: "2026-06-14T00:00:00.000Z"
+    } satisfies ResearchTaskProjection;
+
+    const request = buildVisibleChatGptResearchDelegationRequest({
+      expectedStateVersion: 3 as Parameters<typeof buildVisibleChatGptResearchDelegationRequest>[0]["expectedStateVersion"],
+      sessionId: "sess_visible_copy" as Parameters<typeof buildVisibleChatGptResearchDelegationRequest>[0]["sessionId"],
+      task
+    });
+
+    expect(request.userVisibleExplanation).toContain("ChatGPT Pro/Deep Research request is prepared");
+    expect(request.userVisibleExplanation).not.toContain("handoff");
+    expect(request.nextAction).toContain("prompt preview");
+    expect(request.policyRiskVerdict.rationale).not.toContain("handoff");
+    expect(request.sessionOwnershipVerdict.rationale).not.toContain("handoff");
   });
 });

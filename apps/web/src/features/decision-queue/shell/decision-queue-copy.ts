@@ -420,7 +420,7 @@ const EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "The first question is already being created.",
-      chatgpt_login: "Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.",
+      chatgpt_login: "Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.",
       codex_login:
         "Local Codex CLI login must be confirmed before backend questions or research prep can start.",
       sidecar_connection: "Local service is not connected.",
@@ -533,12 +533,12 @@ const EN_COPY = {
       {
         permission: "allow_codex" as const,
         label: "Codex + read-only public web research",
-        description: "Enable the public-safe allowlist during onboarding and let Codex generate idea-specific questions and research prompts."
+        description: "Enable public web sources during onboarding and let Codex generate idea-specific questions and research prompts."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
         label: "Codex + visible ChatGPT Pro/Deep Research",
-        description: "Enable public web research, let Codex prepare the handoff, and use ChatGPT Pro/Deep Research only as visible delegation in your own browser."
+        description: "Enable public web research, let Codex prepare the ChatGPT request, and use ChatGPT Pro/Deep Research only in your own visible browser."
       }
     ],
     initialResearchAutomationPermissionHelp:
@@ -1969,7 +1969,7 @@ const JA_COPY: typeof EN_COPY = {
     ],
     initialQueueStartBlockers: {
       busy: "最初の質問はすでに作成中です。",
-      chatgpt_login: "見えるChatGPT Pro/Deep Research引き継ぎを許可する前に、ChatGPTへ直接ログインしたことを確認してください。",
+      chatgpt_login: "見えるChatGPT Pro/Deep Researchリクエストを準備する前に、ChatGPTへ直接ログインしたことを確認してください。",
       codex_login:
         "バックエンド質問またはリサーチ準備を始める前に、ローカルCodex CLIログインを確認する必要があります。",
       sidecar_connection: "ローカルサービスが接続されていません。",
@@ -2078,12 +2078,12 @@ const JA_COPY: typeof EN_COPY = {
       {
         permission: "allow_codex" as const,
         label: "Codex + 読み取り専用の公開 Web リサーチ",
-        description: "オンボーディング中に安全な allowlist を有効化し、Codexでアイデアに合わせた質問とリサーチpromptを生成します。"
+        description: "オンボーディング中に公開Webソースを有効化し、Codexでアイデアに合わせた質問とリサーチpromptを生成します。"
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
         label: "Codex + 見えるChatGPT Pro/Deep Research",
-        description: "公開 Web リサーチを有効化し、Codexで引き継ぎを準備します。ChatGPT Pro/Deep Researchは自分のブラウザで見える委任としてのみ使います。"
+        description: "公開Webリサーチを有効化し、CodexでChatGPTに貼り付けるリクエストを準備します。ChatGPT Pro/Deep Researchは自分のブラウザで確認して使います。"
       }
     ],
     initialResearchAutomationPermissionHelp:
@@ -2347,24 +2347,24 @@ const JA_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "リサーチ取り込み",
     importResult: "結果を取り込む",
     visibleChatGptImportHint:
-      "このタスクには見えるChatGPT Pro/Deep Research引き継ぎが準備されています。ユーザーが確認した結果をここに貼り付けると、Solo Supermanは出典付き証拠として取り込み、不確実性・反証・鮮度確認を見える状態に保ちます。",
-    visibleChatGptHandoffTitle: "表示可能な ChatGPT リサーチ引き継ぎ",
+      "このタスクにはChatGPT Pro/Deep Researchに貼り付けるリサーチ依頼が準備されています。ユーザーが確認した結果をここに貼り付けると、Solo Supermanは出典付き証拠として取り込み、不確実性・反証・鮮度確認を見える状態に保ちます。",
+    visibleChatGptHandoffTitle: "ChatGPTリサーチ依頼",
     visibleChatGptOpen: "ChatGPT を開く",
     visibleChatGptPromptLabel: "ChatGPT/Deep Research に貼り付けるプロンプト",
     visibleChatGptChecklistLabel: "結果を取り込む前に",
     visibleChatGptHandoffBoundary:
-      "これはユーザーが見える形の引き継ぎであり、アカウント共有やバックエンド ChatGPT 自動化ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
+      "これはユーザーが見える形で確認して使うリサーチ依頼であり、アカウント共有やバックエンド ChatGPT 自動化ではありません。自分のブラウザセッションでプロンプトを確認・実行し、確認済みの結果と公開ソース参照だけを下に貼り付けてください。",
     startReadOnlyRun: "公開Webリサーチを開始",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "開始できる公開Webリサーチはありません" : `準備済み公開Webリサーチを${count}件開始`,
     readyReadOnlyRunsPlanTitle: "準備済み公開Webバッチ計画",
     readyReadOnlyRunsPlanReady: (count: number) =>
       count === 1
-        ? "読み取り専用リサーチタスク1件を active allowlist の予算内で開始します。"
-        : `読み取り専用リサーチタスク${count}件を active allowlist の予算内で開始します。`,
+        ? "読み取り専用リサーチタスク1件を有効な公開Webソース設定の範囲で開始します。"
+        : `読み取り専用リサーチタスク${count}件を有効な公開Webソース設定の範囲で開始します。`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "リサーチタスクはありますが、実行するには公開Webソースを有効にする必要があります。",
-      no_ready_tasks: "現在の allowlist 予算内で実行できる公開Webリサーチタスクはありません。"
+      no_ready_tasks: "現在の公開Webソース設定で実行できる公開Webリサーチタスクはありません。"
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
@@ -2376,12 +2376,12 @@ const JA_COPY: typeof EN_COPY = {
       plannedTaskRequiredStartRun: "読み取り専用リサーチ実行を始める前に、計画済みリサーチタスクを選択してください。",
       plannedTaskStatusRequiredStartRun: "新しい読み取り専用リサーチ実行を開始できるのは計画済みタスクだけです。",
       activeAllowlistRequiredStartRun:
-        "リサーチ実行を始める前に active public web allowlist を作成または再有効化してください。",
+        "リサーチ実行を始める前に公開Webソース設定を作成または再有効化してください。",
       activeProjectRequiredReadyRuns: "準備済みリサーチ実行を始めるにはアクティブなプロジェクトが必要です。",
       readyRunsMissingAllowlist:
-        "リサーチ実行を始める前に active public web allowlist を作成または再有効化してください。",
+        "リサーチ実行を始める前に公開Webソース設定を作成または再有効化してください。",
       readyRunsNoReadyTasks:
-        "active allowlist の concurrency budget 内で開始できる planned public web research task はありません。",
+        "現在の公開Webソース設定で開始できる計画済み公開Webリサーチタスクはありません。",
       maxConcurrentRunsInvalid: "同時に動かす最大リサーチ数は1以上の整数にしてください。",
       maxSessionRunsInvalid:
         "セッションあたりの最大リサーチ数は、同時実行上限以上の整数にしてください。",
@@ -2392,14 +2392,14 @@ const JA_COPY: typeof EN_COPY = {
       activeProjectRequiredRetryRun: "リサーチ実行を再試行するにはアクティブなプロジェクトが必要です。"
     },
     researchActionLabels: {
-      createAllowlist: "リサーチallowlistを作成",
-      reactivateAllowlist: "リサーチallowlistを再有効化",
-      pauseAllowlist: "リサーチallowlistを一時停止",
-      revokeAllowlist: "リサーチallowlistを取り消し",
+      createAllowlist: "リサーチソース設定を作成",
+      reactivateAllowlist: "リサーチソース設定を再有効化",
+      pauseAllowlist: "リサーチソース設定を一時停止",
+      revokeAllowlist: "リサーチソース設定を取り消し",
       planPublicSafeResearchTask: "公開安全リサーチtaskを計画",
       updateMaxConcurrentRuns: "リサーチ実行上限を更新",
       updateMaxSessionRuns: "セッションリサーチ上限を更新",
-      prepareVisibleChatGptResearchDelegation: "見えるChatGPTリサーチ引き継ぎを準備",
+      prepareVisibleChatGptResearchDelegation: "ChatGPTリサーチ依頼を準備",
       startPublicWebResearchRun: "公開Webリサーチrunを開始",
       startBackgroundPublicWebResearchRun: "バックグラウンド公開Webリサーチrunを開始",
       cancelRun: "リサーチrunをキャンセル",
@@ -2408,7 +2408,7 @@ const JA_COPY: typeof EN_COPY = {
     researchActionReasons: {
       pauseAllowlist: "リサーチ運用画面から一時停止しました。",
       revokeAllowlist: "リサーチ運用画面から取り消しました。",
-      planPublicSafeObjective: "リサーチループの公開オンボーディング根拠と品質ゲート準備を検証します。",
+      planPublicSafeObjective: "リサーチループの公開オンボーディング根拠と品質確認準備を検証します。",
       cancelRun: "リサーチ運用画面からキャンセルしました。",
       retryRun: "リサーチ運用画面から手動で再試行しました。"
     },
@@ -2421,11 +2421,11 @@ const JA_COPY: typeof EN_COPY = {
     evidencePackSource: "出典",
     decisionContext: "判断文脈",
     sourceReliability: "出典信頼度",
-    gateStatus: "ゲート状態",
+    gateStatus: "確認状態",
     researchImpact: "影響度",
     terminalOutcome: "結果",
-    gateChecks: "ゲート確認",
-    noGateChecks: "ゲート確認なし",
+    gateChecks: "確認項目",
+    noGateChecks: "確認項目なし",
     limitationRefs: "制約",
     evidenceMatrix: "エビデンスマトリクス",
     balanceStatus: "バランス状態",
@@ -3100,7 +3100,7 @@ const JA_COPY: typeof EN_COPY = {
     },
     terminalReasonLabels: {
       cancelled_by_user: "ユーザーがキャンセル",
-      provider_failed: "プロバイダ失敗",
+      provider_failed: "リサーチ実行失敗",
       provider_cancelled: "プロバイダがキャンセル",
       timeout: "タイムアウト",
       quality_gate_accepted: "品質確認で承認",
@@ -3135,7 +3135,7 @@ const JA_COPY: typeof EN_COPY = {
     cancel: "キャンセル",
     retry: "再試行",
     noResearchRuns: "リサーチ実行はまだ読み込まれていません。",
-    qualityGateDisplay: "Quality gate 表示",
+    qualityGateDisplay: "根拠品質の確認",
     blockers: {
       noActiveAllowlist: "公開してよいリサーチソースはまだ有効化されていません。",
       noAllowlistRefetch: "リサーチソース状態の再読み込み経路がまだ見えていません。",
@@ -3628,12 +3628,12 @@ const KO_COPY: typeof EN_COPY = {
       {
         permission: "allow_codex" as const,
         label: "Codex + 읽기 전용 공개 웹 리서치",
-        description: "온보딩 중 안전한 allowlist를 켜고 Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 합니다."
+        description: "온보딩 중 공개 웹 소스를 켜고 Codex가 아이디어에 맞춘 질문과 리서치 프롬프트를 만들게 합니다."
       },
       {
         permission: "allow_codex_and_chatgpt_visible" as const,
         label: "Codex + 보이는 ChatGPT Pro/Deep Research",
-        description: "공개 웹 리서치를 켜고 Codex가 전달을 준비합니다. ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 보이는 위임으로만 사용합니다."
+        description: "공개 웹 리서치를 켜고 Codex가 ChatGPT에 붙여 넣을 요청을 준비합니다. ChatGPT Pro/Deep Research는 사용자 소유 브라우저에서 직접 확인해 사용합니다."
       }
     ],
     initialResearchAutomationPermissionHelp:

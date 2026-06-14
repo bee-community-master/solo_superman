@@ -68,7 +68,7 @@ export function researchImportMetadataForTask(input: {
     limitationNotes: input.copy.chatGptResearchLimitationNotes,
     decisionContext:
       run?.userVisibleExplanation ??
-      "Visible ChatGPT Pro/Deep Research handoff was shown from the user's onboarding permission; the user reviewed and pasted the result from their own browser session.",
+      "Visible ChatGPT Pro/Deep Research request was shown from the user's onboarding permission; the user reviewed and pasted the result from their own browser session.",
     questionRef: run?.promptPreviewRef ?? `visible_chatgpt_handoff:${input.researchTaskId}`,
     implicationScope: "visible_chatgpt_deep_research_import",
     staleSensitive: true

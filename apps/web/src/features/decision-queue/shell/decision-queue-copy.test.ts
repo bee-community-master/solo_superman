@@ -232,6 +232,12 @@ describe("decision queue language copy", () => {
     expect(
       DECISION_QUEUE_COPY.ko.permissions.permissionActionReasons.exportArtifactRefsLogMessage(3, "perm_1")
     ).toContain("3개");
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffTitle).toBe("ChatGPTリサーチ依頼");
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptImportHint).not.toMatch(/引き継ぎ|allowlist/u);
+    expect(DECISION_QUEUE_COPY.ja.research.visibleChatGptHandoffBoundary).not.toMatch(/引き継ぎ/u);
+    expect(DECISION_QUEUE_COPY.ja.research.gateStatus).toBe("確認状態");
+    expect(DECISION_QUEUE_COPY.ja.phase15a.terminalReasonLabels.provider_failed).toBe("リサーチ実行失敗");
+    expect(DECISION_QUEUE_COPY.ja.phase15a.qualityGateDisplay).toBe("根拠品質の確認");
     expect(DECISION_QUEUE_COPY.en.phase15b.viewModel.statusVisible).toBe("Execution readiness notes visible");
     expect(DECISION_QUEUE_COPY.ja.phase15b.viewModel.statusVisible).toBe("実行準備ノートあり");
     expect(DECISION_QUEUE_COPY.ko.phase15b.viewModel.statusVisible).toBe("실행 준비 노트 있음");

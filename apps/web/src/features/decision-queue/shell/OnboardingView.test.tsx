@@ -200,7 +200,7 @@ describe("OnboardingView", () => {
   it("explains every missing item before the first-question button can be enabled", () => {
     const markup = renderOnboardingView({
       initialQueueStartBlockerMessages: [
-        "Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.",
+        "Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.",
         "Choose either business validation or personal workflow build before starting.",
         "Enter an idea summary before starting."
       ]
@@ -209,7 +209,7 @@ describe("OnboardingView", () => {
     expect(markup).toContain("First-question readiness checklist");
     expect(markup).toContain("Before you can start");
     expect(markup).toContain("Complete these items, then the Create first questions button will turn on.");
-    expect(markup).toContain("Confirm direct ChatGPT login before allowing visible ChatGPT Pro/Deep Research handoff.");
+    expect(markup).toContain("Confirm direct ChatGPT login before preparing a visible ChatGPT Pro/Deep Research request.");
     expect(markup).toContain("Choose either business validation or personal workflow build before starting.");
     expect(markup).toContain("Enter an idea summary before starting.");
     expect(markup).toContain('<button type="submit" disabled="">Create first questions</button>');
