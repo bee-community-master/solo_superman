@@ -360,11 +360,13 @@ function contextualGeneratedQuestionIssues(
   const domainAnchorTerms = ideaFitDomainAnchorTerms(domainSignals);
 
   questions.forEach((question, questionIndex) => {
+    const questionAnchorText = generatedQuestionUserFacingTexts(question).join("\n");
+
     if (
       (domainAnchorTerms.length > 0 &&
-        !textHasIdeaFitDomainAnchor(question.question, domainSignals) &&
-        !(ideaFitCuePattern?.test(question.question))) ||
-      (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(question.question))
+        !textHasIdeaFitDomainAnchor(questionAnchorText, domainSignals) &&
+        !(ideaFitCuePattern?.test(questionAnchorText))) ||
+      (domainAnchorTerms.length === 0 && ideaFitCuePattern && !ideaFitCuePattern.test(questionAnchorText))
     ) {
       issue(
         issues,

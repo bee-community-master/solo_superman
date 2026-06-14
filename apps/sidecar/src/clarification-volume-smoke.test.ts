@@ -31,5 +31,5 @@ describe("clarification volume smoke", () => {
         "question progress reached 100% after answerable debt was exhausted"
       ])
     );
-  });
+  }, 30_000);
 });

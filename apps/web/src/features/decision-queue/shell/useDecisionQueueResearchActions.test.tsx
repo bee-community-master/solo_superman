@@ -600,7 +600,7 @@ describe("useDecisionQueueResearchActions", () => {
       | undefined;
 
     expect(delegationRequest).not.toHaveProperty("browserActionAuthorityRef");
-    expect(appendCommandCalls).toHaveBeenCalledWith("Prepare visible ChatGPT research handoff", expect.any(Object));
+    expect(appendCommandCalls).toHaveBeenCalledWith("Prepare ChatGPT research request", expect.any(Object));
     expect(props.setProjections).toHaveBeenCalledWith(expect.any(Function));
   });
 

@@ -804,13 +804,13 @@ const EN_COPY = {
     importResearchAriaPrefix: "Import research for",
     importResult: "Import result",
     visibleChatGptImportHint:
-      "A visible ChatGPT Pro/Deep Research handoff is prepared for this task. Paste the user-reviewed result here; Solo Superman will import it as source-traced evidence and keep uncertainty/counterpoint/freshness review visible.",
-    visibleChatGptHandoffTitle: "Visible ChatGPT research handoff",
+      "A ChatGPT Pro/Deep Research request is ready for this task. Paste the user-reviewed result here; Solo Superman will add it to the planning draft with sources, uncertainty, freshness, and next questions visible.",
+    visibleChatGptHandoffTitle: "ChatGPT research request",
     visibleChatGptOpen: "Open ChatGPT",
     visibleChatGptPromptLabel: "Prompt to paste into ChatGPT/Deep Research",
     visibleChatGptChecklistLabel: "Before importing the result",
     visibleChatGptHandoffBoundary:
-      "This is a user-visible handoff, not account sharing or backend ChatGPT automation. Review the prompt, run it in your own browser session, then paste only the reviewed result and public source refs below.",
+      "Review the request, run it in your own browser session, then paste only the reviewed result and public source refs below. Solo Superman does not use your account in the background.",
     startReadOnlyRun: "Start public web run",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0
@@ -821,11 +821,11 @@ const EN_COPY = {
     readyReadOnlyRunsPlanTitle: "Ready public web batch plan",
     readyReadOnlyRunsPlanReady: (count: number) =>
       count === 1
-        ? "1 planned read-only research task will start within the active allowlist budget."
-        : `${count} planned read-only research tasks will start within the active allowlist budget.`,
+        ? "1 planned read-only research task will start with the current source settings."
+        : `${count} planned read-only research tasks will start with the current source settings.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "Research tasks exist, but public web sources must be enabled before they can run.",
-      no_ready_tasks: "No public web research task is executable within the current allowlist budget."
+      no_ready_tasks: "No public web research task is executable with the current source settings."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
@@ -837,11 +837,11 @@ const EN_COPY = {
       plannedTaskRequiredStartRun: "Select a planned research task before starting a read-only research run.",
       plannedTaskStatusRequiredStartRun: "Only planned research tasks can start a new read-only research run.",
       activeAllowlistRequiredStartRun:
-        "Create or reactivate an active public web allowlist before starting a research run.",
+        "Enable public web research sources before starting a research run.",
       activeProjectRequiredReadyRuns: "An active project is required before starting ready research runs.",
       readyRunsMissingAllowlist:
-        "Create or reactivate an active public web allowlist before starting research runs.",
-      readyRunsNoReadyTasks: "No planned public web research tasks are ready within the active allowlist concurrency budget.",
+        "Enable public web research sources before starting research runs.",
+      readyRunsNoReadyTasks: "No planned public web research tasks are ready with the current source settings.",
       maxConcurrentRunsInvalid: "Max simultaneous research runs must be a positive whole number.",
       maxSessionRunsInvalid:
         "Max research runs per session must be a whole number greater than or equal to the simultaneous run limit.",
@@ -859,7 +859,7 @@ const EN_COPY = {
       planPublicSafeResearchTask: "Plan public-safe research task",
       updateMaxConcurrentRuns: "Update research run limit",
       updateMaxSessionRuns: "Update session research limit",
-      prepareVisibleChatGptResearchDelegation: "Prepare visible ChatGPT research handoff",
+      prepareVisibleChatGptResearchDelegation: "Prepare ChatGPT research request",
       startPublicWebResearchRun: "Start public web research run",
       startBackgroundPublicWebResearchRun: "Start background public web research run",
       cancelRun: "Cancel research run",
@@ -869,7 +869,7 @@ const EN_COPY = {
       pauseAllowlist: "Paused from the research operations screen.",
       revokeAllowlist: "Revoked from the research operations screen.",
       planPublicSafeObjective:
-        "Validate public onboarding evidence and quality-gate readiness for the research loop.",
+        "Validate public onboarding evidence and source quality readiness for the research loop.",
       cancelRun: "Cancelled from the research operations screen.",
       retryRun: "Manual retry from the research operations screen."
     },
@@ -882,11 +882,11 @@ const EN_COPY = {
     evidencePackSource: "Source",
     decisionContext: "Decision context",
     sourceReliability: "Source reliability",
-    gateStatus: "Gate status",
+    gateStatus: "Review status",
     researchImpact: "Impact",
     terminalOutcome: "Outcome",
-    gateChecks: "Gate checks",
-    noGateChecks: "No gate checks",
+    gateChecks: "Review checks",
+    noGateChecks: "No review checks",
     limitationRefs: "Limitations",
     evidenceMatrix: "Evidence matrix",
     balanceStatus: "Balance status",
@@ -1550,7 +1550,7 @@ const EN_COPY = {
     },
     terminalReasonLabels: {
       cancelled_by_user: "Cancelled by user",
-      provider_failed: "Provider failed",
+      provider_failed: "Research run failed",
       provider_cancelled: "Provider cancelled",
       timeout: "Timed out",
       quality_gate_accepted: "Quality check accepted",
@@ -1585,7 +1585,7 @@ const EN_COPY = {
     cancel: "Cancel",
     retry: "Retry",
     noResearchRuns: "No research runs loaded yet.",
-    qualityGateDisplay: "Quality check display",
+    qualityGateDisplay: "Source quality check",
     blockers: {
       noActiveAllowlist: "No public-safe research source is active yet.",
       noAllowlistRefetch: "The research source refresh path is not visible yet.",
@@ -3897,39 +3897,39 @@ const KO_COPY: typeof EN_COPY = {
     importResearchAriaPrefix: "리서치 가져오기",
     importResult: "결과 가져오기",
     visibleChatGptImportHint:
-      "이 작업에는 보이는 ChatGPT Pro/Deep Research 전달이 준비되어 있습니다. 사용자가 검토한 결과를 여기에 붙여 넣으면 Solo Superman이 출처 추적 리서치로 가져오고 불확실성·반례·최신성 검토를 계속 보이게 유지합니다.",
-    visibleChatGptHandoffTitle: "보이는 ChatGPT 리서치 인계",
+      "이 작업에는 ChatGPT Pro/Deep Research에 붙여넣을 리서치 요청이 준비되어 있습니다. 사용자가 검토한 결과를 여기에 붙여 넣으면 Solo Superman이 출처, 불확실성, 최신성, 다음 질문을 기획 초안에 반영합니다.",
+    visibleChatGptHandoffTitle: "ChatGPT 리서치 요청",
     visibleChatGptOpen: "ChatGPT 열기",
     visibleChatGptPromptLabel: "ChatGPT/Deep Research에 붙여 넣을 프롬프트",
     visibleChatGptChecklistLabel: "결과를 가져오기 전에",
     visibleChatGptHandoffBoundary:
-      "이 경로는 사용자가 볼 수 있는 인계이며 계정 공유나 백엔드 ChatGPT 자동화가 아닙니다. 본인 브라우저 세션에서 프롬프트를 검토·실행한 뒤, 검토한 결과와 공개 출처 참조만 아래에 붙여 넣으세요.",
+      "본인 브라우저 세션에서 요청을 검토·실행한 뒤, 검토한 결과와 공개 출처 참조만 아래에 붙여 넣으세요. Solo Superman은 사용자 계정을 백그라운드에서 사용하지 않습니다.",
     startReadOnlyRun: "공개 웹 리서치 실행 시작",
     startReadyReadOnlyRuns: (count: number) =>
       count === 0 ? "시작할 준비가 된 공개 웹 리서치 없음" : `준비된 공개 웹 리서치 ${count}개 시작`,
     readyReadOnlyRunsPlanTitle: "준비된 공개 웹 배치 계획",
     readyReadOnlyRunsPlanReady: (count: number) =>
-      `읽기 전용 리서치 작업 ${count}개가 active allowlist 예산 안에서 시작됩니다.`,
+      `읽기 전용 리서치 작업 ${count}개가 현재 리서치 소스 설정 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
-      no_ready_tasks: "현재 allowlist 예산 안에서 실행 가능한 공개 웹 리서치 작업이 없습니다."
+      no_ready_tasks: "현재 리서치 소스 설정 안에서 실행 가능한 공개 웹 리서치 작업이 없습니다."
     },
     researchActionErrors: {
-      activeProjectRequiredAllowlistChange: "리서치 allowlist를 변경하려면 활성 프로젝트가 필요합니다.",
-      activeProjectRequiredPauseAllowlist: "리서치 allowlist를 일시 중지하려면 활성 프로젝트가 필요합니다.",
-      activeProjectRequiredRevokeAllowlist: "리서치 allowlist를 철회하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredAllowlistChange: "리서치 소스 설정을 변경하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredPauseAllowlist: "리서치 소스를 일시 중지하려면 활성 프로젝트가 필요합니다.",
+      activeProjectRequiredRevokeAllowlist: "리서치 소스를 끄려면 활성 프로젝트가 필요합니다.",
       activeSessionRequiredPlanResearch: "public-safe 리서치를 계획하려면 활성 세션이 필요합니다.",
       sidecarConnectionRequiredStartRun: "리서치 실행을 시작하려면 sidecar 연결이 필요합니다.",
       activeProjectRequiredStartRun: "리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
       plannedTaskRequiredStartRun: "읽기 전용 리서치 실행을 시작하기 전에 planned 리서치 작업을 선택하세요.",
       plannedTaskStatusRequiredStartRun: "planned 리서치 작업만 새 읽기 전용 리서치 실행을 시작할 수 있습니다.",
       activeAllowlistRequiredStartRun:
-        "리서치 실행을 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
+        "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       activeProjectRequiredReadyRuns: "준비된 리서치 실행을 시작하려면 활성 프로젝트가 필요합니다.",
       readyRunsMissingAllowlist:
-        "리서치 실행을 시작하기 전에 active public web allowlist를 만들거나 다시 활성화하세요.",
+        "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       readyRunsNoReadyTasks:
-        "active allowlist concurrency budget 안에서 시작할 수 있는 planned public web research task가 없습니다.",
+        "현재 리서치 소스 설정 안에서 시작할 수 있는 planned public web research task가 없습니다.",
       maxConcurrentRunsInvalid: "동시에 실행할 최대 리서치 수는 1 이상의 정수여야 합니다.",
       maxSessionRunsInvalid:
         "세션당 최대 리서치 실행 수는 동시 실행 한도 이상인 정수여야 합니다.",
@@ -3940,14 +3940,14 @@ const KO_COPY: typeof EN_COPY = {
       activeProjectRequiredRetryRun: "리서치 실행을 다시 시도하려면 활성 프로젝트가 필요합니다."
     },
     researchActionLabels: {
-      createAllowlist: "리서치 allowlist 생성",
-      reactivateAllowlist: "리서치 allowlist 재활성화",
-      pauseAllowlist: "리서치 allowlist 일시정지",
-      revokeAllowlist: "리서치 allowlist 취소",
+      createAllowlist: "리서치 소스 활성화",
+      reactivateAllowlist: "리서치 소스 다시 활성화",
+      pauseAllowlist: "리서치 소스 일시정지",
+      revokeAllowlist: "리서치 소스 끄기",
       planPublicSafeResearchTask: "공개 안전 리서치 task 계획",
       updateMaxConcurrentRuns: "리서치 실행 제한 업데이트",
       updateMaxSessionRuns: "세션 리서치 제한 업데이트",
-      prepareVisibleChatGptResearchDelegation: "보이는 ChatGPT 리서치 위임 준비",
+      prepareVisibleChatGptResearchDelegation: "ChatGPT 리서치 요청 준비",
       startPublicWebResearchRun: "공개 웹 리서치 run 시작",
       startBackgroundPublicWebResearchRun: "백그라운드 공개 웹 리서치 run 시작",
       cancelRun: "리서치 run 취소",
@@ -3956,7 +3956,7 @@ const KO_COPY: typeof EN_COPY = {
     researchActionReasons: {
       pauseAllowlist: "리서치 운영 화면에서 일시 중지했습니다.",
       revokeAllowlist: "리서치 운영 화면에서 철회했습니다.",
-      planPublicSafeObjective: "리서치 루프의 공개 온보딩 근거와 품질 게이트 준비 상태를 검증합니다.",
+      planPublicSafeObjective: "리서치 루프의 공개 온보딩 근거와 품질 확인 준비 상태를 검증합니다.",
       cancelRun: "리서치 운영 화면에서 취소했습니다.",
       retryRun: "리서치 운영 화면에서 수동으로 다시 시도했습니다."
     },
@@ -3969,11 +3969,11 @@ const KO_COPY: typeof EN_COPY = {
     evidencePackSource: "출처",
     decisionContext: "판단 맥락",
     sourceReliability: "출처 신뢰도",
-    gateStatus: "게이트 상태",
+    gateStatus: "검토 상태",
     researchImpact: "영향도",
     terminalOutcome: "결과",
-    gateChecks: "게이트 확인",
-    noGateChecks: "게이트 확인 없음",
+    gateChecks: "검토 항목",
+    noGateChecks: "검토 항목 없음",
     limitationRefs: "제약",
     evidenceMatrix: "근거 매트릭스",
     balanceStatus: "균형 상태",
@@ -4648,7 +4648,7 @@ const KO_COPY: typeof EN_COPY = {
     },
     terminalReasonLabels: {
       cancelled_by_user: "사용자가 취소",
-      provider_failed: "제공자 실패",
+      provider_failed: "리서치 실행 실패",
       provider_cancelled: "제공자가 취소",
       timeout: "시간 초과",
       quality_gate_accepted: "품질 확인에서 승인",
@@ -4683,7 +4683,7 @@ const KO_COPY: typeof EN_COPY = {
     cancel: "취소",
     retry: "재시도",
     noResearchRuns: "아직 리서치 실행이 로드되지 않았습니다.",
-    qualityGateDisplay: "품질 게이트 표시",
+    qualityGateDisplay: "근거 품질 확인",
     blockers: {
       noActiveAllowlist: "안전한 공개 리서치 소스가 아직 활성화되지 않았습니다.",
       noAllowlistRefetch: "리서치 소스 상태를 다시 불러오는 경로가 보이지 않습니다.",

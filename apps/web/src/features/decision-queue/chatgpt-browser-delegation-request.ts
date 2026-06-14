@@ -1,6 +1,7 @@
 import type {
   ChatGptBrowserDelegationProjection,
   CreateChatGptBrowserDelegationRunRequest,
+  LivingSpecProjection,
   ResearchEvidenceProjection,
   ResearchTaskId,
   SessionId,
@@ -25,6 +26,15 @@ export interface VisibleChatGptResearchHandoff {
   readonly checklist: readonly string[];
 }
 
+function compactResearchContextFromSpec(spec: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined) {
+  return [spec?.title, ...(spec?.sections ?? [])]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 900);
+}
+
 export function visibleChatGptResearchDelegationTaskIds(input: {
   readonly research: ResearchEvidenceProjection | null | undefined;
   readonly delegation: ChatGptBrowserDelegationProjection | null | undefined;
@@ -39,30 +49,41 @@ export function visibleChatGptResearchDelegationTaskIds(input: {
     .map((task) => task.researchTaskId);
 }
 
-export function visibleChatGptResearchHandoffForTask(task: ResearchTaskProjection): VisibleChatGptResearchHandoff {
+export function visibleChatGptResearchHandoffForTask(input: {
+  readonly task: ResearchTaskProjection;
+  readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
+}): VisibleChatGptResearchHandoff {
+  const { spec, task } = input;
+  const ideaContext = spec?.title?.trim() || "아직 제목이 없는 서비스 아이디어";
+  const planningContext = compactResearchContextFromSpec(spec) || "아직 사용자 답변과 기획서 문맥이 충분히 쌓이지 않았습니다.";
+
   return {
     openUrl: CHATGPT_VISIBLE_RESEARCH_OPEN_URL,
     prompt: [
-      "Use ChatGPT Pro/Deep Research as a visible, user-owned research assistant for Solo Superman.",
+      "Solo Superman의 기획 상세화를 돕는 공개 웹 리서치를 해주세요.",
       "",
-      `Research task: ${task.objective}`,
-      `Impact: ${task.impact}`,
-      `Route: ${task.routeOutcome}`,
+      `원문 아이디어: ${ideaContext}`,
+      `현재까지의 사용자 답변/기획 맥락: ${planningContext}`,
+      `이번 리서치가 좁힐 결정: ${task.objective}`,
+      `영향도: ${task.impact}`,
       "",
-      "Return a concise answer that includes:",
-      "1. What the strongest current public evidence suggests.",
-      "2. What would weaken or contradict that assumption.",
-      "3. Source links with titles, publisher/site, and publication or retrieval dates when visible.",
-      "4. Uncertainty, freshness risk, and any missing counterpoint.",
-      "5. One follow-up question that a human should answer before this becomes implementation-ready.",
+      "원하는 출력 형식:",
+      "1. 가능한 사용자 미래: 리서치 결과상 이 아이디어가 잘 쓰이면 어떤 모습이 되는지 2-3개.",
+      "2. 대표 사용 케이스: 누가, 언제, 어떤 일에 쓰는지.",
+      "3. 기존 대안: 사용자가 지금 쓰는 도구나 방법.",
+      "4. 막힐 상황: 실제 도입 중 막힐 수 있는 상황.",
+      "5. 대응 선택지: 위 상황별로 제품이나 기획을 어떻게 바꿀 수 있는지.",
+      "6. 다음 질문: 사용자가 답하면 기획서가 더 구체화되는 쉬운 질문 2-3개.",
+      "7. 출처: 링크, 제목, 사이트명, 공개일 또는 확인일을 함께 적어주세요.",
       "",
-      "Do not include passwords, session cookies, API keys, private documents, contact lists, or legal/medical/financial secrets. If a page asks for login, CAPTCHA, payment, or private access, skip it and note the limitation."
+      "출처 요구사항: 공개 웹에서 확인 가능한 자료만 사용하고, 로그인·CAPTCHA·결제·비공개 문서가 필요한 자료는 건너뛰고 한계로 적어주세요.",
+      "비밀번호, 세션 쿠키, API 키, 결제 정보, 개인 연락처, 법률·의료·금융 비밀은 포함하지 마세요."
     ].join("\n"),
     checklist: [
-      "Review and edit the prompt before sending it in the visible ChatGPT browser.",
-      "Keep login, CAPTCHA, quota, and account state under the user's direct control.",
-      "Paste only the reviewed result and public source refs back into Solo Superman.",
-      "If sources are weak, stale, or one-sided, keep that uncertainty in the pasted result."
+      "ChatGPT에 보내기 전에 아이디어와 현재 답변 맥락이 맞는지 확인하세요.",
+      "로그인, CAPTCHA, 사용량 제한은 사용자 브라우저에서 직접 처리하세요.",
+      "검토한 결과와 공개 출처만 Solo Superman에 붙여 넣으세요.",
+      "출처가 약하거나 오래됐거나 한쪽 관점이면 그 한계를 결과에 남기세요."
     ]
   };
 }

@@ -317,7 +317,7 @@ describe("ResearchView", () => {
 
     expect(markup).toContain("Start 2 ready public web runs");
     expect(markup).toContain("Ready public web batch plan");
-    expect(markup).toContain("2 planned read-only research tasks will start within the active allowlist budget.");
+    expect(markup).toContain("2 planned read-only research tasks will start with the current source settings.");
     expect(markup).not.toContain("Task IDs queued for this batch");
     expect(markup).not.toContain("research_task_ready_batch_1");
     expect(markup).not.toContain("research_task_ready_batch_2");
@@ -363,13 +363,14 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
-    expect(markup).toContain("Visible ChatGPT research handoff");
+    expect(markup).toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
+    expect(markup).toContain("ChatGPT research request");
     expect(markup).toContain("Open ChatGPT");
     expect(markup).toContain('href="https://chatgpt.com/"');
     expect(markup).toContain("Prompt to paste into ChatGPT/Deep Research");
-    expect(markup).toContain("Research task: Use visible ChatGPT Deep Research for the buyer/user split.");
-    expect(markup).toContain("Do not include passwords, session cookies, API keys");
+    expect(markup).toContain("이번 리서치가 좁힐 결정: Use visible ChatGPT Deep Research for the buyer/user split.");
+    expect(markup).toContain("가능한 사용자 미래");
+    expect(markup).toContain("비밀번호, 세션 쿠키, API 키");
     expect(markup).toContain("Before importing the result");
     expect(markup).toContain("Paste the user-reviewed result here");
   });
@@ -394,10 +395,10 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("Visible ChatGPT research handoff");
-    expect(markup).toContain("Research task: Validate public evidence path 1.");
-    expect(markup).toContain("This is a user-visible handoff, not account sharing or backend ChatGPT automation.");
-    expect(markup).not.toContain("A visible ChatGPT Pro/Deep Research handoff is prepared for this task.");
+    expect(markup).toContain("ChatGPT research request");
+    expect(markup).toContain("이번 리서치가 좁힐 결정: Validate public evidence path 1.");
+    expect(markup).toContain("Solo Superman does not use your account in the background.");
+    expect(markup).not.toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
   });
 
   it("keeps imported handoff results visible while evidence synthesis is pending", () => {
@@ -537,7 +538,7 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("No ready public web runs");
-    expect(markup).toContain("No public web research task is executable within the current allowlist budget.");
+    expect(markup).toContain("No public web research task is executable with the current source settings.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 
@@ -790,7 +791,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Run a skeptical pricing search before Planning-ready.");
     expect(markup).toContain("Evidence packs");
     expect(markup).toContain("Pricing willingness has source-backed support.");
-    expect(markup).toContain("Gate status");
+    expect(markup).toContain("Review status");
     expect(markup).toContain("Accepted");
     expect(markup).toContain("Source reliability");
     expect(markup).toContain("High reliability");
@@ -801,7 +802,7 @@ describe("ResearchView", () => {
     expect(markup).toContain("Founder interview pricing notes");
     expect(markup).toContain('href="https://example.com/pricing-notes"');
     expect(markup).not.toContain(">https://example.com/pricing-notes<");
-    expect(markup).toContain("Gate checks");
+    expect(markup).toContain("Review checks");
     expect(markup).toContain("Source reliability: Passed");
     expect(markup).toContain("The retained source is specific to the target founder workflow.");
     expect(markup).not.toContain("source_reliability:");

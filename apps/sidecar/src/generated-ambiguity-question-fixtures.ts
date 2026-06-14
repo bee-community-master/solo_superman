@@ -7,7 +7,7 @@ function option(id: string, label: string) {
     label,
     value: `${label}을 우선한다.`,
     primaryDetail: `${label} 기준으로 첫 판단을 좁힙니다.`,
-    secondaryDetail: "다른 후보와 반례는 계속 확인합니다."
+    secondaryDetail: "다른 후보는 다음 질문에서 확인합니다."
   };
 }
 
@@ -77,15 +77,37 @@ function question(input: {
 export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity = "balanced") {
   const baseQuestions = [
     question({
-      sectionRef: "Problem",
-      topicKey: "problem_pain_intensity",
-      summary: "founder 고객 문제 강도 미확인",
-      questionText: "founder가 제품 스펙을 만들기 전 가장 자주 막히는 고객 인터뷰 문제는 무엇인가요?",
-      ambiguityDimension: "success_criteria",
+      sectionRef: "Target Customer",
+      topicKey: "first_user_situation",
+      summary: "첫 founder 사용자 상황 구체화 필요",
+      questionText: "이 도구를 처음 쓰는 founder는 누구이고, 언제 어떤 막힘을 겪나요?",
+      ambiguityDimension: "scope"
+    }),
+    question({
+      sectionRef: "MVP Scope",
+      topicKey: "planning_artifact_after_answers",
+      summary: "답변 뒤 생길 기획서 조각 미정",
+      questionText: "founder가 질문에 답하고 나면 어떤 기획서 조각이 생겨야 하나요?",
+      ambiguityDimension: "scope"
+    }),
+    question({
+      sectionRef: "JTBD / Use Case",
+      topicKey: "case_response_shape",
+      summary: "founder 유형별 대응 방식 미정",
+      questionText: "초보 founder, 문서가 있는 founder, 팀이 있는 founder는 무엇이 달라야 하나요?",
+      ambiguityDimension: "scope"
+    }),
+    question({
+      sectionRef: "Current Alternatives",
+      topicKey: "public_research_scenario_options",
+      uncertaintyType: "missing_con_evidence",
+      summary: "공개 리서치로 볼 사용 케이스 미정",
+      questionText: "공개 자료를 보면 어떤 founder 사용 케이스와 기존 대안이 먼저 보이나요?",
+      ambiguityDimension: "assumption_pressure",
       ambiguityRoutingPath: "current_research",
-      researchQuestion: "founder 제품 스펙 문제의 공개 사례와 문제 강도를 약하게 만드는 반례는 무엇인가?",
+      researchQuestion: "founder 기획 상세화 도구와 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황은 무엇인가?",
       suggestedResearchTask:
-        "founder 커뮤니티, 제품 스펙 사례, 고객 인터뷰 글에서 반복 문제 근거를 찾고 반례와 남은 판단을 분리합니다."
+        "founder 커뮤니티, 제품 스펙 사례, 고객 인터뷰 글에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다."
     }),
     question({
       sectionRef: "Target Customer",
@@ -165,7 +187,7 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       uncertaintyType: "unsupported",
       severity: "medium",
       summary: "founder 핵심 주장 근거 균형 부족",
-      questionText: "founder 핵심 주장을 뒷받침하는 단서와 반례 중 무엇이 비어 있나요?",
+      questionText: "founder 핵심 주장을 뒷받침하는 단서와 다른 관점 중 무엇이 비어 있나요?",
       expectedAnswerType: "evidence",
       ambiguityRoutingPath: "current_research",
       possibleRoutes: ["research_needed", "missing_con_evidence"]
@@ -232,7 +254,7 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       sectionRef: "Value Proposition",
       topicKey: "strong_paid_intent_core_assumption",
       uncertaintyType: "missing_con_evidence",
-      summary: "founder 지불 핵심 가정 반례 미확인",
+      summary: "founder 유료 전환 판단 미확인",
       questionText: "founder가 제품에 돈을 내지 않을 가장 위험한 이유는 무엇인가요?",
       expectedAnswerType: "experiment",
       ambiguityDimension: "assumption_pressure",
@@ -284,6 +306,40 @@ export function generatedPetLifecycleQuestionSet() {
     schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
     sourceSummary: "Pet lifecycle fixture",
     questions: [
+      question({
+        sectionRef: "Target Customer",
+        topicKey: "pet_first_user_situation",
+        summary: "첫 반려동물 보호자 상황 구체화 필요",
+        questionText: "이 반려동물 의료 기록 앱을 처음 쓰는 보호자는 누구이고, 언제 막히나요?",
+        ambiguityDimension: "scope"
+      }),
+      question({
+        sectionRef: "MVP Scope",
+        topicKey: "pet_planning_artifact_after_answers",
+        summary: "답변 뒤 생길 반려동물 관리 결과물 미정",
+        questionText: "보호자가 질문에 답하고 나면 어떤 관리 기록이나 계획이 생겨야 하나요?",
+        ambiguityDimension: "scope"
+      }),
+      question({
+        sectionRef: "JTBD / Use Case",
+        topicKey: "pet_case_response_shape",
+        summary: "반려동물 보호자 유형별 대응 방식 미정",
+        questionText: "초보 보호자, 노령 반려동물 보호자, 여러 마리 보호자는 무엇이 달라야 하나요?",
+        ambiguityDimension: "scope"
+      }),
+      question({
+        sectionRef: "Current Alternatives",
+        topicKey: "pet_public_research_scenario_options",
+        uncertaintyType: "missing_con_evidence",
+        summary: "공개 리서치로 볼 반려동물 사용 케이스 미정",
+        questionText: "공개 자료를 보면 어떤 반려동물 사용 케이스와 기존 대안이 먼저 보이나요?",
+        ambiguityDimension: "assumption_pressure",
+        ambiguityRoutingPath: "current_research",
+        researchQuestion:
+          "반려동물 의료·보험·돌봄 기록과 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황은 무엇인가?",
+        suggestedResearchTask:
+          "동물병원, 펫보험, 보호자 커뮤니티, 장례·말기 케어 자료에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다."
+      }),
       question({
         sectionRef: "Problem",
         topicKey: "problem_pain_intensity",

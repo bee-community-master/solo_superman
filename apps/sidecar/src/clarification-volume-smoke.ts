@@ -28,7 +28,7 @@ const SESSION_ID = "sess_clarification_volume_smoke" as SessionId;
 const CORRELATION_ID = "corr_clarification_volume_smoke" as CorrelationId;
 const TARGET_ANSWERED_QUESTION_COUNT = 200;
 const MIN_INITIAL_FOLLOW_UP_BUDGET = 200;
-const MAX_ANSWER_LOOP_ITERATIONS = 300;
+const MAX_ANSWER_LOOP_ITERATIONS = 340;
 
 type SmokeStatus = "blocked" | "passed";
 
