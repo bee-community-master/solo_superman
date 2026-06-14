@@ -3100,6 +3100,21 @@ function planningDetailResearchTaskId(sessionId: SessionId) {
   return `research_task_${stableToken(`${sessionId}:planning_detail_research`)}` as ResearchTaskId;
 }
 
+function planningDetailResearchTaskIdForAnswer(input: {
+  readonly sessionId: SessionId;
+  readonly answerRef: string;
+  readonly researchState: ProductEngineStateSnapshot["researchState"];
+}) {
+  const baseTaskId = planningDetailResearchTaskId(input.sessionId);
+  const baseTaskHasResult = input.researchState.results.some((result) => result.researchTaskId === baseTaskId);
+
+  if (!baseTaskHasResult) {
+    return baseTaskId;
+  }
+
+  return `research_task_${stableToken(`${input.sessionId}:planning_detail_research:${input.answerRef}`)}` as ResearchTaskId;
+}
+
 function answeredPlanningQuestionCount(issues: readonly AmbiguityIssueSnapshot[]) {
   return issues.filter((issue) => issue.status === "answered" && Boolean(issue.submittedAnswer)).length;
 }
@@ -5090,7 +5105,11 @@ function reduceSubmitAnswer(command: ProductEngineCommand, state: ProductEngineS
   const researchRouteOutcome =
     answeredQuestionCount >= PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD ? "research_needed" : routeOutcome;
   const researchTask = planResearchTask({
-    researchTaskId: planningDetailResearchTaskId(command.sessionId),
+    researchTaskId: planningDetailResearchTaskIdForAnswer({
+      sessionId: command.sessionId,
+      answerRef,
+      researchState: state.researchState
+    }),
     sessionId: command.sessionId,
     sourceQueueItemId: queueItemId as QueueItemId,
     sourceAnswerRef: answerRef,

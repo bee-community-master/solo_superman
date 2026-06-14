@@ -515,7 +515,7 @@ describe("ResearchView", () => {
       }
     });
 
-    expect(markup).toContain("Ready for handoff");
+    expect(markup).toContain("Result ready to add");
     expect(markup).toContain("Imported result is being turned into evidence");
     expect(markup).toContain(
       "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared."

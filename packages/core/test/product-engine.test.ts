@@ -3057,6 +3057,108 @@ describe("PR-04 ProductEngine reducer", () => {
     });
   });
 
+  it("keeps imported planning-detail research results when later answers plan more research", () => {
+    const firstQueueItemId = "queue_first_user_context" as QueueItemId;
+    const secondQueueItemId = "queue_output_detail" as QueueItemId;
+    const openIssues = [
+      {
+        queueItemId: firstQueueItemId,
+        sectionRef: "Target Customer",
+        topicKey: "first_user_context",
+        summary: "첫 사용자 상황",
+        status: "open" as const,
+        questionText: "처음 쓰는 사용자는 누구이고 언제 이 도구를 쓰나요?",
+        expectedAnswerType: "text" as const,
+        sourceRef: "test:first_user_context"
+      },
+      {
+        queueItemId: secondQueueItemId,
+        sectionRef: "Output",
+        topicKey: "output_detail",
+        summary: "답변 뒤 결과물",
+        status: "open" as const,
+        questionText: "답변을 마치면 어떤 문서 조각이 생겨야 하나요?",
+        expectedAnswerType: "text" as const,
+        sourceRef: "test:output_detail"
+      }
+    ];
+    const state = {
+      ...withConfirmedBusinessPurposeMode(createInitialProductEngineState(projectId, sessionId)),
+      stateVersion: 4 as StateVersion,
+      openIssues,
+      queueProjection: {
+        kind: "DecisionQueueProjection" as const,
+        version: 4 as ProjectionVersion,
+        active: openIssues.map((issue) => ({
+          queueItemId: issue.queueItemId,
+          title: issue.questionText,
+          state: "active" as const,
+          cardType: "question" as const,
+          topicKey: issue.topicKey
+        })),
+        next: [],
+        blocked: [],
+        deferred: []
+      }
+    };
+    const firstAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", 4, {
+        queueItemId: firstQueueItemId,
+        answer: "초기 창업자가 혼자 서비스 아이디어를 문서로 정리하려고 막힐 때 씁니다."
+      }, 5),
+      state
+    );
+
+    expect(firstAnswer.accepted).toBe(true);
+
+    const stateAfterFirstAnswer = {
+      ...state,
+      ...firstAnswer.nextState
+    };
+    const firstResearchTaskId = stateAfterFirstAnswer.researchState.taskIds[0];
+
+    if (!firstResearchTaskId) {
+      throw new Error("Expected the first answer to plan a research task.");
+    }
+
+    const imported = reduceProductEngineCommand(
+      command("ImportResearchResult", Number(stateAfterFirstAnswer.stateVersion), {
+        researchTaskId: firstResearchTaskId,
+        result: "초기 창업자는 기존 노트와 문서로 아이디어를 정리하지만, 질문 흐름과 사례 비교가 없으면 실행 범위가 흐려진다는 공개 사례가 있습니다.",
+        sourceTitle: "User-reviewed Deep Research notes"
+      }, 6),
+      stateAfterFirstAnswer
+    );
+
+    expect(imported.accepted).toBe(true);
+    expect(imported.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
+      "handoff_ready"
+    );
+    const stateAfterImport = {
+      ...stateAfterFirstAnswer,
+      researchState: imported.nextState.researchState,
+      stateVersion: imported.nextState.stateVersion
+    };
+
+    const secondAnswer = reduceProductEngineCommand(
+      command("SubmitAnswer", Number(stateAfterImport.stateVersion), {
+        queueItemId: secondQueueItemId,
+        answer: "사용자 유형, 현재 대안, 첫 결과물 범위가 들어간 한 페이지 기획서 초안이 생겨야 합니다."
+      }, 7),
+      stateAfterImport
+    );
+
+    expect(secondAnswer.accepted).toBe(true);
+    expect(secondAnswer.nextState.researchState.taskIds).toHaveLength(2);
+    expect(secondAnswer.nextState.researchState.taskIds[0]).toBe(firstResearchTaskId);
+    expect(secondAnswer.nextState.researchState.taskIds[1]).not.toBe(firstResearchTaskId);
+    expect(secondAnswer.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
+      "handoff_ready"
+    );
+    expect(secondAnswer.nextState.researchState.results).toHaveLength(1);
+    expect(secondAnswer.nextState.researchState.results[0]?.researchTaskId).toBe(firstResearchTaskId);
+  });
+
   it("splits multi-line answers into multiple immediate follow-up ambiguity branches", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];

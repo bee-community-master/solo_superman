@@ -936,7 +936,7 @@ const EN_COPY = {
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "Planned",
-      handoff_ready: "Ready for handoff",
+      handoff_ready: "Result ready to add",
       evidence_ready: "Evidence ready",
       needs_review: "Needs review",
       research_insufficient: "Needs more research",
@@ -2486,7 +2486,7 @@ const JA_COPY: typeof EN_COPY = {
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "計画済み",
-      handoff_ready: "引き継ぎ準備済み",
+      handoff_ready: "結果を追加できます",
       evidence_ready: "根拠準備済み",
       needs_review: "レビューが必要",
       research_insufficient: "追加リサーチが必要",
@@ -4045,7 +4045,7 @@ const KO_COPY: typeof EN_COPY = {
     } satisfies Record<ResearchRouteOutcome, string>,
     taskStatusLabels: {
       planned: "계획됨",
-      handoff_ready: "인계 준비됨",
+      handoff_ready: "결과 반영 대기",
       evidence_ready: "근거 준비됨",
       needs_review: "검토 필요",
       research_insufficient: "추가 리서치 필요",
