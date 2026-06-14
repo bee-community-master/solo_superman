@@ -50,10 +50,10 @@ describe("generated ambiguity question prompt", () => {
 
     expect(prompt).toContain("Do not prefix questionText with the full idea or goal");
     expect(prompt).toContain("the UI shows idea and goal separately");
-    expect(prompt).toContain("who to ask or show this to this week");
-    expect(prompt).toContain("why someone would hesitate to pay");
+    expect(prompt).toContain("usage situation, expected planning artifact");
+    expect(prompt).toContain("Do not force a pressure question into the first set");
     expect(prompt).toContain("Business critic intensity: investor_grade");
-    expect(prompt).toContain('businessCriticPressureKind "investor_pressure_pass"');
-    expect(prompt).toContain("paid intent, proxy, or validation experiment");
+    expect(prompt).not.toContain('businessCriticPressureKind "investor_pressure_pass"');
+    expect(prompt).toContain('Avoid standalone jargon like "paid intent", "pricing pressure", "retention proxy", or "validation experiment"');
   });
 });

@@ -116,6 +116,8 @@ describe("visibleChatGptResearchHandoffForTask", () => {
     expect(request.userVisibleExplanation).not.toContain("handoff");
     expect(request.nextAction).toContain("prompt preview");
     expect(request.policyRiskVerdict.rationale).not.toContain("handoff");
+    expect(request.policyRiskVerdict.rationale).not.toContain("backend");
+    expect(request.policyRiskVerdict.evidenceRefs.join("\n")).not.toContain("handoff");
     expect(request.sessionOwnershipVerdict.rationale).not.toContain("handoff");
   });
 });

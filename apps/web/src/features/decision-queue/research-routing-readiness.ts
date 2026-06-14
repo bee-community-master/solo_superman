@@ -47,7 +47,7 @@ export function taskCanStartPublicSearchResearch(input: {
   readonly task: ResearchTaskProjection;
   readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
 }) {
-  return researchRoutingReadinessForTask(input) !== "needs_more_clarification";
+  return researchRoutingReadinessForTask(input) === "codex_quick_search";
 }
 
 export function taskShouldUseBrowserDeepResearch(input: {

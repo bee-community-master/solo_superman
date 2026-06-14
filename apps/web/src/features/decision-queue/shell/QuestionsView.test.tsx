@@ -733,7 +733,7 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Use this separate action only when you want to stop answering this card now");
     expect(markup).toContain("Keep for later checking");
     expect(markup).toContain("Legal, operations, and security");
-    expect(markup).toContain("Core assumption check");
+    expect(markup).toContain("Important detail check");
     expect(markup).not.toContain("legal_ops_security");
     expect(markup).not.toContain("core_assumption_challenge");
   });

@@ -769,7 +769,7 @@ export const CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE = {
   runId: "chatgpt_delegation_fallback_fixture",
   status: "blocked",
   userVisibleExplanation: chatGptBrowserDelegationSummaryForStatus("blocked"),
-  nextAction: "Use manual prompt handoff, official Codex fallback, or record this research as Known Risk.",
+  nextAction: "Use a user-reviewed prompt request, an official integration path, or ask another planning question before proceeding.",
   canRevoke: false,
   policyRiskVerdict: {
     verdict: "block",
@@ -779,24 +779,24 @@ export const CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE = {
   browserActionAuthorityRef: null,
   fallbackApplied: {
     lane: "manual_prompt_handoff",
-    visibleState: "ChatGPT 브라우저 위임 대신 수동 프롬프트 전달이 필요합니다.",
-    reason: "Policy risk blocks live browser action.",
-    userAction: "Review the redacted prompt and paste it manually, or mark this research task as Known Risk."
+    visibleState: "사용자가 직접 확인하는 Deep Research 요청으로 전환해야 합니다.",
+    reason: "This task should not start unattended ChatGPT browser work.",
+    userAction: "Review the prompt request and paste it yourself, or ask another planning question first."
   },
   blockReasons: [
     {
       code: "policy_risk_blocked",
-      message: "Policy risk verdict blocked the run before browser action start.",
+      message: "This request needs user review before any external AI workspace action starts.",
       evidenceRefs: ["policy:blocked:unattended-queue"]
     },
     {
       code: "account_sharing_or_resale_risk",
-      message: "ChatGPT Pro account sharing/resale or third-party backend semantics are blocked.",
+      message: "Solo Superman must not use a ChatGPT account in the background or through account-sharing flows.",
       evidenceRefs: ["policy:blocked:resale"]
     },
     {
       code: "unattended_queue_risk",
-      message: "Project-level or unattended ChatGPT background queue semantics are blocked.",
+      message: "The user must remain in control of each ChatGPT Deep Research request.",
       evidenceRefs: ["policy:blocked:unattended-queue"]
     },
     {
@@ -816,7 +816,7 @@ export const CHATGPT_BROWSER_DELEGATION_FALLBACK_RUN_FIXTURE = {
     },
     {
       eventType: "DelegationFallbackApplied",
-      label: "Manual prompt handoff fallback was made visible to the user.",
+      label: "A user-reviewed prompt request fallback was made visible.",
       evidenceRefs: ["audit:chatgpt-browser-delegation:fallback"]
     }
   ]

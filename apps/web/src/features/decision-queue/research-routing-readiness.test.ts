@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ResearchEvidenceProjection, ResearchTaskId, SessionId } from "@solo-superman/contracts";
-import { researchRoutingReadinessForTask } from "./research-routing-readiness";
+import {
+  researchRoutingReadinessForTask,
+  taskCanStartPublicSearchResearch
+} from "./research-routing-readiness";
 
 type ResearchTaskProjection = ResearchEvidenceProjection["tasks"][number];
 
@@ -41,11 +44,14 @@ describe("researchRoutingReadinessForTask", () => {
   });
 
   it("uses Browser/Deep Research only when multiple sources need synthesis", () => {
+    const deepResearchTask = task("여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다.");
+
     expect(
       researchRoutingReadinessForTask({
-        task: task("여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다.")
+        task: deepResearchTask
       })
     ).toBe("browser_deep_research");
+    expect(taskCanStartPublicSearchResearch({ task: deepResearchTask })).toBe(false);
   });
 
   it("routes the accumulated planning-detail objective to Browser/Deep Research", () => {

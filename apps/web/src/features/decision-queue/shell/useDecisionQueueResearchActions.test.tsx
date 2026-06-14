@@ -202,7 +202,7 @@ function researchEvidenceProjection(input: {
         researchTaskId,
         sessionId,
         sourceQueueItemId: "queue_visible_chatgpt" as QueueItemId,
-        objective: input.objective ?? "Use Deep Research to compare buyer and user assumptions.",
+        objective: input.objective ?? "기존 대안이 무엇인지 짧게 공개 검색으로 확인합니다.",
         routeOutcome: "research_needed",
         impact: "high",
         status: "planned",
@@ -443,7 +443,7 @@ describe("useDecisionQueueResearchActions", () => {
       researchTaskId: "research_task_visible_chatgpt",
       allowlistId,
       adapterKind: "web_search_readonly",
-      researchObjective: "Use Deep Research to compare buyer and user assumptions.",
+      researchObjective: "기존 대안이 무엇인지 짧게 공개 검색으로 확인합니다.",
       productCategory: "Pet lifecycle manager",
       customerProblemHypothesis: expect.stringContaining("insurance")
     }));
@@ -481,6 +481,44 @@ describe("useDecisionQueueResearchActions", () => {
         },
         research: researchEvidenceProjection({
           objective: "첫 사용자 상황을 더 구체화해야 합니다."
+        })
+      }
+    });
+
+    await actions.startReadOnlyResearchRun("research_task_visible_chatgpt" as ResearchTaskId);
+
+    expect(startResearchRun).not.toHaveBeenCalled();
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      DECISION_QUEUE_COPY.en.research.researchActionErrors.readyRunsNoReadyTasks
+    );
+  });
+
+  it("does not start Browser/Deep Research tasks as public-web quick searches", async () => {
+    const startResearchRun = vi.fn();
+    const { actions, props } = captureResearchActions({
+      client: {
+        startResearchRun,
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection()
+      },
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId,
+          sessionId,
+          version: 1 as ProjectionVersion,
+          phase: "validation",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: researchEvidenceProjection({
+          objective: "여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다."
         })
       }
     });
@@ -574,7 +612,9 @@ describe("useDecisionQueueResearchActions", () => {
   });
 
   it("prepares visible ChatGPT research handoff previews for newly planned tasks after answers", async () => {
-    const latestResearch = researchEvidenceProjection();
+    const latestResearch = researchEvidenceProjection({
+      objective: "여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다."
+    });
     const createChatGptBrowserDelegationRun = vi.fn(async (request: unknown) => {
       void request;
 

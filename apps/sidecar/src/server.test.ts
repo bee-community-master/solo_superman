@@ -2310,11 +2310,11 @@ describe("PR-02 sidecar health shell", () => {
         generatedQuestionSet
       });
       expect(seenPrompt).toContain("Prompt artifact: generated-ambiguity-questions.v1.md");
-      expect(seenPrompt).toContain("Do not use a fixed question template");
+      expect(seenPrompt).toContain("first four questions should follow this planning-detail flow");
       expect(seenPrompt).toContain("Apply an Idea-Fit Gate");
       expect(seenPrompt).toContain("For a pet lifecycle app, ask about guardians");
       expect(seenPrompt).toContain("Business critic intensity: balanced");
-      expect(seenPrompt).toContain('businessCriticPressureKind "core_assumption_challenge"');
+      expect(seenPrompt).toContain("Do not force a pressure question into the first set");
       expect(seenPrompt).toContain("Business validation mode does not make those personas valid by default");
     } finally {
       await storage.close();

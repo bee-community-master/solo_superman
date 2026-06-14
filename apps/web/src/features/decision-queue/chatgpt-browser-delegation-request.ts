@@ -188,10 +188,10 @@ export function buildVisibleChatGptResearchDelegationRequest(input: {
     policyRiskVerdict: {
       verdict: "pass",
       rationale:
-        "Prepared as a per-run visible research request only; no account sharing, resale, backend custody, or unattended ChatGPT queue is authorized.",
+        "Prepared as a per-run visible research request only; Solo Superman does not use the account in the background or submit unattended ChatGPT work.",
       evidenceRefs: [
         `research_task:${task.researchTaskId}`,
-        "policy:chatgpt-visible-handoff:onboarding-permission"
+        "policy:chatgpt-visible-request:onboarding-permission"
       ]
     },
     sessionOwnershipVerdict: {

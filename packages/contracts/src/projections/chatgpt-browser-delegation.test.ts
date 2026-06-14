@@ -69,7 +69,7 @@ describe("ChatGPT browser delegation contract", () => {
     expect(projection.blockedPreconditions).toEqual(projection.latestRun.blockReasons);
     expect(projection.latestRun.fallbackApplied).toMatchObject({
       lane: "manual_prompt_handoff",
-      userAction: expect.stringContaining("Known Risk")
+      userAction: expect.stringContaining("ask another planning question")
     });
   });
 
