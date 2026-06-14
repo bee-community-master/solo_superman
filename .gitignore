@@ -4,6 +4,7 @@ build/
 coverage/
 .vite/
 .serena/
+.jez/
 workspace/
 .DS_Store
 *.log
