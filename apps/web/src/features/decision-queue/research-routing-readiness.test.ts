@@ -28,6 +28,16 @@ describe("researchRoutingReadinessForTask", () => {
     ).toBe("codex_quick_search");
   });
 
+  it("starts first-answer planning-detail research as a quick public search", () => {
+    expect(
+      researchRoutingReadinessForTask({
+        task: task(
+          "짧은 공개 검색으로 “창업자 기획 도구” 아이디어의 첫 고객 후보와 기존 대안을 확인합니다. 최근 사용자 답변: “처음 창업하는 1인 창업자”."
+        )
+      })
+    ).toBe("codex_quick_search");
+  });
+
   it("uses Browser/Deep Research only when multiple sources need synthesis", () => {
     const deepResearchTask = task("여러 출처를 비교해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안을 종합합니다.");
 

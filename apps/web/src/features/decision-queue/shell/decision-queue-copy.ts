@@ -444,6 +444,8 @@ const EN_COPY = {
         "Question style can only be changed for service planning projects.",
       activeSessionRequiredSubmitAnswer: "An active session is required before submitting an answer.",
       answerTextRequired: "Answer text is required.",
+      answerIdempotencyConflictRecovered:
+        "That answer or research task was already handled, so the latest question and research state was refreshed.",
       activeSessionRequiredDraftedAnswers: "An active session is required before submitting saved answers.",
       draftedAnswersRequired: "Save at least one active question answer before submitting saved answers.",
       draftedAnswersPartialFailureRefreshed:
@@ -585,6 +587,12 @@ const EN_COPY = {
     questionProgressFollowUpBudget: "Follow-up budget",
     questionProgressBlocked: "Blocked",
     questionProgressBacklog: "Later backlog",
+    planningDetailProgressTitle: "Planning update",
+    planningDetailProgressAnswered: (count: number, title: string) =>
+      `${count} answer${count === 1 ? "" : "s"} now shape “${title}”.`,
+    planningDetailProgressNextQuestion: (question: string) => `Next detail to decide: ${question}`,
+    planningDetailProgressResearch: (objective: string) => `Research to run next: ${objective}`,
+    planningDetailProgressNoResearch: "Research will appear here once an answer creates a public-check task.",
     questionLoopNextActionTitle: "Question loop next action",
     questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -839,7 +847,8 @@ const EN_COPY = {
         : `${count} planned read-only research tasks will start with the current source settings.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "Research tasks exist, but public web sources must be enabled before they can run.",
-      no_ready_tasks: "Answer a little more before sending this to public web research."
+      no_ready_tasks:
+        "No quick public-search task is ready yet. Answer the current planning question or use visible ChatGPT for broader research tasks."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "An active project is required before changing research allowlists.",
@@ -855,7 +864,8 @@ const EN_COPY = {
       activeProjectRequiredReadyRuns: "An active project is required before starting ready research runs.",
       readyRunsMissingAllowlist:
         "Enable public web research sources before starting research runs.",
-      readyRunsNoReadyTasks: "Answer a little more before sending this to public web research.",
+      readyRunsNoReadyTasks:
+        "No quick public-search task is ready yet. Answer the current planning question or use visible ChatGPT for broader research tasks.",
       maxConcurrentRunsInvalid: "Max simultaneous research runs must be a positive whole number.",
       maxSessionRunsInvalid:
         "Max research runs per session must be a whole number greater than or equal to the simultaneous run limit.",
@@ -2008,6 +2018,8 @@ const JA_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "質問の進め方は、サービス企画の具体化プロジェクトでのみ変更できます。",
       activeSessionRequiredSubmitAnswer: "回答を送信するにはアクティブなセッションが必要です。",
       answerTextRequired: "回答テキストが必要です。",
+      answerIdempotencyConflictRecovered:
+        "同じ回答またはリサーチ項目はすでに処理済みのため、最新の質問とリサーチ状態を更新しました。",
       activeSessionRequiredDraftedAnswers: "保存した回答を送信するにはアクティブなセッションが必要です。",
       draftedAnswersRequired: "保存した回答を送信する前に、少なくとも1つのアクティブな質問回答を保存してください。",
       draftedAnswersPartialFailureRefreshed:
@@ -2146,6 +2158,12 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressFollowUpBudget: "追加質問枠",
     questionProgressBlocked: "ブロック中",
     questionProgressBacklog: "後続の未表示",
+    planningDetailProgressTitle: "企画への反映",
+    planningDetailProgressAnswered: (count: number, title: string) =>
+      `回答 ${count}件が「${title}」の企画に反映されています。`,
+    planningDetailProgressNextQuestion: (question: string) => `次に決めること: ${question}`,
+    planningDetailProgressResearch: (objective: string) => `次に確認するリサーチ: ${objective}`,
+    planningDetailProgressNoResearch: "公開確認できるリサーチ項目が作られると、ここに表示されます。",
     questionLoopNextActionTitle: "質問ループの次のアクション",
     questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
@@ -2395,7 +2413,8 @@ const JA_COPY: typeof EN_COPY = {
         : `読み取り専用リサーチタスク${count}件を有効な公開Webソース設定の範囲で開始します。`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "リサーチタスクはありますが、実行するには公開Webソースを有効にする必要があります。",
-      no_ready_tasks: "公開Webリサーチに渡す前に、もう少し質問に答えてください。"
+      no_ready_tasks:
+        "短い公開検索で始められるリサーチ項目はまだありません。現在の企画質問に回答するか、広いリサーチは表示中のChatGPTに渡してください。"
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "リサーチallowlistを変更するにはアクティブなプロジェクトが必要です。",
@@ -2412,7 +2431,7 @@ const JA_COPY: typeof EN_COPY = {
       readyRunsMissingAllowlist:
         "リサーチ実行を始める前に公開Webソース設定を作成または再有効化してください。",
       readyRunsNoReadyTasks:
-        "公開Webリサーチに渡す前に、もう少し質問に答えてください。",
+        "短い公開検索で始められるリサーチ項目はまだありません。現在の企画質問に回答するか、広いリサーチは表示中のChatGPTに渡してください。",
       maxConcurrentRunsInvalid: "同時に動かす最大リサーチ数は1以上の整数にしてください。",
       maxSessionRunsInvalid:
         "セッションあたりの最大リサーチ数は、同時実行上限以上の整数にしてください。",
@@ -3575,6 +3594,8 @@ const KO_COPY: typeof EN_COPY = {
       businessCriticIntensityBusinessOnly: "질문 방식은 서비스 기획 구체화 프로젝트에서만 변경할 수 있습니다.",
       activeSessionRequiredSubmitAnswer: "답변을 제출하려면 활성 세션이 필요합니다.",
       answerTextRequired: "답변 내용을 입력해야 합니다.",
+      answerIdempotencyConflictRecovered:
+        "같은 답변 또는 리서치 작업이 이미 처리되어 최신 질문과 리서치 상태를 다시 불러왔습니다.",
       activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
       draftedAnswersRequired: "저장한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 저장해야 합니다.",
       draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 큐를 새로고침했습니다.",
@@ -3713,6 +3734,12 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressFollowUpBudget: "후속 질문 여유",
     questionProgressBlocked: "막힘",
     questionProgressBacklog: "나중에 볼 질문",
+    planningDetailProgressTitle: "기획 반영 내용",
+    planningDetailProgressAnswered: (count: number, title: string) =>
+      `답변 ${count}개가 “${title}” 기획 초안에 반영되고 있습니다.`,
+    planningDetailProgressNextQuestion: (question: string) => `다음에 정할 내용: ${question}`,
+    planningDetailProgressResearch: (objective: string) => `다음에 확인할 리서치: ${objective}`,
+    planningDetailProgressNoResearch: "공개 자료로 확인할 리서치가 생기면 여기에 표시됩니다.",
     questionLoopNextActionTitle: "질문 루프 다음 행동",
     questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -3960,7 +3987,8 @@ const KO_COPY: typeof EN_COPY = {
       `공개 웹 리서치 작업 ${count}개가 현재 리서치 소스 설정 안에서 시작됩니다.`,
     readyReadOnlyRunsPlanBlocked: {
       missing_allowlist: "리서치 작업은 있지만 실행하려면 공개 웹 소스를 먼저 활성화해야 합니다.",
-      no_ready_tasks: "공개 웹 리서치로 넘기기 전에 질문에 조금 더 답해주세요."
+      no_ready_tasks:
+        "짧은 공개 검색으로 바로 시작할 리서치 항목이 아직 없습니다. 현재 기획 질문에 답하거나, 넓은 리서치는 보이는 ChatGPT로 넘기세요."
     },
     researchActionErrors: {
       activeProjectRequiredAllowlistChange: "리서치 소스 설정을 변경하려면 활성 프로젝트가 필요합니다.",
@@ -3977,7 +4005,7 @@ const KO_COPY: typeof EN_COPY = {
       readyRunsMissingAllowlist:
         "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       readyRunsNoReadyTasks:
-        "공개 웹 리서치로 넘기기 전에 질문에 조금 더 답해주세요.",
+        "짧은 공개 검색으로 바로 시작할 리서치 항목이 아직 없습니다. 현재 기획 질문에 답하거나, 넓은 리서치는 보이는 ChatGPT로 넘기세요.",
       maxConcurrentRunsInvalid: "동시에 실행할 최대 리서치 수는 1 이상의 정수여야 합니다.",
       maxSessionRunsInvalid:
         "세션당 최대 리서치 실행 수는 동시 실행 한도 이상인 정수여야 합니다.",

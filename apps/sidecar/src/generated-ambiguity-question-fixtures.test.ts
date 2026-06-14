@@ -24,8 +24,16 @@ describe("generated ambiguity question fixtures", () => {
     ]);
     expect(questions.slice(0, 3).map(questionText).join("\n")).not.toMatch(earlyQuestionPressureTerms);
     expect(questionText(questions[0])).toContain("누구");
+    expect(questions[0]).toMatchObject({
+      expectedAnswerType: "choice",
+      answerOptions: expect.arrayContaining([
+        expect.objectContaining({ label: "처음 창업하는 1인 창업자" }),
+        expect.objectContaining({ label: "직접 입력" })
+      ])
+    });
     expect(questionText(questions[1])).toContain("기획서");
     expect(questionText(questions[2])).toContain("무엇이 달라야");
+    expect(questions[3]?.possibleRoutes).toEqual(["research_needed", "missing_con_evidence"]);
     expect(questions[3]?.suggestedResearchTask).toContain("가능한 사용자 미래");
     expect(questions[3]?.suggestedResearchTask).toContain("대응 선택지");
   });

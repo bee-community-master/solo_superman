@@ -3417,7 +3417,11 @@ describe("PR-09 end-to-end dry-run hardening", () => {
         sectionRef: "Target Customer",
         topicKey: "first_user_situation",
         severity: "high",
-        expectedAnswerType: "text",
+        expectedAnswerType: "choice",
+        answerOptions: expect.arrayContaining([
+          expect.objectContaining({ label: "처음 창업하는 1인 창업자" }),
+          expect.objectContaining({ label: "직접 입력" })
+        ]),
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 

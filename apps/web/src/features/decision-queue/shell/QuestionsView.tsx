@@ -49,6 +49,10 @@ function compactSourceTraceLabel(value: string) {
   return compacted.length > 220 ? `${compacted.slice(0, 219).trimEnd()}…` : compacted;
 }
 
+function compactPlanningProgressText(value: string | null | undefined, language: AppLanguage) {
+  return compactSourceTraceLabel(decisionQueueDisplayText(value ?? "", language));
+}
+
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
   en: [
     "Research evidence summary",
@@ -363,6 +367,28 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
   const completionPercent = boundedPercent(questionProgress.completionPercent);
   const questionFatigue = questionFatigueViewModel(questionProgress);
   const draftedActiveAnswerCount = draftedActiveQuestionAnswerIds(projections.queue, answerDrafts).length;
+  const planningProgressTitle = compactPlanningProgressText(projections.spec?.title ?? "Current idea", language);
+  const planningProgressNextQuestion = compactPlanningProgressText(
+    projections.queue?.active.find((item) => item.cardType === "question" || item.cardType === "follow_up_question")?.title ??
+      projections.queue?.next[0]?.title,
+    language
+  );
+  const planningProgressResearch = compactPlanningProgressText(
+    (projections.research?.tasks.find((task) => task.status === "planned") ?? projections.research?.tasks[0])?.objective,
+    language
+  );
+  const planningProgressItems =
+    questionProgress.answeredQuestionCount > 0
+      ? [
+          copy.questions.planningDetailProgressAnswered(questionProgress.answeredQuestionCount, planningProgressTitle),
+          planningProgressNextQuestion
+            ? copy.questions.planningDetailProgressNextQuestion(planningProgressNextQuestion)
+            : undefined,
+          planningProgressResearch
+            ? copy.questions.planningDetailProgressResearch(planningProgressResearch)
+            : copy.questions.planningDetailProgressNoResearch
+        ].filter((item): item is string => Boolean(item))
+      : [];
   const queueRecoveryLabels = [
     queueRecovery.label,
     queueRecovery.activeBatchLabel,
@@ -504,6 +530,16 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
             </div>
           </dl>
         </section>
+        {planningProgressItems.length ? (
+          <section className="planning-detail-progress" aria-label={copy.questions.planningDetailProgressTitle}>
+            <strong>{copy.questions.planningDetailProgressTitle}</strong>
+            <ul>
+              {planningProgressItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {questionFatigue.shouldShow ? (
           <section
             className={`question-fatigue-checkpoint level-${questionFatigue.level}`}

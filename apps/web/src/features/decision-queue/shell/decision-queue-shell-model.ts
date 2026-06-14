@@ -167,8 +167,16 @@ export function canStartInitialQueueFlow(input: InitialQueueStartReadinessInput)
   return initialQueueStartBlocker(input) === null;
 }
 
+export function isIdempotencyConflictError(error: unknown) {
+  return error instanceof SidecarClientError && error.apiError.code === "IDEMPOTENCY_CONFLICT";
+}
+
 export function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
+    if (error.apiError.code === "IDEMPOTENCY_CONFLICT") {
+      return "The same action was already handled. Refresh the latest question and research state before continuing.";
+    }
+
     return `${error.apiError.code}: ${error.apiError.message}`;
   }
 

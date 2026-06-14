@@ -3149,7 +3149,15 @@ function researchObjectiveForPlanningDetailAnswer(input: {
   }
 
   if (input.answeredQuestionCount < PLANNING_DETAIL_DEEP_RESEARCH_ANSWER_THRESHOLD) {
-    return "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다.";
+    const title = currentPlanningIdeaTitle(input.state);
+    const question = input.sourceQuestion?.questionText ?? input.activeItem.title;
+
+    return [
+      `짧은 공개 검색으로 “${title}” 아이디어의 첫 고객 후보와 기존 대안을 확인합니다.`,
+      `최근 질문: ${plainUserFacingDecisionQueueText(question)}`,
+      `최근 사용자 답변: “${compactAnswerExcerpt(input.answer)}”.`,
+      "확인할 것: 이 사용자가 지금 쓰는 대체 방법, 공개 후기나 커뮤니티에서 보이는 불편, 첫 기능으로 검증할 위험입니다."
+    ].join(" ");
   }
 
   const title = currentPlanningIdeaTitle(input.state);

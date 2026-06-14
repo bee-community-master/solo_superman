@@ -3120,6 +3120,11 @@ describe("PR-04 ProductEngine reducer", () => {
     if (!firstResearchTaskId) {
       throw new Error("Expected the first answer to plan a research task.");
     }
+    expect(stateAfterFirstAnswer.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)).toMatchObject({
+      objective: expect.stringContaining("짧은 공개 검색")
+    });
+    expect(stateAfterFirstAnswer.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.objective)
+      .not.toContain("답변이 조금 더 쌓이면");
 
     const imported = reduceProductEngineCommand(
       command("ImportResearchResult", Number(stateAfterFirstAnswer.stateVersion), {

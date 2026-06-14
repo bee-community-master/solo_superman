@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   DecisionQueueProjection,
+  LivingSpecProjection,
   ProjectionVersion,
   ProjectId,
   QueueItemId,
+  ResearchEvidenceProjection,
+  ResearchTaskId,
   SessionId
 } from "@solo-superman/contracts";
 import { renderMarkup } from "../test-rendering";
@@ -833,6 +836,81 @@ describe("QuestionsView", () => {
     expect(markup).toContain("<dd>9</dd>");
     expect(markup).toContain("<dd>40</dd>");
     expect(markup).toContain("<dd>12</dd>");
+  });
+
+  it("summarizes how answered questions move the planning detail forward", () => {
+    const queue = {
+      kind: "DecisionQueueProjection",
+      sessionId: "sess_questions" as SessionId,
+      version: 2 as ProjectionVersion,
+      active: [
+        {
+          queueItemId: "queue_next_detail" as QueueItemId,
+          title: "Which first feature should the founder see after answering?",
+          state: "active",
+          cardType: "question",
+          topicKey: "first_feature"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    } satisfies DecisionQueueProjection;
+    const spec = {
+      kind: "LivingSpecProjection",
+      sessionId: "sess_questions" as SessionId,
+      version: 2 as ProjectionVersion,
+      title: "Founder planning assistant",
+      sections: ["Target Customer"],
+      sectionCount: 1,
+      approvalStatus: "draft"
+    } satisfies LivingSpecProjection;
+    const research = {
+      kind: "ResearchEvidenceProjection",
+      version: 2 as ProjectionVersion,
+      taskIds: ["research_task_first_customer" as ResearchTaskId],
+      tasks: [
+        {
+          researchTaskId: "research_task_first_customer" as ResearchTaskId,
+          sessionId: "sess_questions" as SessionId,
+          objective: "Quickly check the first customer candidate and current alternatives.",
+          routeOutcome: "research_needed",
+          impact: "medium",
+          status: "planned",
+          createdAt: "2026-06-14T00:00:00.000Z"
+        }
+      ],
+      results: [],
+      evidenceMatrices: [],
+      evidencePacks: [],
+      reviewCards: [],
+      knownRisks: [],
+      nextValidationActions: [],
+      proConBalanceStatus: "unknown"
+    } satisfies ResearchEvidenceProjection;
+    const markup = renderQuestionsView({
+      projections: {
+        ...emptyProjectionState(),
+        session: activeSessionProjection(),
+        queue,
+        spec,
+        research
+      },
+      questionProgress: {
+        ...DEFAULT_QUESTION_PROGRESS,
+        generatedQuestionCount: 4,
+        openQuestionCount: 3,
+        answeredQuestionCount: 1,
+        terminalQuestionCount: 1,
+        activeQuestionCount: 1,
+        completionPercent: 25
+      }
+    });
+
+    expect(markup).toContain("Planning update");
+    expect(markup).toContain("1 answer now shape “Founder planning assistant”.");
+    expect(markup).toContain("Next detail to decide: Which first feature should the founder see after answering?");
+    expect(markup).toContain("Research to run next: Quickly check the first customer candidate and current alternatives.");
   });
 
   it("points users to the next question batch when the active batch is clear but debt remains", () => {

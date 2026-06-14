@@ -20,8 +20,9 @@ import type {
   StateVersion
 } from "@solo-superman/contracts";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
+import { SidecarClientError } from "../../../shared/api/sidecar-client";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
-import { emptyProjectionState } from "./decision-queue-shell-model";
+import { displayError, emptyProjectionState, isIdempotencyConflictError } from "./decision-queue-shell-model";
 import {
   boundedQuestionBatchSize,
   nextQuestionBatchIdsForActivation,
@@ -29,6 +30,20 @@ import {
   queueShouldAutoActivateNextQuestionBatch,
   useDecisionQueueSessionActions
 } from "./useDecisionQueueSessionActions";
+
+describe("decision queue error display", () => {
+  it("hides raw idempotency conflict codes from users", () => {
+    const error = new SidecarClientError({
+      code: "IDEMPOTENCY_CONFLICT",
+      message: "SubmitAnswer conflicts with an existing persisted effect task."
+    }, 409);
+
+    expect(isIdempotencyConflictError(error)).toBe(true);
+    expect(displayError(error)).toContain("already handled");
+    expect(displayError(error)).not.toContain("IDEMPOTENCY_CONFLICT");
+    expect(displayError(error)).not.toContain("persisted effect");
+  });
+});
 
 async function waitForCondition(condition: () => boolean) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
