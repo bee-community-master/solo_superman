@@ -23,7 +23,7 @@ describe("visibleChatGptResearchHandoffForTask", () => {
       ]
     } satisfies Pick<LivingSpecProjection, "title" | "sections">;
 
-    const handoff = visibleChatGptResearchHandoffForTask({ spec, task });
+    const handoff = visibleChatGptResearchHandoffForTask({ language: "ko", spec, task });
 
     expect(handoff.openUrl).toBe("https://chatgpt.com/");
     expect(handoff.prompt).toContain("원문 아이디어: 초기 창업자가 막연한 서비스 아이디어");
@@ -38,5 +38,31 @@ describe("visibleChatGptResearchHandoffForTask", () => {
     expect(handoff.prompt).toContain("출처 요구사항");
     expect(handoff.prompt).toContain("로그인·CAPTCHA·결제·비공개 문서");
     expect(handoff.checklist.join("\n")).toContain("아이디어와 현재 답변 맥락");
+  });
+
+  it("keeps the visible ChatGPT prompt in English for non-Korean shells", () => {
+    const task = {
+      researchTaskId: "research_task_english" as ResearchTaskProjection["researchTaskId"],
+      sessionId: "sess_english" as ResearchTaskProjection["sessionId"],
+      objective: "Narrow user futures and current alternatives for a founder planning tool.",
+      routeOutcome: "research_needed",
+      impact: "high",
+      status: "planned",
+      createdAt: "2026-06-14T00:00:00.000Z"
+    } satisfies ResearchTaskProjection;
+    const spec = {
+      title: "A planning assistant for early founders",
+      sections: ["Founders answer simple questions to shape a concrete product brief."]
+    } satisfies Pick<LivingSpecProjection, "title" | "sections">;
+
+    const handoff = visibleChatGptResearchHandoffForTask({ language: "en", spec, task });
+
+    expect(handoff.prompt).toContain("Original idea: A planning assistant for early founders");
+    expect(handoff.prompt).toContain("Current user answers / planning context:");
+    expect(handoff.prompt).toContain("Decision this research should narrow:");
+    expect(handoff.prompt).toContain("Possible user futures");
+    expect(handoff.prompt).toContain("Response options");
+    expect(handoff.prompt).not.toContain("원문 아이디어");
+    expect(handoff.checklist.join("\n")).toContain("current answer context");
   });
 });

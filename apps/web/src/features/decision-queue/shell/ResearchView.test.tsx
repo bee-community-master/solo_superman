@@ -368,9 +368,10 @@ describe("ResearchView", () => {
     expect(markup).toContain("Open ChatGPT");
     expect(markup).toContain('href="https://chatgpt.com/"');
     expect(markup).toContain("Prompt to paste into ChatGPT/Deep Research");
-    expect(markup).toContain("이번 리서치가 좁힐 결정: Use visible ChatGPT Deep Research for the buyer/user split.");
-    expect(markup).toContain("가능한 사용자 미래");
-    expect(markup).toContain("비밀번호, 세션 쿠키, API 키");
+    expect(markup).toContain("Decision this research should narrow: Use visible ChatGPT Deep Research for the buyer/user split.");
+    expect(markup).toContain("Possible user futures");
+    expect(markup).toContain("Do not include passwords, session cookies, API keys");
+    expect(markup).not.toContain("이번 리서치가 좁힐 결정");
     expect(markup).toContain("Before importing the result");
     expect(markup).toContain("Paste the user-reviewed result here");
   });
@@ -396,7 +397,7 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("ChatGPT research request");
-    expect(markup).toContain("이번 리서치가 좁힐 결정: Validate public evidence path 1.");
+    expect(markup).toContain("Decision this research should narrow: Validate public evidence path 1.");
     expect(markup).toContain("Solo Superman does not use your account in the background.");
     expect(markup).not.toContain("A ChatGPT Pro/Deep Research request is ready for this task.");
   });

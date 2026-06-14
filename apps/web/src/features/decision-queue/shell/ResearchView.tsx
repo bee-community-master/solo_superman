@@ -432,14 +432,16 @@ function ResearchInsufficientSummary({
 
 function VisibleChatGptResearchHandoff({
   copy,
+  language,
   spec,
   task
 }: {
   readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
   readonly spec?: Pick<LivingSpecProjection, "title" | "sections"> | null | undefined;
   readonly task: ResearchTaskProjection;
 }) {
-  const handoff = visibleChatGptResearchHandoffForTask({ spec, task });
+  const handoff = visibleChatGptResearchHandoffForTask({ language, spec, task });
 
   return (
     <aside className="chatgpt-visible-research-handoff research-action-assist">
@@ -696,7 +698,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         <p className="research-recovery">{visibleChatGptImportHint}</p>
                       ) : null}
                       {canUseVisibleChatGptHandoff ? (
-                        <VisibleChatGptResearchHandoff copy={copy} spec={projections.spec} task={task} />
+                        <VisibleChatGptResearchHandoff copy={copy} language={language} spec={projections.spec} task={task} />
                       ) : null}
                       <label className="research-import-field">
                         <span>{copy.research.importResult}</span>
