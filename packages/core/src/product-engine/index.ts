@@ -792,14 +792,15 @@ function queueQuestionProgressFromIssues(
   issues: readonly AmbiguityIssueSnapshot[],
   projection: DecisionQueueProjection
 ): DecisionQueueProgressProjection {
-  const generatedQuestionCount = issues.length;
-  const openQuestionCount = issues.filter((issue) => issue.status === "open").length;
-  const answeredQuestionCount = issues.filter((issue) => issue.status === "answered").length;
-  const deferredQuestionCount = issues.filter((issue) => issue.status === "deferred").length;
-  const resolvedQuestionCount = issues.filter((issue) => issue.status === "resolved").length;
+  const questionIssues = issues.filter(issueCanBeAskedAsQuestion);
+  const generatedQuestionCount = questionIssues.length;
+  const openQuestionCount = questionIssues.filter((issue) => issue.status === "open").length;
+  const answeredQuestionCount = questionIssues.filter((issue) => issue.status === "answered").length;
+  const deferredQuestionCount = questionIssues.filter((issue) => issue.status === "deferred").length;
+  const resolvedQuestionCount = questionIssues.filter((issue) => issue.status === "resolved").length;
   const terminalQuestionCount = answeredQuestionCount + deferredQuestionCount + resolvedQuestionCount;
-  const followUpIssues = issues.filter((issue) => (issue.repeatCount ?? 0) > 0);
-  const openIssues = issues.filter((issue) => issue.status === "open");
+  const followUpIssues = questionIssues.filter((issue) => (issue.repeatCount ?? 0) > 0);
+  const openIssues = questionIssues.filter((issue) => issue.status === "open");
   const activeQuestionCount = countQuestionDebtItems(projection.active);
   const upcomingQuestionCount = countQuestionDebtItems(projection.next);
   const blockedQuestionCount = countQuestionDebtItems(projection.blocked);
@@ -818,7 +819,7 @@ function queueQuestionProgressFromIssues(
     terminalQuestionCount,
     followUpQuestionCount: followUpIssues.length,
     followUpOpenQuestionCount: followUpIssues.filter((issue) => issue.status === "open").length,
-    topicCoverageCount: progressTopicCount(issues),
+    topicCoverageCount: progressTopicCount(questionIssues),
     openTopicCoverageCount: progressTopicCount(openIssues),
     followUpBudgetRemainingCount: openIssues.reduce((total, issue) => total + remainingFollowUpBudget(issue), 0),
     visibleQuestionDebtCount,
@@ -2244,6 +2245,7 @@ function businessCriticQueuedNextIssues(
   return allOpenIssues.filter(
     (issue) =>
       !activeIds.has(issue.queueItemId) &&
+      issueCanBeAskedAsQuestion(issue) &&
       isElevatedBusinessCriticIssue(issue) &&
       issue.status === "open" &&
       issue.businessCriticIntensityMinimum &&
@@ -2525,8 +2527,9 @@ function defaultQuestionBatchIssues(
   openIssues: readonly AmbiguityIssueSnapshot[],
   allIssues: readonly AmbiguityIssueSnapshot[] = openIssues
 ) {
+  const questionIssues = openIssues.filter(issueCanBeAskedAsQuestion);
   const hasAnsweredPlanningBottleneck = hasAnsweredFirstPlanningBottleneckIssue(allIssues);
-  const prioritizedIssues = openIssues
+  const prioritizedIssues = questionIssues
     .map((issue, index) => ({ issue, index }))
     .sort(
       (left, right) =>
@@ -2548,6 +2551,54 @@ function defaultQuestionBatchIssues(
   }
 
   return selectedIssues;
+}
+
+function issueCanBeAskedAsQuestion(issue: AmbiguityIssueSnapshot) {
+  return issue.possibleRoutes?.includes("question") ?? true;
+}
+
+function issueShouldPlanInitialResearchTask(issue: AmbiguityIssueSnapshot) {
+  return (
+    issue.status === "open" &&
+    issue.ambiguityRoutingPath === "current_research" &&
+    !issueCanBeAskedAsQuestion(issue) &&
+    Boolean(issue.researchQuestion ?? issue.suggestedResearchTask)
+  );
+}
+
+function initialResearchTaskIdForIssue(sessionId: SessionId, issue: AmbiguityIssueSnapshot) {
+  return `research_task_${stableToken(`${sessionId}:${issue.queueItemId}:initial_research`)}` as ResearchTaskId;
+}
+
+function initialResearchTaskForIssue(input: {
+  readonly issue: AmbiguityIssueSnapshot;
+  readonly sessionId: SessionId;
+  readonly state: ProductEngineStateSnapshot;
+  readonly createdAt: string;
+  readonly mode: ProjectPurposeMode;
+}): ResearchTaskProjection {
+  const { issue, sessionId, state, createdAt, mode } = input;
+  const objective = plainUserFacingDecisionQueueText(
+    issue.suggestedResearchTask ?? issue.researchQuestion ?? issue.questionText ?? issue.summary
+  );
+
+  return planResearchTask({
+    researchTaskId: initialResearchTaskIdForIssue(sessionId, issue),
+    sessionId,
+    sourceQueueItemId: issue.queueItemId,
+    objective,
+    projectPurposeMode: mode,
+    projectPurposeModeLabel: projectPurposeModeLabel(mode),
+    projectPurposeModeEffect: projectPurposeModeEffect(mode),
+    skippedCommercializationAxes: skippedCommercializationAxes(mode),
+    ...(state.project.businessCriticIntensity
+      ? { businessCriticIntensity: state.project.businessCriticIntensity }
+      : {}),
+    ...(issue.businessCriticCategory ? { businessCriticCategory: issue.businessCriticCategory } : {}),
+    routeOutcome: researchRouteOutcomeForFollowUpIssue(issue),
+    impact: issue.severity ?? "medium",
+    createdAt
+  });
 }
 
 function hasDuplicateTopicKey(issues: readonly AmbiguityIssueSnapshot[]) {
@@ -2656,16 +2707,17 @@ function queueProjectionWithRefilledActiveQuestions(
   generatedAt = projection.generatedAt ?? new Date(0).toISOString()
 ): DecisionQueueProjection {
   const openIssues = issues.filter((issue) => issue.status === "open");
-  const openIssueById = new Map(openIssues.map((issue) => [issue.queueItemId, issue]));
-  const activeQuestionCount = projection.active.filter((item) => queueItemIsOpenQuestion(item, openIssueById)).length;
+  const openQuestionIssues = openIssues.filter(issueCanBeAskedAsQuestion);
+  const openQuestionIssueById = new Map(openQuestionIssues.map((issue) => [issue.queueItemId, issue]));
+  const activeQuestionCount = projection.active.filter((item) => queueItemIsOpenQuestion(item, openQuestionIssueById)).length;
   const slots = DEFAULT_QUESTION_BATCH_SIZE - activeQuestionCount;
 
-  if (slots <= 0 || openIssues.length === 0) {
+  if (slots <= 0 || openQuestionIssues.length === 0) {
     return refreshQueueProjectionMetadata(queueProjectionWithQuestionProgress(projection, issues), version, generatedAt);
   }
 
   const promotedFromNext = projection.next
-    .filter((item) => queueItemIsOpenQuestion(item, openIssueById))
+    .filter((item) => queueItemIsOpenQuestion(item, openQuestionIssueById))
     .slice(0, slots)
     .map((item) => ({
       ...item,
@@ -2674,7 +2726,7 @@ function queueProjectionWithRefilledActiveQuestions(
   const promotedIds = new Set(promotedFromNext.map((item) => item.queueItemId));
   const queuedIds = queueItemIdsInProjection(projection);
   const fillerIssues = defaultQuestionBatchIssues(
-    openIssues.filter((issue) => !queuedIds.has(issue.queueItemId) && !promotedIds.has(issue.queueItemId))
+    openQuestionIssues.filter((issue) => !queuedIds.has(issue.queueItemId) && !promotedIds.has(issue.queueItemId))
   ).slice(0, slots - promotedFromNext.length);
   const fillerItems = fillerIssues.map((issue) => queueItemProjectionFromIssue(issue, "active"));
 
@@ -4465,6 +4517,7 @@ function reduceChangeBusinessCriticIntensity(
     .filter(
       (issue) =>
         issue.status === "open" &&
+        issueCanBeAskedAsQuestion(issue) &&
         isElevatedBusinessCriticIssue(issue) &&
         isBusinessCriticIssueAllowedAtIntensity(issue, requestedIntensity)
     )
@@ -4712,6 +4765,21 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     seeds: generatedQuestionSet.questions,
     source: "generated_json"
   });
+  const initialResearchTasks = issues
+    .filter(issueShouldPlanInitialResearchTask)
+    .map((issue) =>
+      initialResearchTaskForIssue({
+        issue,
+        sessionId: command.sessionId,
+        state,
+        createdAt: command.issuedAt,
+        mode: confirmedMode
+      })
+    );
+  const researchProjection = initialResearchTasks.reduce(
+    (projection, researchTask) => addResearchTaskToProjection(projection, researchTask, projectionVersionFor(state)),
+    state.researchState
+  );
   const businessCriticPressureValidationIssues = confirmedMode === "business"
     ? generatedBusinessCriticPressureValidationIssues(issues, state.project.businessCriticIntensity)
     : [];
@@ -4740,7 +4808,14 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     targetRef: typeof command.payload.targetRef === "string" ? command.payload.targetRef : state.currentSpec.draftRef,
     issueCount: issues.length,
     issues,
-    questionGeneration
+    questionGeneration,
+    ...(initialResearchTasks.length
+      ? {
+          initialResearchTaskIds: initialResearchTasks.map((task) => task.researchTaskId),
+          initialResearchTasks,
+          researchProjection
+        }
+      : {})
   });
 
   return acceptedReduction(
@@ -4748,7 +4823,8 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     state,
     event,
     {
-      openIssues: issues
+      openIssues: issues,
+      ...(initialResearchTasks.length ? { researchState: researchProjection } : {})
     },
     [
       {
@@ -4757,7 +4833,10 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
         payload: {
           issueCount: issues.length,
           issues,
-          questionGeneration
+          questionGeneration,
+          ...(initialResearchTasks.length
+            ? { initialResearchTaskIds: initialResearchTasks.map((task) => task.researchTaskId) }
+            : {})
         }
       }
     ],
@@ -4795,6 +4874,13 @@ function reduceActivateQuestionBatch(command: ProductEngineCommand, state: Produ
   if (candidateIssues.length < 1 || candidateIssues.length > 5) {
     return reject(
       "ActivateQuestionBatch requires 1 to 5 open ambiguity issues.",
+      "VALIDATION_FAILED"
+    );
+  }
+
+  if (!candidateIssues.every(issueCanBeAskedAsQuestion)) {
+    return reject(
+      "ActivateQuestionBatch requires ambiguity issues that can be answered as questions.",
       "VALIDATION_FAILED"
     );
   }
@@ -11651,11 +11737,13 @@ function applyEvent(state: ProductEngineStateSnapshot, event: ProductEngineEvent
       const issues = Array.isArray(event.payload.issues)
         ? (event.payload.issues as readonly AmbiguityIssueSnapshot[])
         : state.openIssues;
+      const researchProjection = objectPayload<ResearchEvidenceProjection>(event.payload, "researchProjection");
 
       return {
         ...state,
         stateVersion: nextStateVersion,
-        openIssues: issues
+        openIssues: issues,
+        ...(researchProjection ? { researchState: researchProjection } : {})
       };
     }
     case "QuestionBatchActivated": {

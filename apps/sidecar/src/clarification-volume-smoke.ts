@@ -29,6 +29,7 @@ const CORRELATION_ID = "corr_clarification_volume_smoke" as CorrelationId;
 const TARGET_ANSWERED_QUESTION_COUNT = 200;
 const MIN_INITIAL_FOLLOW_UP_BUDGET = 200;
 const MAX_ANSWER_LOOP_ITERATIONS = 340;
+export const MAX_CLARIFICATION_VOLUME_RESEARCH_TASK_DEBT = 8;
 
 type SmokeStatus = "blocked" | "passed";
 
@@ -308,7 +309,7 @@ function flowBlockers(result: VolumeFlowResult) {
     blockers.push("clarification answers should maintain at least one durable research task.");
   }
 
-  if (result.state.researchState.tasks.length > 5) {
+  if (result.state.researchState.tasks.length > MAX_CLARIFICATION_VOLUME_RESEARCH_TASK_DEBT) {
     blockers.push(`clarification research task debt should stay bounded; received ${result.state.researchState.tasks.length}`);
   }
 

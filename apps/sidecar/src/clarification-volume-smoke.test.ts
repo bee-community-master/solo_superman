@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CLARIFICATION_VOLUME_SMOKE, runClarificationVolumeSmoke } from "./clarification-volume-smoke";
+import {
+  CLARIFICATION_VOLUME_SMOKE,
+  MAX_CLARIFICATION_VOLUME_RESEARCH_TASK_DEBT,
+  runClarificationVolumeSmoke
+} from "./clarification-volume-smoke";
 
 describe("clarification volume smoke", () => {
   it("proves the founder clarification loop can answer 200+ questions while keeping active batches bounded", async () => {
@@ -22,7 +26,7 @@ describe("clarification volume smoke", () => {
     expect(evidence.volume?.finalAnsweredQuestionCount).toBeGreaterThanOrEqual(200);
     expect(evidence.volume?.finalFollowUpQuestionCount).toBeGreaterThanOrEqual(200);
     expect(evidence.volume?.researchTaskCount).toBeGreaterThanOrEqual(1);
-    expect(evidence.volume?.researchTaskCount).toBeLessThanOrEqual(5);
+    expect(evidence.volume?.researchTaskCount).toBeLessThanOrEqual(MAX_CLARIFICATION_VOLUME_RESEARCH_TASK_DEBT);
     expect(evidence.volume?.minActiveQuestionCountBeforeTarget).toBeGreaterThanOrEqual(1);
     expect(evidence.checked).toEqual(
       expect.arrayContaining([

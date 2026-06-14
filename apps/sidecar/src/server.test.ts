@@ -7794,8 +7794,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 19,
-          openQuestionCount: 19,
+          generatedQuestionCount: 14,
+          openQuestionCount: 14,
           answeredQuestionCount: 0,
           visibleQuestionDebtCount: 1,
           completionPercent: 0
@@ -7974,11 +7974,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 20,
-          openQuestionCount: 19,
+          generatedQuestionCount: 15,
+          openQuestionCount: 14,
           answeredQuestionCount: 1,
           followUpQuestionCount: 1,
-          completionPercent: 5
+          completionPercent: 7
         },
         active: expect.arrayContaining([
           expect.objectContaining({
@@ -8001,23 +8001,25 @@ describe("PR-02 sidecar health shell", () => {
       const researchBody = await jsonBody(research);
       const researchData = researchBody.data as Readonly<Record<string, unknown>>;
       const researchTasks = researchData.tasks as readonly Readonly<Record<string, unknown>>[];
-      const researchTaskId = researchTasks[0]?.researchTaskId as string;
+      const researchTaskId = researchTasks.find((task) => typeof task.sourceAnswerRef === "string")?.researchTaskId as string;
 
       expect(research.status).toBe(200);
       expect(researchData).toMatchObject({
         kind: "ResearchEvidenceProjection",
-        proConBalanceStatus: "unknown",
-        tasks: [
+        proConBalanceStatus: "missing_con_evidence",
+        tasks: expect.arrayContaining([
           expect.objectContaining({
             sourceQueueItemId: firstQuestionId,
+            sourceAnswerRef: expect.any(String),
             status: "planned"
           })
-        ],
-        reviewCards: [
+        ]),
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
+            researchTaskId,
             state: "pending_manual_result"
           })
-        ]
+        ])
       });
 
       const answerStatus = await storageApp.request(answerData.statusUrl as string, {

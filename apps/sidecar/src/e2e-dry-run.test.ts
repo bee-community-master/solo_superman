@@ -3448,7 +3448,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
 
       const researchBeforeImport = await getJson(app, `/api/v1/sessions/${sessionId}/research`);
       const researchBeforeData = responseData(researchBeforeImport.body);
-      const researchTask = firstRecord(researchBeforeData.tasks);
+      const researchTask = (researchBeforeData.tasks as readonly Readonly<Record<string, unknown>>[])
+        .find((task) => typeof task.sourceAnswerRef === "string") ?? firstRecord(researchBeforeData.tasks);
 
       expect(researchTask).toMatchObject({
         routeOutcome: "research_needed",
@@ -3518,7 +3519,8 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const researchAfterData = responseData(researchAfterImport.body);
       const evidenceMatrix = firstRecord(researchAfterData.evidenceMatrices);
       const evidencePack = firstRecord(researchAfterData.evidencePacks);
-      const researchReviewCard = firstRecord(researchAfterData.reviewCards);
+      const researchReviewCard = (researchAfterData.reviewCards as readonly Readonly<Record<string, unknown>>[])
+        .find((card) => card.researchTaskId === researchTask.researchTaskId) ?? firstRecord(researchAfterData.reviewCards);
       const researchReviewCardId = String(researchReviewCard.cardId);
 
       expect(evidenceMatrix).toMatchObject({
@@ -3552,13 +3554,13 @@ describe("PR-09 end-to-end dry-run hardening", () => {
       const resolvedResearch = await getJson(app, `/api/v1/sessions/${sessionId}/research`);
 
       expect(responseData(resolvedResearch.body)).toMatchObject({
-        reviewCards: [
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
             cardId: researchReviewCardId,
             terminalOutcome: "approved",
             blocksPlanning: false
           })
-        ]
+        ])
       });
 
       const specUpdate = await postJson(app, "/api/v1/spec-updates", {
