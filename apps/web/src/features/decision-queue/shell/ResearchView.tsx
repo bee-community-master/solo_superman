@@ -4,6 +4,7 @@ import type {
   EvidenceMatrixProjection,
   LivingSpecProjection,
   ResearchResultProjection,
+  ResearchRunControlProjection,
   ResearchTaskProjection,
   ResearchReviewCardProjection
 } from "@solo-superman/contracts";
@@ -11,6 +12,7 @@ import { localizedUserFacingDecisionQueueText } from "@solo-superman/contracts";
 import { chatGptVisibleResearchImportHint } from "../chatgpt-visible-research-import";
 import { visibleChatGptResearchHandoffForTask } from "../chatgpt-browser-delegation-request";
 import { localizedResearchReviewCardTitle } from "../decision-queue-operations-view-model";
+import { phase15aRunStatusLabel } from "../phase15a-operation-labels";
 import { Phase15aOperationsPanel } from "../Phase15aOperationsPanel";
 import type { ReadyReadOnlyResearchRunStartPlan } from "../ready-readonly-research-start-plan";
 import {
@@ -46,6 +48,27 @@ function latestResearchResultForTask(
   }
 
   return undefined;
+}
+
+function researchRunTimestamp(run: ResearchRunControlProjection["runs"][number]) {
+  const updatedAt = Date.parse(run.updatedAt);
+
+  if (!Number.isNaN(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(run.createdAt);
+
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+function latestResearchRunForTask(
+  runs: readonly ResearchRunControlProjection["runs"][number][],
+  researchTaskId: ResearchTaskProjection["researchTaskId"]
+) {
+  return [...runs]
+    .filter((run) => run.researchTaskId === researchTaskId)
+    .sort((left, right) => researchRunTimestamp(right) - researchRunTimestamp(left))[0];
 }
 
 function safeExternalUrl(value: string | undefined) {
@@ -645,6 +668,12 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 routingReadiness !== "needs_more_clarification" &&
                 (task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true);
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
+              const latestRun = latestResearchRunForTask(researchOperations.runs?.runs ?? [], task.researchTaskId);
+              const runStatusLabel = latestRun
+                ? phase15aRunStatusLabel(copy.phase15a, latestRun.status)
+                : canStartReadOnlyRun
+                  ? copy.research.researchRunNotStarted
+                  : copy.research.researchRunUnavailable;
               const retainedSourceRefs = card ? retainedSourceRefsForResearchCard(card) : [];
               const visibleSourceRefs = retainedSourceRefs
                 .map((sourceRef) => compactUserFacingText(sourceRef, language))
@@ -696,6 +725,10 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       <div>
                         <dt>{copy.research.researchImpact}</dt>
                         <dd>{impactLabel}</dd>
+                      </div>
+                      <div>
+                        <dt>{copy.research.researchRunStatus}</dt>
+                        <dd>{runStatusLabel}</dd>
                       </div>
                       {terminalOutcomeLabel ? (
                         <div>

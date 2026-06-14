@@ -604,6 +604,75 @@ describe("parseGeneratedAmbiguityQuestionSet context fit", () => {
     expect(parsed.issues.join("\n")).toContain("generated question must include idea/domain anchors");
   });
 
+  it("rejects generated questions that repeat the full idea text", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: [
+          {
+            ...generatedSet.questions[0]!,
+            questionText:
+              "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱에서 가장 먼저 써볼 보호자는 누구인가요?"
+          },
+          ...generatedSet.questions.slice(1)
+        ]
+      },
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("must not repeat the full idea or goal text");
+  });
+
+  it("rejects generated questions that repeat a later goal phrase from the idea context", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: [
+          {
+            ...generatedSet.questions[0]!,
+            questionText: "보험 청구와 장례 준비 정보를 한 곳에서 관리하는 목표에서 첫 보호자는 누구인가요?"
+          },
+          ...generatedSet.questions.slice(1)
+        ]
+      },
+      {
+        contextText:
+          "반려동물 전생애주기 앱. 보호자가 의료 기록과 급여 이력을 잃어버리지 않게 돕고, 보험 청구와 장례 준비 정보를 한 곳에서 관리하는 목표"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("must not repeat the full idea or goal text");
+  });
+
+  it("rejects generated questions that are too long for user-facing onboarding", () => {
+    const generatedSet = validGeneratedQuestionSet();
+    const parsed = parseGeneratedAmbiguityQuestionSet(
+      {
+        ...generatedSet,
+        questions: [
+          {
+            ...generatedSet.questions[0]!,
+            questionText:
+              "반려동물 기록 앱을 실제로 처음 열어볼 가능성이 가장 높은 보호자 세그먼트는 초보 보호자, 노령·만성질환 보호자, 보험 청구가 잦은 보호자, 장례 준비를 시작한 보호자, 여러 마리를 함께 키우는 보호자 중 어디에 가장 가깝다고 보시나요?"
+          },
+          ...generatedSet.questions.slice(1)
+        ]
+      },
+      {
+        contextText: "반려동물 전생애주기 의료, 급여, 일상, 보험, 장례 정보를 한 곳에 모으는 앱"
+      }
+    );
+
+    expect(parsed.ok).toBe(false);
+    expect(parsed.issues.join("\n")).toContain("generated question must stay under 120 characters");
+  });
+
   it("rejects internal planning jargon in generated user-facing fields", () => {
     const parsed = parseGeneratedAmbiguityQuestionSet(
       {

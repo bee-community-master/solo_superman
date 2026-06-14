@@ -35,6 +35,10 @@ const MAX_DELAY_MILLIS = DEFAULT_MAX_DELAY_MILLIS;
 const MAX_QUERY_CHARS = 220;
 const MAX_SNIPPET_CHARS = 700;
 const MAX_SUMMARY_CHARS = 4_000;
+const DIVORCE_PLANNING_CONTEXT_PATTERN = /(?:이혼|별거|소송|divorce|separation)/iu;
+const LOCAL_COMMERCE_CONTEXT_PATTERN =
+  /(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|노쇼|merchant|reservation|order|loyalty)/iu;
+const PET_LIFECYCLE_CONTEXT_PATTERN = /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu;
 
 export type WebSearchReadOnlyBlockCode =
   | "browser_unavailable"
@@ -421,10 +425,18 @@ function tokenTermsFromText(value: string) {
     .filter((term) => !stopwords.has(term));
 }
 
+function isLocalCommerceResearchContext(value: string) {
+  return LOCAL_COMMERCE_CONTEXT_PATTERN.test(value);
+}
+
+function isPetLifecycleResearchContext(value: string) {
+  return PET_LIFECYCLE_CONTEXT_PATTERN.test(value);
+}
+
 function coreTermsFor(objective: string, context: string) {
   const combined = `${objective} ${context}`;
 
-  if (/(?:이혼|별거|소송|divorce|separation)/iu.test(combined)) {
+  if (DIVORCE_PLANNING_CONTEXT_PATTERN.test(combined)) {
     return uniqueSearchTerms(
       [
         "이혼 준비",
@@ -440,8 +452,12 @@ function coreTermsFor(objective: string, context: string) {
     );
   }
 
-  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
-    return uniqueSearchTerms(["반려동물", "보호자", "의료 기록", "보험", "돌봄", "장례", "pet owner"], 8);
+  if (isLocalCommerceResearchContext(combined)) {
+    return uniqueSearchTerms(["소상공인", "예약", "카카오톡", "노쇼", "주문", "단골", "미용실", "네일샵", "음식점"], 9);
+  }
+
+  if (isPetLifecycleResearchContext(combined)) {
+    return uniqueSearchTerms(["반려동물", "보호자", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", "pet owner"], 8);
   }
 
   return uniqueSearchTerms(tokenTermsFromText(combined), 8);
@@ -476,9 +492,15 @@ function searchIntentTermsFor(objective: string, context: string) {
     "report"
   ];
 
-  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+  if (isLocalCommerceResearchContext(combined)) {
     return isKorean
-      ? uniqueSearchTerms(["보호자 유형", "의료비", "보험", "돌봄", ...commonKorean], 12)
+      ? uniqueSearchTerms(["예약 누락", "노쇼", "카카오톡 예약", "소상공인 SaaS", "매장 운영", "단골 재방문", ...commonKorean], 12)
+      : uniqueSearchTerms(["small business reservation", "no-show", "local merchant SaaS", "customer retention", ...commonEnglish], 12);
+  }
+
+  if (isPetLifecycleResearchContext(combined)) {
+    return isKorean
+      ? uniqueSearchTerms(["보호자 유형", "동물병원", "의료 기록", "보험 청구", "돌봄 기록", ...commonKorean], 12)
       : uniqueSearchTerms(["pet owner segments", "veterinary cost", "insurance", "care", ...commonEnglish], 12);
   }
 
@@ -520,15 +542,22 @@ function searchLanguageFor(value: string): PlannedPublicWebSearchQueries["langua
 }
 
 function englishExpansionQueriesFor(combined: string) {
-  if (/(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu.test(combined)) {
+  if (DIVORCE_PLANNING_CONTEXT_PATTERN.test(combined)) {
+    return ["divorce financial planning cash flow willingness to pay alternatives"];
+  }
+
+  if (isLocalCommerceResearchContext(combined)) {
+    return [
+      "small business appointment scheduling no-show customer retention software reviews",
+      "local merchant reservation order management KakaoTalk customer loyalty SaaS"
+    ];
+  }
+
+  if (isPetLifecycleResearchContext(combined)) {
     return [
       "pet lifecycle app veterinary records pet insurance care routines market research",
       "pet guardian veterinary cost insurance claim care management reviews"
     ];
-  }
-
-  if (/(?:이혼|별거|소송|divorce|separation)/iu.test(combined)) {
-    return ["divorce financial planning cash flow willingness to pay alternatives"];
   }
 
   return [];
@@ -1240,7 +1269,10 @@ function searchCandidateRelevanceScore(candidate: SearchCandidate, query: string
   }, 0);
 }
 
-function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
+function searchCandidateSourceQualityScore(
+  candidate: SearchCandidate,
+  input: { readonly petScanMedicalNoise?: boolean } = {}
+) {
   const haystack = `${candidate.title} ${candidate.snippet}`.toLowerCase();
   const hostname = (() => {
     try {
@@ -1267,8 +1299,12 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
     score += 6;
   }
 
-  if (/(보호자|의료비|보험|돌봄|니즈|이혼|재무|현금|현금흐름|생계비|결제|유료|상담|후기|대체재|segment|persona|need|care|insurance|veterinary|divorce|financial|cash|pricing|paid|alternative|review)/iu.test(haystack)) {
+  if (/(보호자|동물병원|의료\s*기록|보험\s*청구|돌봄|의료비|보험|니즈|소상공인|예약|카카오톡|노쇼|주문|단골|미용실|네일|음식점|매장|이혼|재무|현금|현금흐름|생계비|결제|유료|상담|후기|대체재|segment|persona|need|care|insurance|veterinary|merchant|reservation|order|loyalty|no-show|divorce|financial|cash|pricing|paid|alternative|review)/iu.test(haystack)) {
     score += 3;
+  }
+
+  if (input.petScanMedicalNoise === true) {
+    score -= 16;
   }
 
   if (
@@ -1289,22 +1325,38 @@ function searchCandidateSourceQualityScore(candidate: SearchCandidate) {
   return score;
 }
 
+function isPetScanMedicalNoiseCandidate(candidate: SearchCandidate) {
+  const haystack = `${candidate.title} ${candidate.snippet}`.toLowerCase();
+
+  return (
+    /\bpet\b/iu.test(haystack) &&
+    /(검사|암|뇌질환|ct|mri|양전자|tomography|scan|oncology|brain)/iu.test(haystack) &&
+    !/(반려|보호자|동물병원|수의|veterinary|guardian|insurance|care|lifecycle|record)/iu.test(haystack)
+  );
+}
+
 export function rankedSearchCandidates(
   candidates: readonly WebSearchReadOnlySearchCandidate[],
   query: string,
   maxResults: number
 ) {
-  const scoredCandidates = candidates.map((candidate) => ({
-    candidate,
-    relevanceScore: searchCandidateRelevanceScore(candidate, query),
-    sourceQualityScore: searchCandidateSourceQualityScore(candidate)
-  }));
+  const scoredCandidates = candidates.map((candidate) => {
+    const petScanMedicalNoise = isPetScanMedicalNoiseCandidate(candidate);
+
+    return {
+      candidate,
+      relevanceScore: searchCandidateRelevanceScore(candidate, query),
+      sourceQualityScore: searchCandidateSourceQualityScore(candidate, { petScanMedicalNoise }),
+      petScanMedicalNoise
+    };
+  });
   const hasPositiveQualityCandidate = scoredCandidates.some(({ sourceQualityScore }) => sourceQualityScore > 0);
 
   return scoredCandidates
     .filter(
-      ({ relevanceScore, sourceQualityScore }) =>
+      ({ relevanceScore, sourceQualityScore, petScanMedicalNoise }) =>
         relevanceScore > 0 &&
+        !petScanMedicalNoise &&
         (!hasPositiveQualityCandidate || sourceQualityScore >= 0)
     )
     .sort(

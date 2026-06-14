@@ -314,6 +314,42 @@ describe("web_search_readonly background research adapter", () => {
     expect(plan.language).toBe("mixed");
   });
 
+  it("plans local-commerce queries with concrete reservation and retention terms", () => {
+    const plan = planPublicWebSearchQueries({
+      researchObjective: "동네 매장의 예약 누락과 단골 재방문 문제를 좁히기",
+      publicSafeSummary:
+        "Product category: 소상공인 예약/주문 관리 앱. Customer/problem hypothesis: 1인 미용실, 네일샵, 소형 음식점이 카카오톡 예약, 노쇼, 주문 확인, 단골 재방문 관리를 놓치지 않게 돕는다. Research objective: 동네 매장의 예약 누락과 단골 재방문 문제를 좁히기."
+    });
+
+    const joinedQueries = plan.queries.join(" ");
+
+    expect(plan.queries.length).toBeGreaterThanOrEqual(2);
+    expect(joinedQueries).toContain("소상공인");
+    expect(joinedQueries).toContain("예약");
+    expect(joinedQueries).toContain("카카오톡");
+    expect(joinedQueries).toMatch(/노쇼|예약 누락/u);
+    expect(joinedQueries).toMatch(/단골|재방문/u);
+    expect(joinedQueries).not.toContain("Product category:");
+    expect(joinedQueries).not.toContain("Customer/problem hypothesis:");
+  });
+
+  it("prefers local-commerce intent when pet terms are paired with reservation operations", () => {
+    const plan = planPublicWebSearchQueries({
+      researchObjective: "반려동물 미용실의 예약 누락과 노쇼 문제를 좁히기",
+      publicSafeSummary:
+        "Product category: 반려동물 미용실 예약 관리 앱. Customer/problem hypothesis: 동네 반려동물 미용실이 카카오톡 예약, 전화 예약, 노쇼, 단골 재방문 관리를 놓치지 않게 돕는다. Research objective: 반려동물 미용실의 예약 누락과 노쇼 문제를 좁히기."
+    });
+
+    const joinedQueries = plan.queries.join(" ");
+
+    expect(joinedQueries).toContain("소상공인");
+    expect(joinedQueries).toContain("예약");
+    expect(joinedQueries).toContain("노쇼");
+    expect(joinedQueries).toContain("단골");
+    expect(joinedQueries).not.toContain("보호자 유형");
+    expect(joinedQueries).not.toContain("보험 청구");
+  });
+
   it("returns ranked offline corpus results when localCorpusDir is configured", async () => {
     const corpusRoot = await mkdtemp(join(tmpdir(), "solo-research-corpus-"));
     await mkdir(join(corpusRoot, "nested"));
@@ -561,6 +597,45 @@ describe("web_search_readonly background research adapter", () => {
     expect(ranked.map((candidate) => candidate.url)).toEqual([
       "https://www.nias.go.kr/companion/new_petBoard.do?cmCode=M210524110205412"
     ]);
+  });
+
+  it("ranks pet-owner care evidence above PET scan medical noise", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "PET scan oncology imaging overview",
+          url: "https://example.com/pet-scan-oncology",
+          snippet: "PET scan brain oncology imaging protocol and radiology diagnosis guide."
+        },
+        {
+          title: "반려동물 보호자 의료비와 보험 청구 돌봄 기록 조사",
+          url: "https://example.org/pet-owner-care-insurance",
+          snippet: "반려동물 보호자는 동물병원 진료비, 보험 청구, 돌봄 기록 관리에서 반복 불편을 겪는다."
+        }
+      ],
+      "반려동물 전생애주기 통합 관리 앱 동물병원 보험 청구 돌봄 기록 보호자 의료비",
+      2
+    );
+
+    expect(ranked.map((candidate) => candidate.url)).toEqual([
+      "https://example.org/pet-owner-care-insurance"
+    ]);
+  });
+
+  it("drops PET scan medical noise even when no better candidate is available", () => {
+    const ranked = rankedSearchCandidates(
+      [
+        {
+          title: "PET scan oncology imaging overview",
+          url: "https://example.com/pet-scan-oncology",
+          snippet: "PET scan brain oncology imaging protocol and radiology diagnosis guide."
+        }
+      ],
+      "pet owner lifecycle insurance care record",
+      2
+    );
+
+    expect(ranked).toEqual([]);
   });
 
   it("drops fallback candidates when public search exposes no relevance signal", () => {

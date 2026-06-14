@@ -611,6 +611,62 @@ function generatedQuestionSetPreviewFailureReason(error: unknown) {
     : "Codex live preview failed before producing a usable question artifact.";
 }
 
+const LOCAL_COMMERCE_FALLBACK_CONTEXT_PATTERN =
+  /(?:소상공인|미용실|네일|네일샵|음식점|식당|카페|예약|주문|단골|카카오톡|전화)/u;
+const PET_LIFECYCLE_FALLBACK_CONTEXT_PATTERN = /(?:반려\s*동물|반려견|반려묘|펫\b|pet\b)/iu;
+const CAREER_TRANSITION_FALLBACK_CONTEXT_PATTERN = /(?:이직|퇴사|커리어|직장인|career|job)/iu;
+const FOUNDER_PLANNING_FALLBACK_CONTEXT_PATTERN = /(?:창업자|스타트업|founder|startup)/iu;
+
+function isLocalCommerceFallbackContext(context: string) {
+  return LOCAL_COMMERCE_FALLBACK_CONTEXT_PATTERN.test(context);
+}
+
+function fallbackShortSubjectForContext(context: string) {
+  if (isLocalCommerceFallbackContext(context)) {
+    return "소상공인 예약/주문";
+  }
+
+  if (PET_LIFECYCLE_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "반려동물 기록";
+  }
+
+  if (CAREER_TRANSITION_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "커리어 전환";
+  }
+
+  if (FOUNDER_PLANNING_FALLBACK_CONTEXT_PATTERN.test(context)) {
+    return "창업자 기획";
+  }
+
+  return "이 아이디어";
+}
+
+function localCommerceFirstSituationOptions() {
+  return [
+    {
+      id: "solo_salon_reservation_gap",
+      label: "1인 미용실/네일샵 예약 누락",
+      value: "전화와 카카오톡 예약이 섞여 누락이 생기는 1인 미용실/네일샵을 먼저 본다.",
+      primaryDetail: "첫 고객군과 첫 문제를 예약 누락으로 좁힙니다.",
+      secondaryDetail: "주문 관리와 단골 관리는 첫 버전에서 제외하거나 나중에 확인합니다."
+    },
+    {
+      id: "small_restaurant_order_check",
+      label: "소형 음식점 주문 확인",
+      value: "전화, 채팅, 배달앱 주문 확인이 반복되는 소형 음식점을 먼저 본다.",
+      primaryDetail: "첫 고객군과 첫 기능을 주문 확인으로 좁힙니다.",
+      secondaryDetail: "예약형 업종과 단골 관리는 별도 검증이 필요합니다."
+    },
+    {
+      id: "regular_customer_followup",
+      label: "단골 재방문 관리",
+      value: "단골 고객 재방문 연락과 혜택 관리를 어려워하는 매장을 먼저 본다.",
+      primaryDetail: "첫 가치를 단골 재방문 관리로 좁힙니다.",
+      secondaryDetail: "예약/주문 누락보다 돈을 낼 만큼 급한지는 확인해야 합니다."
+    }
+  ];
+}
+
 export function generatedQuestionSetLocalFallback(input: {
   readonly rawIdea: string;
   readonly intakeGoal: string;
@@ -618,6 +674,22 @@ export function generatedQuestionSetLocalFallback(input: {
 }) {
   const context = [input.rawIdea, input.intakeGoal].filter(Boolean).join(" ").trim();
   const ideaLabel = (input.rawIdea || context || "이 아이디어").replace(/\s+/gu, " ").trim().slice(0, 80);
+  const shortSubject = fallbackShortSubjectForContext(context);
+  const firstSituationOptions = isLocalCommerceFallbackContext(context)
+    ? localCommerceFirstSituationOptions()
+    : [];
+  const pressureMinimum =
+    input.businessCriticIntensity === "investor_grade"
+      ? "investor_grade"
+      : input.businessCriticIntensity === "strong"
+        ? "strong"
+        : "balanced";
+  const pressureKind =
+    pressureMinimum === "investor_grade"
+      ? "investor_pressure_pass"
+      : pressureMinimum === "strong"
+        ? "core_assumption_challenge"
+        : "balanced_con";
 
   return {
     schemaVersion: GENERATED_AMBIGUITY_QUESTION_SET_SCHEMA_VERSION,
@@ -629,10 +701,12 @@ export function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "decision_required",
         severity: "high",
         summary: "첫 사용자 상황을 더 구체화해야 합니다.",
-        whyItMatters: `${ideaLabel}에서 누구의 어떤 순간을 돕는지 정해야 인터뷰 대상, 첫 화면, 첫 질문이 좁혀집니다.`,
-        questionText: "이 서비스를 가장 먼저 쓰는 사람은 누구이고, 언제 어떤 막힘을 겪나요?",
-        expectedAnswerType: "text",
-        answerOptions: [],
+        whyItMatters: "먼저 도울 상황을 정하지 않으면 질문, 리서치, 첫 화면이 서로 다른 사용자를 향할 수 있습니다.",
+        questionText: `${shortSubject}에서 가장 먼저 도울 실제 사용자 상황은 무엇인가요?`,
+        expectedAnswerType: firstSituationOptions.length ? "choice" : "text",
+        ...(firstSituationOptions.length
+          ? { answerSelectionMode: "single", answerOptions: firstSituationOptions }
+          : { answerOptions: [] }),
         decisionItUnlocks: "첫 사용자와 첫 문제 문장을 좁힙니다.",
         ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
@@ -644,8 +718,8 @@ export function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "vague",
         severity: "high",
         summary: "답변 뒤에 생길 기획서 조각이 아직 흐립니다.",
-        whyItMatters: `${ideaLabel} 사용자가 질문에 답한 보람을 느끼려면 바로 채워지는 기획 항목이 보여야 합니다.`,
-        questionText: "사용자가 질문에 답하고 나면 어떤 기획서 조각이 생겨야 하나요?",
+        whyItMatters: "사용자가 질문에 답한 보람을 느끼려면 바로 채워지는 기획 항목이 보여야 합니다.",
+        questionText: `${shortSubject} 사용자가 질문에 답하고 나면 어떤 기획서 조각이 생겨야 하나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "질문 답변이 채울 기획서 항목을 정합니다.",
@@ -659,8 +733,8 @@ export function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "missing",
         severity: "high",
         summary: "사용자 유형별 대응 방식이 아직 없습니다.",
-        whyItMatters: `${ideaLabel}는 초보자, 문서가 있는 사용자, 팀 사용자마다 필요한 질문과 결과물이 다를 수 있습니다.`,
-        questionText: "초보자, 문서가 있는 사용자, 팀 사용자는 각각 무엇이 달라야 하나요?",
+        whyItMatters: "초보자, 문서가 있는 사용자, 팀 사용자마다 필요한 질문과 결과물이 다를 수 있습니다.",
+        questionText: `${shortSubject}에서 초보자, 문서가 있는 사용자, 팀 사용자는 각각 무엇이 달라야 하나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "사용 케이스별 질문 흐름과 결과물 차이를 정합니다.",
@@ -674,13 +748,15 @@ export function generatedQuestionSetLocalFallback(input: {
         uncertaintyType: "missing_con_evidence",
         severity: "medium",
         summary: "리서치로 볼 사용자 미래, 기존 대안, 막힐 상황이 아직 없습니다.",
-        whyItMatters: `${ideaLabel} 공개 자료를 보면 가능한 사용 케이스, 기존 대안, 막힐 상황, 다른 관점을 먼저 그려볼 수 있습니다.`,
-        questionText: "공개 자료를 보면 어떤 사용 케이스와 기존 대안이 먼저 확인되나요?",
+        whyItMatters: "공개 자료를 보면 가능한 사용 케이스, 기존 대안, 막힐 상황, 다른 관점을 먼저 그려볼 수 있습니다.",
+        questionText: `${shortSubject} 관련 공개 자료를 보면 어떤 사용 케이스와 기존 대안이 먼저 확인되나요?`,
         expectedAnswerType: "text",
         answerOptions: [],
         decisionItUnlocks: "리서치가 만들 미래 시나리오와 다음 질문을 정합니다.",
         ambiguityDimension: "assumption_pressure",
         ambiguityRoutingPath: "current_research",
+        businessCriticPressureKind: pressureKind,
+        businessCriticIntensityMinimum: pressureMinimum,
         researchQuestion: `${ideaLabel}와 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 한계는 무엇인가?`,
         possibleRoutes: ["question", "research_needed", "missing_con_evidence"],
         suggestedResearchTask: `${ideaLabel} 관련 공개 사례, 후기, 커뮤니티 글, 경쟁/대체 도구를 확인해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다.`

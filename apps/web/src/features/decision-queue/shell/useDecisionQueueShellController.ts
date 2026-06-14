@@ -563,6 +563,7 @@ export function useDecisionQueueShellController() {
 
   const {
     initialQuestionGeneration,
+    keepWaitingForInitialQuestionGeneration,
     requestInitialQuestionFallback,
     retryInitialQuestionGeneration,
     runInitialQueueFlow,
@@ -1636,6 +1637,7 @@ export function useDecisionQueueShellController() {
     refetchQueueAfterSseNotification,
     refreshCommandStatus,
     initialQuestionGeneration,
+    keepWaitingForInitialQuestionGeneration,
     requestInitialQuestionFallback,
     retryInitialQuestionGeneration,
     runInitialQueueFlow,

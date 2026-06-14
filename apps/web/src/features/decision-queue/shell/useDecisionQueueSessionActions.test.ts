@@ -48,6 +48,60 @@ function initialQueueFlowSubmitEvent() {
   >[0];
 }
 
+function generatedQuestionSetFixture(topicPrefix: string, domainLabel: string) {
+  return {
+    schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
+    sourceSummary: domainLabel,
+    questions: [
+      {
+        sectionRef: "Target Customer",
+        topicKey: `${topicPrefix}_first_user`,
+        uncertaintyType: "decision_required",
+        severity: "high",
+        summary: "첫 사용자를 더 좁혀야 합니다.",
+        whyItMatters: "먼저 도울 사람을 정해야 질문과 첫 화면이 선명해집니다.",
+        questionText: `${domainLabel}에서 가장 먼저 도울 사용자는 누구인가요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 사용자와 인터뷰 대상을 정합니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      },
+      {
+        sectionRef: "MVP Scope",
+        topicKey: `${topicPrefix}_first_output`,
+        uncertaintyType: "vague",
+        severity: "high",
+        summary: "첫 결과물이 아직 흐립니다.",
+        whyItMatters: "답변 뒤에 생길 결과물이 보여야 사용자가 효용을 느낍니다.",
+        questionText: `${domainLabel}에서 첫 답변 뒤에 어떤 결과물이 생겨야 하나요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "첫 기획서 조각과 화면 범위를 정합니다.",
+        ambiguityDimension: "scope",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      },
+      {
+        sectionRef: "Success Criteria",
+        topicKey: `${topicPrefix}_success_signal`,
+        uncertaintyType: "missing",
+        severity: "medium",
+        summary: "성공 기준이 아직 없습니다.",
+        whyItMatters: "계속 만들지 판단하려면 관찰할 행동 기준이 필요합니다.",
+        questionText: `${domainLabel}에서 어떤 행동이 나오면 계속 만들 기준으로 볼까요?`,
+        expectedAnswerType: "text",
+        answerOptions: [],
+        decisionItUnlocks: "이번 검증의 통과 기준을 정합니다.",
+        ambiguityDimension: "success_criteria",
+        ambiguityRoutingPath: "human_judgment",
+        possibleRoutes: ["question", "decision_candidate"]
+      }
+    ]
+  };
+}
+
 describe("nextQuestionBatchIdsForActivation", () => {
   it("uses queued next question ids and research follow-ups while ignoring non-question review cards", () => {
     const queue: DecisionQueueProjection = {
@@ -300,14 +354,7 @@ describe("useDecisionQueueSessionActions", () => {
   it("passes prompt-template generated question JSON into the initial ambiguity analysis command", async () => {
     const projectId = "proj_generated_initial_questions" as ProjectId;
     const sessionId = "sess_generated_initial_questions" as SessionId;
-    const generatedQuestionSet = {
-      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
-      questions: [
-        {
-          topicKey: "pet_lifecycle_guardian_focus"
-        }
-      ]
-    };
+    const generatedQuestionSet = generatedQuestionSetFixture("pet_lifecycle", "pet lifecycle app");
     const sessionProjection: SessionShellProjection = {
       kind: "SessionShellProjection",
       projectId,
@@ -472,14 +519,7 @@ describe("useDecisionQueueSessionActions", () => {
     const draftInitialSpec = vi.fn(async () => commandResponse(3));
     const analyzeAmbiguity = vi.fn(async () => commandResponse(4));
     const activateQuestionBatch = vi.fn(async () => commandResponse(5, queueProjection));
-    const generatedQuestionSet = {
-      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
-      questions: [
-        {
-          topicKey: "private_journal_workflow"
-        }
-      ]
-    };
+    const generatedQuestionSet = generatedQuestionSetFixture("private_journal", "private journal workflow");
     const generateInitialQuestionSet = vi.fn(async () => generatedQuestionSet);
     let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
 
@@ -584,11 +624,7 @@ describe("useDecisionQueueSessionActions", () => {
       blocked: [],
       deferred: []
     };
-    const fallbackQuestionSet = {
-      schemaVersion: "solo-superman-generated-ambiguity-questions.v1",
-      sourceSummary: "fallback",
-      questions: []
-    };
+    const fallbackQuestionSet = generatedQuestionSetFixture("career_fallback", "career transition planner");
     const commandResponse = <TProjection,>(
       index: number,
       immediateProjection?: TProjection
