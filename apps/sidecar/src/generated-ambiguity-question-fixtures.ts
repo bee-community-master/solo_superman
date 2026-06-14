@@ -11,6 +11,44 @@ function option(id: string, label: string) {
   };
 }
 
+function founderOption(id: string, label: string, value: string) {
+  return {
+    id,
+    label,
+    value,
+    primaryDetail: `창업자 기획에서 ${label} 기준으로 첫 판단을 좁힙니다.`,
+    secondaryDetail: "다른 후보는 다음 질문에서 확인합니다."
+  };
+}
+
+const founderFirstSituationOptions = [
+  founderOption(
+    "first_time_solo_founder",
+    "처음 창업하는 1인 창업자",
+    "처음 창업하는 1인 창업자가 막연한 아이디어를 한 페이지 기획으로 정리하는 상황을 먼저 본다."
+  ),
+  founderOption(
+    "post_interview_pre_founder",
+    "고객 인터뷰를 마친 예비 창업자",
+    "고객 인터뷰 메모가 있지만 제품 범위와 첫 기능을 정하지 못한 예비 창업자를 먼저 본다."
+  ),
+  founderOption(
+    "team_with_existing_brief",
+    "이미 기획 문서가 있는 팀",
+    "이미 창업자 기획 문서가 있는 팀이 빠진 고객, 문제, 기능 근거를 채우는 상황을 먼저 본다."
+  ),
+  founderOption(
+    "not_sure_yet",
+    "아직 잘 모르겠음",
+    "창업자 기획 사용자가 아직 첫 고객을 정하지 못했고 쉬운 질문으로 후보를 좁혀야 하는 상황을 먼저 본다."
+  ),
+  founderOption(
+    "custom_first_user",
+    "직접 입력",
+    "창업자 기획 사용자가 직접 적은 첫 사용자 상황을 우선한다."
+  )
+] as const;
+
 function question(input: {
   readonly sectionRef: string;
   readonly topicKey: string;
@@ -80,7 +118,9 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       sectionRef: "Target Customer",
       topicKey: "first_user_situation",
       summary: "첫 창업자 사용자 상황 구체화 필요",
-      questionText: "이 도구를 처음 쓰는 창업자는 누구이고, 언제 어떤 막힘을 겪나요?",
+      questionText: "창업자 기획에서 누구를 먼저 도울까요?",
+      expectedAnswerType: "choice",
+      answerOptions: founderFirstSituationOptions,
       ambiguityDimension: "scope"
     }),
     question({
@@ -105,6 +145,7 @@ export function generatedFounderQuestionSet(intensity: BusinessCriticIntensity =
       questionText: "공개 자료를 보면 어떤 창업자 사용 케이스와 기존 대안이 먼저 보이나요?",
       ambiguityDimension: "assumption_pressure",
       ambiguityRoutingPath: "current_research",
+      possibleRoutes: ["research_needed", "missing_con_evidence"],
       researchQuestion: "창업자 기획 상세화 도구와 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황은 무엇인가?",
       suggestedResearchTask:
         "창업자 커뮤니티, 제품 기획 사례, 고객 인터뷰 글에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다."

@@ -208,6 +208,18 @@ function userFacingQuestionText(value: string) {
   return compactDecisionTopic(value);
 }
 
+function nextSearchQueriesForEvidenceGap(topic: string) {
+  const compactTopic = compactSummary(topic.replace(/[“”"]/gu, ""), "이번 판단").slice(0, 80).trim();
+
+  return [
+    `${compactTopic} 후기 불편`,
+    `${compactTopic} 기존 대안`,
+    `${compactTopic} 가격 지불 의향`,
+    `${compactTopic} 커뮤니티 사례`,
+    `${compactTopic} 실패 사례`
+  ];
+}
+
 function evidenceSummaryOrFallback(
   evidenceItems: readonly { readonly summary: string }[],
   fallback: string
@@ -781,6 +793,15 @@ function additionalQuestionForEvidenceGap(input: {
       "리서치 실패가 의미하는 것: 수요가 없다는 결론이 아니라, 공개 검색어/출처 범위/비공개 사용자 맥락만으로는 아직 결정할 수 없다는 뜻입니다.";
     const manualAction =
       "다음 수동 검증 액션: 검색어를 바꿔 공개 리포트·커뮤니티·대체재 리뷰를 확인하거나, 타깃 사용자 3명에게 현재 대체 행동과 지불 의향을 직접 확인하세요.";
+    const nextQueries = nextSearchQueriesForEvidenceGap(topic);
+    const queryPlan = [
+      "다음 검색어 예시:",
+      ...nextQueries.map((query) => `- ${query}`)
+    ].join("\n");
+    const interimConclusion =
+      "임시 기획 결론: 아직 공개 근거로 확정하지 말고, 첫 고객·현재 대안·첫 기능 범위를 가설로 표시한 뒤 다음 답변이나 인터뷰 결과로 갱신하세요.";
+    const interviewChecks =
+      "사용자 확인 질문: 지금은 무엇으로 해결하는지, 왜 충분하지 않은지, 어떤 결과물이 생기면 계속 쓸지, 돈이나 시간을 낼 의향이 있는지 확인하세요.";
     const unlockSentence = unlockSentenceForAnswerIntent(answerIntent, topic);
 
     return [
@@ -789,6 +810,9 @@ function additionalQuestionForEvidenceGap(input: {
       `한계/불확실성: ${uncertaintySummary}`,
       failureMeaning,
       manualAction,
+      queryPlan,
+      interimConclusion,
+      interviewChecks,
       "",
       promptSentence,
       "",

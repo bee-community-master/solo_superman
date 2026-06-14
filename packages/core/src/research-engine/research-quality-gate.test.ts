@@ -192,6 +192,10 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다");
     expect(serializedQuestion).toContain("리서치 실패가 의미하는 것");
     expect(serializedQuestion).toContain("다음 수동 검증 액션");
+    expect(serializedQuestion).toContain("다음 검색어 예시");
+    expect(serializedQuestion).toContain("가격 지불 의향");
+    expect(serializedQuestion).toContain("임시 기획 결론");
+    expect(serializedQuestion).toContain("사용자 확인 질문");
     expect(serializedQuestion).not.toContain("enc");
     expect(serializedQuestion).not.toContain("인류");
     expect(serializedQuestion).not.toContain("support.microsoft");
@@ -224,6 +228,8 @@ describe("Decision-linked research quality gate", () => {
     expect(serializedQuestion).not.toContain("Original ambiguity");
     expect(serializedQuestion).not.toContain("User answer to account for");
     expect(serializedQuestion).not.toContain("Use this divorce financial planning checklist");
+    expect(serializedQuestion.split("\n").filter((line) => line.startsWith("- ")).every((line) => line.length <= 120))
+      .toBe(true);
     expect(serializedQuestion.length).toBeLessThan(950);
   });
 

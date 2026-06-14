@@ -334,8 +334,7 @@ describe("ResearchView", () => {
     const task = {
       ...research.tasks[0]!,
       researchTaskId: "research_task_needs_more_context" as ResearchTaskId,
-      objective:
-        "첫 사용자 상황을 더 구체화해야 합니다. 답변이 조금 더 쌓이면 기존 대안과 대표 사용 케이스를 공개 자료로 확인합니다."
+      objective: "첫 사용자 상황을 더 구체화해야 합니다."
     };
     const markup = renderResearchView({
       projections: {
@@ -361,7 +360,7 @@ describe("ResearchView", () => {
       readyReadOnlyResearchStartPlan: {
         status: "blocked",
         reason: "no_ready_tasks",
-        message: "Answer a little more before sending this to public web research."
+        message: "No quick public-search task is ready yet."
       }
     });
 
@@ -629,7 +628,7 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("No ready public web research yet");
-    expect(markup).toContain("Answer a little more before sending this to public web research.");
+    expect(markup).toContain("No quick public-search task is ready yet.");
     expect(markup).not.toContain("Task IDs queued for this batch");
   });
 

@@ -579,6 +579,24 @@ function jsonDataRecord(body: JsonResponseBody) {
   return body.data as Readonly<Record<string, unknown>>;
 }
 
+function recordsFromValue(value: unknown) {
+  expect(Array.isArray(value)).toBe(true);
+
+  return value as readonly Readonly<Record<string, unknown>>[];
+}
+
+function answerLinkedResearchTaskIdFromValue(value: unknown) {
+  const task = recordsFromValue(value).find((candidate) => typeof candidate.sourceAnswerRef === "string");
+
+  expect(task?.researchTaskId).toEqual(expect.any(String));
+
+  if (typeof task?.researchTaskId !== "string") {
+    throw new Error("Expected an answer-linked research task id.");
+  }
+
+  return task.researchTaskId;
+}
+
 function latestAutoImplementationRunFromBody(body: JsonResponseBody) {
   return jsonDataRecord(body).latestRun as Readonly<Record<string, unknown>>;
 }
@@ -2444,11 +2462,21 @@ describe("PR-02 sidecar health shell", () => {
         "case_response_shape",
         "public_research_scenario_options"
       ]);
+      expect(generatedQuestionSet.questions[0]).toMatchObject({
+        expectedAnswerType: "choice",
+        answerOptions: expect.arrayContaining([
+          expect.objectContaining({ label: "커리어 전환을 처음 쓰는 사용자" }),
+          expect.objectContaining({ label: "커리어 전환 문제를 이미 겪은 사용자" })
+        ])
+      });
       expect(generatedQuestionSet.questions.slice(0, 3).map((question) => question.questionText).join("\n"))
         .not.toMatch(earlyQuestionPressureTerms);
       expect(generatedQuestionSet.questions.map((question) => question.questionText).join("\n"))
         .not.toContain("커리어 전환 플래너에서");
       expect(generatedQuestionSet.questions[3]?.suggestedResearchTask).toContain("가능한 사용자 미래");
+      expect(generatedQuestionSet.questions[3]).toMatchObject({
+        possibleRoutes: ["research_needed", "missing_con_evidence"]
+      });
     } finally {
       await storage.close();
     }
@@ -2540,7 +2568,7 @@ describe("PR-02 sidecar health shell", () => {
       expect(data).toMatchObject({
         status: "generated",
         source: "local_fallback",
-        reason: expect.stringContaining("conservative open-text fallback")
+        reason: expect.stringContaining("basic planning fallback")
       });
       expect(data.validationIssues).toEqual(expect.arrayContaining([expect.stringContaining("$.questions")]));
       expect(generatedQuestionSet).toMatchObject({
@@ -2548,8 +2576,11 @@ describe("PR-02 sidecar health shell", () => {
         questions: expect.arrayContaining([
           expect.objectContaining({
             sectionRef: "Target Customer",
-            expectedAnswerType: "text",
-            answerOptions: []
+            expectedAnswerType: "choice",
+            answerOptions: expect.arrayContaining([
+              expect.objectContaining({ label: "커리어 전환을 처음 쓰는 사용자" }),
+              expect.objectContaining({ label: "커리어 전환 문제를 이미 겪은 사용자" })
+            ])
           }),
           expect.objectContaining({
             sectionRef: "Current Alternatives",
@@ -7781,8 +7812,8 @@ describe("PR-02 sidecar health shell", () => {
       expect(queueProjection).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 19,
-          openQuestionCount: 19,
+          generatedQuestionCount: 14,
+          openQuestionCount: 14,
           answeredQuestionCount: 0,
           visibleQuestionDebtCount: 1,
           completionPercent: 0
@@ -7794,7 +7825,11 @@ describe("PR-02 sidecar health shell", () => {
         sectionRef: "Target Customer",
         topicKey: "first_user_situation",
         severity: "high",
-        expectedAnswerType: "text",
+        expectedAnswerType: "choice",
+        answerOptions: expect.arrayContaining([
+          expect.objectContaining({ label: "처음 창업하는 1인 창업자" }),
+          expect.objectContaining({ label: "직접 입력" })
+        ]),
         possibleRoutes: expect.arrayContaining(["question", "decision_candidate"])
       });
 
@@ -7957,11 +7992,11 @@ describe("PR-02 sidecar health shell", () => {
       expect(answeredQueue).toMatchObject({
         kind: "DecisionQueueProjection",
         progress: {
-          generatedQuestionCount: 20,
-          openQuestionCount: 19,
+          generatedQuestionCount: 15,
+          openQuestionCount: 14,
           answeredQuestionCount: 1,
           followUpQuestionCount: 1,
-          completionPercent: 5
+          completionPercent: 7
         },
         active: expect.arrayContaining([
           expect.objectContaining({
@@ -7983,24 +8018,25 @@ describe("PR-02 sidecar health shell", () => {
       });
       const researchBody = await jsonBody(research);
       const researchData = researchBody.data as Readonly<Record<string, unknown>>;
-      const researchTasks = researchData.tasks as readonly Readonly<Record<string, unknown>>[];
-      const researchTaskId = researchTasks[0]?.researchTaskId as string;
+      const researchTaskId = answerLinkedResearchTaskIdFromValue(researchData.tasks);
 
       expect(research.status).toBe(200);
       expect(researchData).toMatchObject({
         kind: "ResearchEvidenceProjection",
-        proConBalanceStatus: "unknown",
-        tasks: [
+        proConBalanceStatus: "missing_con_evidence",
+        tasks: expect.arrayContaining([
           expect.objectContaining({
             sourceQueueItemId: firstQuestionId,
+            sourceAnswerRef: expect.any(String),
             status: "planned"
           })
-        ],
-        reviewCards: [
+        ]),
+        reviewCards: expect.arrayContaining([
           expect.objectContaining({
+            researchTaskId,
             state: "pending_manual_result"
           })
-        ]
+        ])
       });
 
       const answerStatus = await storageApp.request(answerData.statusUrl as string, {

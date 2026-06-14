@@ -36,6 +36,7 @@ import {
   emptyProjectionState,
   emptyResearchOperationsState,
   initialResearchAutomationEnablesPublicWebSources,
+  isIdempotencyConflictError,
   WEB_PUBLIC_SAFE_ALLOWLIST_ID,
   type InitialResearchAutomationPermission,
   initialQueueStartBlocker,
@@ -958,6 +959,12 @@ export function useDecisionQueueSessionActions({
           queue
         );
       } catch (error) {
+        if (isIdempotencyConflictError(error)) {
+          await refreshProjections(projections.session.projectId, projections.session.sessionId).catch(() => undefined);
+          setWorkflowError(sessionActionErrors.answerIdempotencyConflictRecovered);
+          return;
+        }
+
         setWorkflowError(displayError(error));
       } finally {
         setIsBusy(false);
@@ -969,6 +976,7 @@ export function useDecisionQueueSessionActions({
       client,
       continueQuestionLoopAfterQueueUpdate,
       projections,
+      refreshProjections,
       sessionActionErrors,
       onAnswerSubmittedForResearchContext
     ]

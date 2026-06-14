@@ -667,6 +667,85 @@ function localCommerceFirstSituationOptions() {
   ];
 }
 
+function founderPlanningFirstSituationOptions() {
+  return [
+    {
+      id: "first_time_solo_founder",
+      label: "처음 창업하는 1인 창업자",
+      value: "처음 창업하는 1인 창업자가 막연한 아이디어를 한 페이지 기획으로 정리하는 상황을 먼저 본다.",
+      primaryDetail: "창업자 기획의 첫 고객을 초보 1인 창업자로 좁힙니다.",
+      secondaryDetail: "팀 협업이나 고급 리서치는 다음 단계에서 확인합니다."
+    },
+    {
+      id: "post_interview_pre_founder",
+      label: "고객 인터뷰를 마친 예비 창업자",
+      value: "고객 인터뷰 메모는 있지만 제품 범위와 첫 기능을 정하지 못한 예비 창업자를 먼저 본다.",
+      primaryDetail: "인터뷰 내용을 창업자 기획 판단으로 바꾸는 흐름을 우선합니다.",
+      secondaryDetail: "아직 인터뷰가 없는 사용자는 별도 질문으로 다룹니다."
+    },
+    {
+      id: "team_with_existing_brief",
+      label: "이미 기획 문서가 있는 팀",
+      value: "이미 창업자 기획 문서가 있는 팀이 빠진 고객, 문제, 기능 근거를 채우는 상황을 먼저 본다.",
+      primaryDetail: "기존 창업자 기획 문서를 보완하는 사용 사례로 좁힙니다.",
+      secondaryDetail: "완전히 빈 아이디어 입력 흐름과는 다른 결과물이 필요합니다."
+    },
+    {
+      id: "not_sure_yet",
+      label: "아직 잘 모르겠음",
+      value: "창업자 기획 사용자가 아직 첫 고객을 정하지 못했고 쉬운 질문으로 후보를 좁혀야 하는 상황을 먼저 본다.",
+      primaryDetail: "창업자 기획의 첫 고객을 함께 찾는 질문 흐름을 우선합니다.",
+      secondaryDetail: "정답을 요구하지 않고 후보 비교부터 시작합니다."
+    },
+    {
+      id: "custom_first_user",
+      label: "직접 입력",
+      value: "창업자 기획 사용자가 직접 적은 첫 사용자 상황을 우선한다.",
+      primaryDetail: "창업자 기획 사용자가 적은 표현을 기준으로 첫 판단을 좁힙니다.",
+      secondaryDetail: "입력 내용이 넓으면 다음 질문에서 더 좁힙니다."
+    }
+  ];
+}
+
+function koreanObjectParticle(value: string) {
+  const lastChar = [...value.trim()].pop();
+  const code = lastChar?.charCodeAt(0) ?? 0;
+
+  if (code < 0xac00 || code > 0xd7a3) {
+    return "를";
+  }
+
+  return (code - 0xac00) % 28 === 0 ? "를" : "을";
+}
+
+function domainFirstSituationOptions(shortSubject: string) {
+  const subjectObject = `${shortSubject}${koreanObjectParticle(shortSubject)}`;
+
+  return [
+    {
+      id: "first_time_domain_user",
+      label: `${subjectObject} 처음 쓰는 사용자`,
+      value: `${subjectObject} 처음 쓰는 사용자가 어떤 상황에서 막히는지 먼저 본다.`,
+      primaryDetail: `${shortSubject}의 첫 사용자와 첫 문제를 좁힙니다.`,
+      secondaryDetail: "고급 사용자나 팀 협업 흐름은 다음 단계에서 확인합니다."
+    },
+    {
+      id: "existing_workaround_user",
+      label: `${shortSubject} 문제를 이미 겪은 사용자`,
+      value: `${shortSubject} 문제를 이미 다른 방법으로 해결하고 있는 사용자를 먼저 본다.`,
+      primaryDetail: `${shortSubject}의 기존 대안과 불편을 확인합니다.`,
+      secondaryDetail: "완전히 새로운 사용 습관은 별도 리서치로 확인합니다."
+    },
+    {
+      id: "team_with_domain_materials",
+      label: `${shortSubject} 자료가 있는 팀`,
+      value: `${shortSubject} 관련 메모나 문서를 가진 팀이 빠진 내용을 채우는 상황을 먼저 본다.`,
+      primaryDetail: `${shortSubject} 자료를 보완하는 기획 흐름으로 좁힙니다.`,
+      secondaryDetail: "자료가 없는 사용자는 첫 질문 흐름에서 따로 다룹니다."
+    }
+  ];
+}
+
 export function generatedQuestionSetLocalFallback(input: {
   readonly rawIdea: string;
   readonly intakeGoal: string;
@@ -677,7 +756,9 @@ export function generatedQuestionSetLocalFallback(input: {
   const shortSubject = fallbackShortSubjectForContext(context);
   const firstSituationOptions = isLocalCommerceFallbackContext(context)
     ? localCommerceFirstSituationOptions()
-    : [];
+    : FOUNDER_PLANNING_FALLBACK_CONTEXT_PATTERN.test(context)
+      ? founderPlanningFirstSituationOptions()
+      : domainFirstSituationOptions(shortSubject);
   const pressureMinimum =
     input.businessCriticIntensity === "investor_grade"
       ? "investor_grade"
@@ -702,11 +783,10 @@ export function generatedQuestionSetLocalFallback(input: {
         severity: "high",
         summary: "첫 사용자 상황을 더 구체화해야 합니다.",
         whyItMatters: "먼저 도울 상황을 정하지 않으면 질문, 리서치, 첫 화면이 서로 다른 사용자를 향할 수 있습니다.",
-        questionText: `${shortSubject}에서 가장 먼저 도울 실제 사용자 상황은 무엇인가요?`,
-        expectedAnswerType: firstSituationOptions.length ? "choice" : "text",
-        ...(firstSituationOptions.length
-          ? { answerSelectionMode: "single", answerOptions: firstSituationOptions }
-          : { answerOptions: [] }),
+        questionText: `${shortSubject}에서 누구를 먼저 도울까요?`,
+        expectedAnswerType: "choice",
+        answerSelectionMode: "single",
+        answerOptions: firstSituationOptions,
         decisionItUnlocks: "첫 사용자와 첫 문제 문장을 좁힙니다.",
         ambiguityDimension: "scope",
         ambiguityRoutingPath: "human_judgment",
@@ -758,7 +838,7 @@ export function generatedQuestionSetLocalFallback(input: {
         businessCriticPressureKind: pressureKind,
         businessCriticIntensityMinimum: pressureMinimum,
         researchQuestion: `${ideaLabel}와 관련된 공개 사례에서 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 한계는 무엇인가?`,
-        possibleRoutes: ["question", "research_needed", "missing_con_evidence"],
+        possibleRoutes: ["research_needed", "missing_con_evidence"],
         suggestedResearchTask: `${ideaLabel} 관련 공개 사례, 후기, 커뮤니티 글, 경쟁/대체 도구를 확인해 가능한 사용자 미래, 대표 사용 케이스, 기존 대안, 막힐 상황, 대응 선택지, 한계와 다른 관점, 다음 질문을 정리하고 리서치로 정할 수 없는 남은 사용자 판단을 분리합니다.`
       }
     ]
@@ -3880,7 +3960,7 @@ export function createSidecarApp(options: CreateSidecarAppOptions) {
             generatedQuestionSet: fallbackQuestionSet,
             validationIssues: parsed.issues,
             reason:
-              "Codex returned a question-generation artifact that did not match the generated question JSON schema, so Solo Superman used a conservative open-text fallback question set."
+              "Codex returned a question-generation artifact that did not match the generated question JSON schema, so Solo Superman used the basic planning fallback question set."
           } as const;
         }
 

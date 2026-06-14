@@ -20,8 +20,9 @@ import type {
   StateVersion
 } from "@solo-superman/contracts";
 import type { SidecarClient } from "../../../shared/api/sidecar-client";
+import { SidecarClientError } from "../../../shared/api/sidecar-client";
 import { DECISION_QUEUE_COPY } from "./decision-queue-copy";
-import { emptyProjectionState } from "./decision-queue-shell-model";
+import { displayError, emptyProjectionState, isIdempotencyConflictError } from "./decision-queue-shell-model";
 import {
   boundedQuestionBatchSize,
   nextQuestionBatchIdsForActivation,
@@ -29,6 +30,20 @@ import {
   queueShouldAutoActivateNextQuestionBatch,
   useDecisionQueueSessionActions
 } from "./useDecisionQueueSessionActions";
+
+describe("decision queue error display", () => {
+  it("hides raw idempotency conflict codes from users", () => {
+    const error = new SidecarClientError({
+      code: "IDEMPOTENCY_CONFLICT",
+      message: "SubmitAnswer conflicts with an existing persisted effect task."
+    }, 409);
+
+    expect(isIdempotencyConflictError(error)).toBe(true);
+    expect(displayError(error)).toContain("already handled");
+    expect(displayError(error)).not.toContain("IDEMPOTENCY_CONFLICT");
+    expect(displayError(error)).not.toContain("persisted effect");
+  });
+});
 
 async function waitForCondition(condition: () => boolean) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -847,6 +862,115 @@ describe("useDecisionQueueSessionActions", () => {
     expect(backgroundResearchStarted).toHaveBeenCalledTimes(1);
     expect(setIsBusy).toHaveBeenNthCalledWith(1, true);
     expect(setIsBusy).toHaveBeenLastCalledWith(false);
+  });
+
+  it("refreshes projections and hides raw idempotency conflicts when submitting an answer", async () => {
+    const projectId = "proj_answer_idempotency" as ProjectId;
+    const sessionId = "sess_answer_idempotency" as SessionId;
+    const queueItemId = "queue_answer_idempotency" as QueueItemId;
+    const queue: DecisionQueueProjection = {
+      kind: "DecisionQueueProjection",
+      version: 2 as ProjectionVersion,
+      active: [
+        {
+          queueItemId,
+          title: "Answerable question",
+          state: "active",
+          cardType: "question"
+        }
+      ],
+      next: [],
+      blocked: [],
+      deferred: []
+    };
+    const error = new SidecarClientError({
+      code: "IDEMPOTENCY_CONFLICT",
+      message: "SubmitAnswer conflicts with an existing persisted effect task."
+    }, 409);
+    const submitAnswer = vi.fn(async () => {
+      throw error;
+    });
+    const refreshProjections = vi.fn(async () => undefined);
+    const setWorkflowError = vi.fn();
+    const setAnswerDrafts = vi.fn();
+    let actions: ReturnType<typeof useDecisionQueueSessionActions> | undefined;
+
+    function Harness() {
+      actions = useDecisionQueueSessionActions({
+        answerDrafts: {
+          [queueItemId]: "This answer was already processed."
+        },
+        appendCommand: vi.fn(),
+        businessCriticIntensity: "balanced",
+        businessCriticIntensityChangeReason: "",
+        chatGptLoginAcknowledged: true,
+        codexLoginAuthenticated: true,
+        client: {
+          submitAnswer
+        } as unknown as SidecarClient,
+        connectionStatus: "connected",
+        copy: DECISION_QUEUE_COPY.en,
+        idea: "Idempotent answer flow",
+        initialResearchAutomationPermission: "allow_codex",
+        initialBusinessCriticIntensityReason: "",
+        intake: "Recover without leaking internal errors.",
+        isBusy: false,
+        knownRiskDrafts: {},
+        projectPurposeMode: "business",
+        projections: {
+          ...emptyProjectionState(),
+          session: {
+            kind: "SessionShellProjection",
+            projectId,
+            sessionId,
+            version: 1 as ProjectionVersion,
+            phase: "spec",
+            projectPurposeMode: "business",
+            projectPurposeModeSelectionStatus: "confirmed",
+            projectPurposeModeLabel: "Business validation",
+            projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+          },
+          queue
+        },
+        purposeModeChangeReason: "",
+        questionBatchSize: 5,
+        refetchQueueAfterSseNotification: vi.fn(async () => undefined),
+        refreshProjections,
+        researchDrafts: {},
+        setAnswerDrafts,
+        setBusinessCriticIntensity: vi.fn(),
+        setBusinessCriticIntensityChangeReason: vi.fn(),
+        setCommandLog: vi.fn(),
+        setIsBusy: vi.fn(),
+        setKnownRiskDrafts: vi.fn(),
+        setPhase15bReadiness: vi.fn(),
+        setProjectPurposeMode: vi.fn(),
+        setProjections: vi.fn(),
+        setPurposeModeChangeReason: vi.fn(),
+        setResearchDrafts: vi.fn(),
+        setResearchOperations: vi.fn(),
+        setStatuses: vi.fn(),
+        setWorkflowError
+      });
+
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Harness));
+
+    if (!actions) {
+      throw new Error("Session actions were not captured.");
+    }
+
+    await actions.submitAnswer(queueItemId);
+
+    expect(refreshProjections).toHaveBeenCalledWith(projectId, sessionId);
+    expect(setWorkflowError).toHaveBeenLastCalledWith(
+      DECISION_QUEUE_COPY.en.questions.sessionActionErrors.answerIdempotencyConflictRecovered
+    );
+    expect(setWorkflowError.mock.calls.flat().join("\n")).not.toContain("IDEMPOTENCY_CONFLICT");
+    expect(setWorkflowError.mock.calls.flat().join("\n")).not.toContain("persisted effect");
+    expect(setAnswerDrafts).not.toHaveBeenCalled();
   });
 
   it("automatically activates the next question batch after the current active question debt is answered", async () => {
