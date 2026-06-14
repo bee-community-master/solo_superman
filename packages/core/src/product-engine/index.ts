@@ -4776,8 +4776,10 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
         mode: confirmedMode
       })
     );
+  const projectionVersion = projectionVersionFor(state);
+  const initialResearchTaskIds = initialResearchTasks.map((task) => task.researchTaskId);
   const researchProjection = initialResearchTasks.reduce(
-    (projection, researchTask) => addResearchTaskToProjection(projection, researchTask, projectionVersionFor(state)),
+    (projection, researchTask) => addResearchTaskToProjection(projection, researchTask, projectionVersion),
     state.researchState
   );
   const businessCriticPressureValidationIssues = confirmedMode === "business"
@@ -4811,7 +4813,7 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
     questionGeneration,
     ...(initialResearchTasks.length
       ? {
-          initialResearchTaskIds: initialResearchTasks.map((task) => task.researchTaskId),
+          initialResearchTaskIds,
           initialResearchTasks,
           researchProjection
         }
@@ -4834,9 +4836,7 @@ function reduceAnalyzeAmbiguity(command: ProductEngineCommand, state: ProductEng
           issueCount: issues.length,
           issues,
           questionGeneration,
-          ...(initialResearchTasks.length
-            ? { initialResearchTaskIds: initialResearchTasks.map((task) => task.researchTaskId) }
-            : {})
+          ...(initialResearchTasks.length ? { initialResearchTaskIds } : {})
         }
       }
     ],

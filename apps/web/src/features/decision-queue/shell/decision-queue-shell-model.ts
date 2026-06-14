@@ -173,7 +173,7 @@ export function isIdempotencyConflictError(error: unknown) {
 
 export function displayError(error: unknown) {
   if (error instanceof SidecarClientError) {
-    if (error.apiError.code === "IDEMPOTENCY_CONFLICT") {
+    if (isIdempotencyConflictError(error)) {
       return "The same action was already handled. Refresh the latest question and research state before continuing.";
     }
 

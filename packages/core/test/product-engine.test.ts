@@ -14,7 +14,6 @@ import {
   type ProjectionVersion,
   type ProjectId,
   type QueueItemId,
-  type ResearchTaskId,
   type SessionId,
   type StateVersion
 } from "@solo-superman/contracts";
@@ -80,6 +79,48 @@ function generatedOption(id: string, label: string) {
     primaryDetail: `${label} 기준으로 첫 판단을 좁힙니다.`,
     secondaryDetail: "다른 후보와 반례는 계속 확인합니다."
   };
+}
+
+function answerLinkedResearchTask(
+  state: ProductEngineStateSnapshot,
+  queueItemId: QueueItemId
+) {
+  return state.researchState.tasks.find(
+    (task) => task.sourceQueueItemId === queueItemId && typeof task.sourceAnswerRef === "string"
+  );
+}
+
+function requiredAnswerLinkedResearchTask(
+  state: ProductEngineStateSnapshot,
+  queueItemId: QueueItemId
+) {
+  const task = answerLinkedResearchTask(state, queueItemId);
+
+  if (!task) {
+    throw new Error(`Expected an answer-linked research task for ${queueItemId}.`);
+  }
+
+  return task;
+}
+
+function requiredResearchTask(
+  state: ProductEngineStateSnapshot,
+  researchTaskId: ProductEngineStateSnapshot["researchState"]["taskIds"][number]
+) {
+  const task = state.researchState.tasks.find((candidate) => candidate.researchTaskId === researchTaskId);
+
+  if (!task) {
+    throw new Error(`Expected research task ${researchTaskId}.`);
+  }
+
+  return task;
+}
+
+function answerLinkedResearchTaskObjective(
+  reduction: ReturnType<typeof reduceProductEngineCommand>,
+  queueItemId: QueueItemId
+) {
+  return requiredAnswerLinkedResearchTask(reduction.nextState, queueItemId).objective;
 }
 
 function generatedQuestion(input: {
@@ -2896,44 +2937,41 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(JSON.stringify(sensitiveFollowUpAnswer.immediateProjection)).not.toContain("sk-secret-answer-value");
     expect(answer.accepted).toBe(true);
     expect(broaderResearchAnswer.accepted).toBe(true);
-    const broaderResearchTask = broaderResearchAnswer.nextState.researchState.tasks.find((task) =>
-      task.sourceQueueItemId === answeredQueueItemId && task.sourceAnswerRef
-    );
+    const broaderResearchTask = requiredAnswerLinkedResearchTask(broaderResearchAnswer.nextState, answeredQueueItemId);
 
-    expect(broaderResearchTask?.objective).toContain("더 넓게 살펴봅니다");
-    expect(broaderResearchTask?.objective).toContain("사용자 미래");
+    expect(broaderResearchTask.objective).toContain("더 넓게 살펴봅니다");
+    expect(broaderResearchTask.objective).toContain("사용자 미래");
     expect(broaderResearchOptionValueAnswer.accepted).toBe(true);
-    const broaderResearchOptionValueTask = broaderResearchOptionValueAnswer.nextState.researchState.tasks.find((task) =>
-      task.sourceQueueItemId === answeredQueueItemId && task.sourceAnswerRef
+    const broaderResearchOptionValueTask = requiredAnswerLinkedResearchTask(
+      broaderResearchOptionValueAnswer.nextState,
+      answeredQueueItemId
     );
 
-    expect(broaderResearchOptionValueTask?.objective).toContain("더 넓게 살펴봅니다");
-    expect(broaderResearchOptionValueTask?.objective).toContain("사용자 미래");
+    expect(broaderResearchOptionValueTask.objective).toContain("더 넓게 살펴봅니다");
+    expect(broaderResearchOptionValueTask.objective).toContain("사용자 미래");
     expect(broaderCounterEvidenceOptionValueAnswer.accepted).toBe(true);
-    const broaderCounterEvidenceOptionValueTask = broaderCounterEvidenceOptionValueAnswer.nextState.researchState.tasks.find((task) =>
-      task.sourceQueueItemId === answeredQueueItemId && task.sourceAnswerRef
+    const broaderCounterEvidenceOptionValueTask = requiredAnswerLinkedResearchTask(
+      broaderCounterEvidenceOptionValueAnswer.nextState,
+      answeredQueueItemId
     );
-    expect(broaderCounterEvidenceOptionValueTask?.objective).toContain("더 넓게 살펴봅니다");
-    expect(broaderCounterEvidenceOptionValueTask?.objective).toContain("사용자 미래");
+    expect(broaderCounterEvidenceOptionValueTask.objective).toContain("더 넓게 살펴봅니다");
+    expect(broaderCounterEvidenceOptionValueTask.objective).toContain("사용자 미래");
     expect(broaderNaturalLanguageAnswer.accepted).toBe(true);
-    const broaderNaturalLanguageTask = broaderNaturalLanguageAnswer.nextState.researchState.tasks.find((task) =>
-      task.sourceQueueItemId === answeredQueueItemId && task.sourceAnswerRef
+    const broaderNaturalLanguageTask = requiredAnswerLinkedResearchTask(
+      broaderNaturalLanguageAnswer.nextState,
+      answeredQueueItemId
     );
-    expect(broaderNaturalLanguageTask?.objective).toContain("더 넓게 살펴봅니다");
-    expect(broaderNaturalLanguageTask?.objective).toContain("사용자 미래");
-    const answerResearchTaskObjective = (reduction: ReturnType<typeof reduceProductEngineCommand>) =>
-      reduction.nextState.researchState.tasks.find((task) =>
-        task.sourceQueueItemId === answeredQueueItemId && task.sourceAnswerRef
-      )?.objective;
+    expect(broaderNaturalLanguageTask.objective).toContain("더 넓게 살펴봅니다");
+    expect(broaderNaturalLanguageTask.objective).toContain("사용자 미래");
     const expectBroaderResearchObjective = (reduction: ReturnType<typeof reduceProductEngineCommand>) => {
       expect(reduction.accepted).toBe(true);
-      expect(answerResearchTaskObjective(reduction)).toContain("더 넓게 살펴봅니다");
-      expect(answerResearchTaskObjective(reduction)).toContain("사용자 미래");
+      expect(answerLinkedResearchTaskObjective(reduction, answeredQueueItemId)).toContain("더 넓게 살펴봅니다");
+      expect(answerLinkedResearchTaskObjective(reduction, answeredQueueItemId)).toContain("사용자 미래");
     };
     const expectNarrowResearchObjective = (reduction: ReturnType<typeof reduceProductEngineCommand>) => {
       expect(reduction.accepted).toBe(true);
-      expect(answerResearchTaskObjective(reduction)).toContain("다음 기획 판단");
-      expect(answerResearchTaskObjective(reduction)).not.toContain("더 넓게 살펴봅니다");
+      expect(answerLinkedResearchTaskObjective(reduction, answeredQueueItemId)).toContain("다음 기획 판단");
+      expect(answerLinkedResearchTaskObjective(reduction, answeredQueueItemId)).not.toContain("더 넓게 살펴봅니다");
     };
 
     expectBroaderResearchObjective(broaderEnglishSourceAnswer);
@@ -3155,10 +3193,10 @@ describe("PR-04 ProductEngine reducer", () => {
     if (!firstResearchTaskId) {
       throw new Error("Expected the first answer to plan a research task.");
     }
-    expect(stateAfterFirstAnswer.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)).toMatchObject({
+    expect(requiredResearchTask(stateAfterFirstAnswer, firstResearchTaskId)).toMatchObject({
       objective: expect.stringContaining("짧은 공개 검색")
     });
-    expect(stateAfterFirstAnswer.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.objective)
+    expect(requiredResearchTask(stateAfterFirstAnswer, firstResearchTaskId).objective)
       .not.toContain("답변이 조금 더 쌓이면");
 
     const imported = reduceProductEngineCommand(
@@ -3171,9 +3209,7 @@ describe("PR-04 ProductEngine reducer", () => {
     );
 
     expect(imported.accepted).toBe(true);
-    expect(imported.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
-      "handoff_ready"
-    );
+    expect(requiredResearchTask(imported.nextState, firstResearchTaskId).status).toBe("handoff_ready");
     const stateAfterImport = {
       ...stateAfterFirstAnswer,
       researchState: imported.nextState.researchState,
@@ -3192,9 +3228,7 @@ describe("PR-04 ProductEngine reducer", () => {
     expect(secondAnswer.nextState.researchState.taskIds).toHaveLength(2);
     expect(secondAnswer.nextState.researchState.taskIds[0]).toBe(firstResearchTaskId);
     expect(secondAnswer.nextState.researchState.taskIds[1]).not.toBe(firstResearchTaskId);
-    expect(secondAnswer.nextState.researchState.tasks.find((task) => task.researchTaskId === firstResearchTaskId)?.status).toBe(
-      "handoff_ready"
-    );
+    expect(requiredResearchTask(secondAnswer.nextState, firstResearchTaskId).status).toBe("handoff_ready");
     expect(secondAnswer.nextState.researchState.results).toHaveLength(1);
     expect(secondAnswer.nextState.researchState.results[0]?.researchTaskId).toBe(firstResearchTaskId);
   });
@@ -4590,11 +4624,13 @@ describe("PR-04 ProductEngine reducer", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];
 
-    expect(activeItem).toBeDefined();
+    if (!activeItem) {
+      throw new Error("Expected an active question card.");
+    }
 
     const answer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
-        queueItemId: activeItem?.queueItemId,
+        queueItemId: activeItem.queueItemId,
         answer: "Validate the paid-founder urgency claim through research."
       }, 6),
       state
@@ -4612,9 +4648,7 @@ describe("PR-04 ProductEngine reducer", () => {
         occurredAt: `2026-05-05T00:01:${index + 1}0.000Z`
       }))
     );
-    const researchTaskId = answeredState.researchState.tasks.find((task) =>
-      task.sourceQueueItemId === activeItem?.queueItemId && task.sourceAnswerRef
-    )?.researchTaskId as ResearchTaskId;
+    const researchTaskId = requiredAnswerLinkedResearchTask(answeredState, activeItem.queueItemId).researchTaskId;
     const reviewQueueItemId = `research_review_${researchTaskId}`;
     const imported = reduceProductEngineCommand(
       command("ImportResearchResult", 7, {
@@ -4686,11 +4720,13 @@ describe("PR-04 ProductEngine reducer", () => {
     const { state, eventDrafts } = stateWithActiveQuestionBatch();
     const activeItem = state.queueProjection.active[0];
 
-    expect(activeItem).toBeDefined();
+    if (!activeItem) {
+      throw new Error("Expected an active question card.");
+    }
 
     const answer = reduceProductEngineCommand(
       command("SubmitAnswer", 5, {
-        queueItemId: activeItem?.queueItemId,
+        queueItemId: activeItem.queueItemId,
         answer: "This answer has only positive evidence so far.",
         evidenceBalanceHint: "pro_only"
       }, 6),
@@ -4710,10 +4746,13 @@ describe("PR-04 ProductEngine reducer", () => {
       }))
     );
     const blockedReviewItem = answeredState.queueProjection.blocked.find((item) =>
-      item.cardType === "research_review" && item.title.includes(activeItem?.title ?? "")
+      item.cardType === "research_review" && item.title.includes(activeItem.title)
     );
-    const researchTaskId = blockedReviewItem?.researchTaskId as ResearchTaskId;
-    const reviewQueueItemId = blockedReviewItem?.queueItemId;
+    if (!blockedReviewItem?.researchTaskId) {
+      throw new Error("Expected the answer to create a blocked research review item.");
+    }
+    const researchTaskId = blockedReviewItem.researchTaskId;
+    const reviewQueueItemId = blockedReviewItem.queueItemId;
 
     expect(answeredState.queueProjection.blocked).toEqual(
       expect.arrayContaining([
