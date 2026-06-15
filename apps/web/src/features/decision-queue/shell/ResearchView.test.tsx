@@ -617,7 +617,7 @@ describe("ResearchView", () => {
           researchTaskId,
           cardType: "research_review",
           title: "Review current alternatives",
-          state: "needs_review",
+          state: "ready_for_review",
           impact: "high",
           availableOutcomes: ["risk_accepted", "research_insufficient"],
           blocksPlanning: true,
