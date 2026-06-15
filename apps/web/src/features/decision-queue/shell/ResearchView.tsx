@@ -794,17 +794,14 @@ export function ResearchView({ controller }: ResearchViewProps) {
           <div className="research-list">
             {research.tasks.map((task) => {
               const card = research.reviewCards.find((item) => item.researchTaskId === task.researchTaskId);
-              const pendingImportedResult =
-                task.status === "handoff_ready"
-                  ? latestResearchResultForTask(research.results, task.researchTaskId)
-                  : undefined;
+              const latestResult = latestResearchResultForTask(research.results, task.researchTaskId);
+              const pendingImportedResult = task.status === "handoff_ready" ? latestResult : undefined;
               const routingReadiness = researchRoutingReadinessForTask({ task });
               const canImportResearch =
                 routingReadiness !== "needs_more_clarification" &&
                 (task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true);
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const latestRun = latestResearchRunForTask(researchOperations.runs?.runs ?? [], task.researchTaskId);
-              const latestResult = latestResearchResultForTask(research.results, task.researchTaskId);
               const latestMatrix = latestEvidenceMatrixForTask(research.evidenceMatrices, task.researchTaskId);
               const latestPack = latestEvidencePackForTask(evidencePacks, task.researchTaskId);
               const runStatusLabel = latestRun
