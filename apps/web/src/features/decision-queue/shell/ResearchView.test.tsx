@@ -536,6 +536,62 @@ describe("ResearchView", () => {
     );
   });
 
+  it("suggests MVP narrowing only when alternatives are found in evidence, not just in the search objective", () => {
+    const researchTaskId = "research_task_alternative_scan" as ResearchTaskId;
+    const baseResearch = {
+      ...researchProjection(),
+      taskIds: [researchTaskId],
+      tasks: [
+        {
+          researchTaskId,
+          sessionId: "sess_research_batch" as SessionId,
+          objective: "Check current alternatives before choosing the first MVP slice.",
+          routeOutcome: "research_needed",
+          impact: "high",
+          status: "handoff_ready",
+          createdAt: "2026-05-22T00:00:00.000Z"
+        }
+      ],
+      results: [
+        {
+          researchResultId: "research_result_alternative_scan" as ResearchResultId,
+          researchTaskId,
+          sourceTitle: "Founder interview notes",
+          sourceReliability: "medium",
+          resultSummary: "Users want a faster planning recap after answering product questions.",
+          implicationScope: "Decide whether the next MVP slice should focus on answer recap speed.",
+          importedAt: "2026-05-22T00:05:00.000Z"
+        }
+      ]
+    } satisfies ResearchEvidenceProjection;
+    const genericScanMarkup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: baseResearch
+      }
+    });
+
+    expect(genericScanMarkup).not.toContain("Where the MVP should narrow");
+
+    const foundAlternativeMarkup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...baseResearch,
+          results: [
+            {
+              ...baseResearch.results[0]!,
+              resultSummary:
+                "Users compare this with a spreadsheet alternative, but the spreadsheet does not explain what to decide next."
+            }
+          ]
+        }
+      }
+    });
+
+    expect(foundAlternativeMarkup).toContain("Where the MVP should narrow");
+  });
+
   it("renders allowlist concurrency controls for manual and answer-triggered research starts", () => {
     const markup = renderResearchView({
       researchOperations: {

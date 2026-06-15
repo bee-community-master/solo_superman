@@ -527,7 +527,6 @@ function ResearchDecisionSummary({
     card?.terminalOutcome === "research_insufficient" ||
     matrix?.decisionBlocked === true;
   const competitorFound = hasAlternativeOrCompetitorSignal([
-    task.objective,
     result?.resultSummary,
     result?.claim,
     result?.decisionContext,
