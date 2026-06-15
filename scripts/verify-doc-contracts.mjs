@@ -724,15 +724,23 @@ function checkReleaseReadinessDocsNoStaleSignedPackageBlockers() {
   const releaseSummaryDocs = {
     "README.md": readText("README.md"),
     "README.en.md": readText("README.en.md"),
+    "docs/troubleshooting_KO.md": readText("docs/troubleshooting_KO.md"),
+    "docs/troubleshooting_EN.md": readText("docs/troubleshooting_EN.md"),
+    "omx_wiki/README.md": readText("omx_wiki/README.md"),
     "omx_wiki/release-handoff.md": readText("omx_wiki/release-handoff.md")
   };
 
   rejectSnippets("release docs must not describe signed packages as default broad-release blockers", releaseSummaryDocs, [
     "signed package, packaged updater rollback, and Windows real-device evidence are ready",
     "signed package, packaged updater rollback, Windows 실기기 evidence가 준비되기 전까지",
+    "signed package, packaged updater rollback, and Windows real-device gates remain explicitly blocked before general release",
+    "signed package, packaged updater rollback, Windows 실기기 검증 gate가 general release 전까지 명시적으로 blocked",
+    "signing/updater evidence",
     "General release remains blocked until the external evidence issues are completed",
     "General release remains blocked until #259/#266/#267",
-    "#259/#266/#267에 필요한 blocked gate"
+    "#259/#266/#267에 필요한 blocked gate",
+    "#259/#266/#267 issue-specific handoff",
+    "remaining #259/#266/#267 evidence handoff path"
   ]);
 
   requireSnippets("README.md missing optional signed-package release boundary", releaseSummaryDocs["README.md"], [
@@ -751,6 +759,23 @@ function checkReleaseReadinessDocsNoStaleSignedPackageBlockers() {
     "default external evidence issues",
     "#266 signed package release evidence is optional hardening",
     "--include-signed-package"
+  ]);
+
+  requireSnippets("troubleshooting_KO.md missing optional signed-package release boundary", releaseSummaryDocs["docs/troubleshooting_KO.md"], [
+    "packaged updater rollback과 Windows 실기기 검증 gate",
+    "#259 Windows evidence와 #267 packaged updater rollback evidence",
+    "Signed package evidence는 direct/non-store 배포의 optional hardening"
+  ]);
+
+  requireSnippets("troubleshooting_EN.md missing optional signed-package release boundary", releaseSummaryDocs["docs/troubleshooting_EN.md"], [
+    "packaged updater rollback and Windows real-device gates",
+    "#259 Windows evidence and #267 packaged updater rollback evidence",
+    "Signed package evidence remains optional hardening"
+  ]);
+
+  requireSnippets("wiki README missing optional signed-package release boundary", releaseSummaryDocs["omx_wiki/README.md"], [
+    "default #259/#267 release handoff path",
+    "optional #266 signed-package hardening"
   ]);
 }
 
