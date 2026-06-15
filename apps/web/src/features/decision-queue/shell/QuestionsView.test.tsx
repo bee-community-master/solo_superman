@@ -175,7 +175,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Up to date");
-    expect(markup).toContain("Queue");
+    expect(markup).toContain("Questions");
     expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
@@ -814,12 +814,13 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Active now");
     expect(markup).toContain("Upcoming next");
     expect(markup).toContain("Answered");
-    expect(markup).toContain("Follow-ups");
+    expect(markup).toContain("Developer diagnostics");
+    expect(markup).toContain("Research follow-up questions");
     expect(markup).toContain("Open follow-ups");
     expect(markup).toContain("Topics covered");
     expect(markup).toContain("Open topics");
-    expect(markup).toContain("Follow-up budget");
-    expect(markup).toContain("Blocked");
+    expect(markup).toContain("Advanced follow-up capacity");
+    expect(markup).toContain("Needs attention");
     expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
@@ -915,7 +916,12 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Planning update");
+    expect(markup).toContain("Decided");
     expect(markup).toContain("1 answer now shape “Founder planning assistant”.");
+    expect(markup).toContain("Excluded");
+    expect(markup).toContain("No scope has been excluded yet.");
+    expect(markup).toContain("Next to check");
+    expect(markup).toContain("Why this question is next");
     expect(markup).toContain("Next detail to decide: Which first feature should the founder see after answering?");
     expect(markup).not.toContain("Next detail to decide: Review returned research evidence");
     expect(markup).toContain("Research to run next: Quickly check the first customer candidate and current alternatives.");

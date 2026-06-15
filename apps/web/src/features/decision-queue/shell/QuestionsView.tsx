@@ -74,18 +74,42 @@ function planningDetailProgressItems(input: {
     ...(projections.queue?.next ?? [])
   ].find(queueItemIsQuestionDebt);
   const planningProgressNextQuestion = compactPlanningProgressText(planningProgressNextQuestionItem?.title, language);
+  const planningProgressNextQuestionReason = compactPlanningProgressText(
+    planningProgressNextQuestionItem?.decisionItUnlocks ?? planningProgressNextQuestionItem?.whyItMatters,
+    language
+  );
   const planningProgressResearch = compactPlanningProgressText(
     (projections.research?.tasks.find((task) => task.status === "planned") ?? projections.research?.tasks[0])?.objective,
     language
   );
 
   return [
-    copy.questions.planningDetailProgressAnswered(answeredQuestionCount, planningProgressTitle),
-    planningProgressNextQuestion ? copy.questions.planningDetailProgressNextQuestion(planningProgressNextQuestion) : undefined,
-    planningProgressResearch
-      ? copy.questions.planningDetailProgressResearch(planningProgressResearch)
-      : copy.questions.planningDetailProgressNoResearch
-  ].filter((item): item is string => Boolean(item));
+    {
+      label: copy.questions.planningDetailDecided,
+      value: copy.questions.planningDetailProgressAnswered(answeredQuestionCount, planningProgressTitle)
+    },
+    {
+      label: copy.questions.planningDetailExcluded,
+      value: copy.questions.planningDetailNoExcluded
+    },
+    {
+      label: copy.questions.planningDetailNextToCheck,
+      value: planningProgressResearch
+        ? copy.questions.planningDetailProgressResearch(planningProgressResearch)
+        : copy.questions.planningDetailProgressNoResearch
+    },
+    planningProgressNextQuestion
+      ? {
+          label: copy.questions.planningDetailNextQuestionReason,
+          value: planningProgressNextQuestionReason
+            ? copy.questions.planningDetailProgressNextQuestionReason(
+                planningProgressNextQuestion,
+                planningProgressNextQuestionReason
+              )
+            : copy.questions.planningDetailProgressNextQuestion(planningProgressNextQuestion)
+        }
+      : undefined
+  ].filter((item): item is { readonly label: string; readonly value: string } => Boolean(item));
 }
 
 const EMPHASIS_LABELS_BY_LANGUAGE: Record<AppLanguage, readonly string[]> = {
@@ -431,7 +455,7 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
       <section className="panel queue-panel">
         <div className="panel-heading">
           <h2>{copy.questions.queue}</h2>
-          <span>{copy.questions.queueRecoveryStatusLabels[queueRecovery.status]} · v{projections.queue?.version ?? 0}</span>
+          <span>{copy.questions.queueRecoveryStatusLabels[queueRecovery.status]}</span>
         </div>
         <div className="card-actions panel-actions">
           <button type="button" disabled={isBusy || !projections.session} onClick={() => void refreshQuestionList()}>
@@ -475,11 +499,19 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
           <strong>{copy.questions.questionLoopNextActionTitle}</strong>
           <p>{nextQuestionLoopAction}</p>
         </section>
-        <div className="queue-recovery">
-          {queueRecoveryLabels.map((label, index) =>
-            index === 0 ? <p key={label}>{label}</p> : <small key={label}>{label}</small>
-          )}
-        </div>
+        {planningProgressItems.length ? (
+          <section className="planning-detail-progress" aria-label={copy.questions.planningDetailProgressTitle}>
+            <strong>{copy.questions.planningDetailProgressTitle}</strong>
+            <dl className="research-evidence-grid">
+              {planningProgressItems.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
         <section className="question-progress" aria-label={copy.questions.questionProgressTitle}>
           <div>
             <h3>{copy.questions.questionProgressTitle}</h3>
@@ -520,14 +552,6 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dd>{questionProgress.answeredQuestionCount}</dd>
             </div>
             <div>
-              <dt>{copy.questions.questionProgressFollowUps}</dt>
-              <dd>{questionProgress.followUpQuestionCount}</dd>
-            </div>
-            <div>
-              <dt>{copy.questions.questionProgressOpenFollowUps}</dt>
-              <dd>{questionProgress.followUpOpenQuestionCount}</dd>
-            </div>
-            <div>
               <dt>{copy.questions.questionProgressTopics}</dt>
               <dd>{questionProgress.topicCoverageCount}</dd>
             </div>
@@ -536,29 +560,35 @@ export function QuestionsView({ controller }: QuestionsViewProps) {
               <dd>{questionProgress.openTopicCoverageCount}</dd>
             </div>
             <div>
-              <dt>{copy.questions.questionProgressFollowUpBudget}</dt>
-              <dd>{questionProgress.followUpBudgetRemainingCount}</dd>
-            </div>
-            <div>
               <dt>{copy.questions.questionProgressBlocked}</dt>
               <dd>{questionProgress.blockedQuestionCount}</dd>
+            </div>
+          </dl>
+        </section>
+        <details className="queue-recovery">
+          <summary>{copy.questions.queueDiagnosticsTitle}</summary>
+          {queueRecoveryLabels.map((label, index) =>
+            index === 0 ? <p key={label}>{label}</p> : <small key={label}>{label}</small>
+          )}
+          <dl className="question-progress-metrics">
+            <div>
+              <dt>{copy.questions.questionProgressFollowUps}</dt>
+              <dd>{questionProgress.followUpQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressOpenFollowUps}</dt>
+              <dd>{questionProgress.followUpOpenQuestionCount}</dd>
+            </div>
+            <div>
+              <dt>{copy.questions.questionProgressFollowUpBudget}</dt>
+              <dd>{questionProgress.followUpBudgetRemainingCount}</dd>
             </div>
             <div>
               <dt>{copy.questions.questionProgressBacklog}</dt>
               <dd>{questionProgress.backlogQuestionCount}</dd>
             </div>
           </dl>
-        </section>
-        {planningProgressItems.length ? (
-          <section className="planning-detail-progress" aria-label={copy.questions.planningDetailProgressTitle}>
-            <strong>{copy.questions.planningDetailProgressTitle}</strong>
-            <ul>
-              {planningProgressItems.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        </details>
         {questionFatigue.shouldShow ? (
           <section
             className={`question-fatigue-checkpoint level-${questionFatigue.level}`}

@@ -50,6 +50,22 @@ function latestResearchResultForTask(
   return undefined;
 }
 
+function latestEvidenceMatrixForTask(
+  matrices: readonly EvidenceMatrixProjection[],
+  researchTaskId: ResearchTaskProjection["researchTaskId"]
+) {
+  return [...matrices]
+    .filter((matrix) => matrix.researchTaskId === researchTaskId)
+    .sort((left, right) => right.synthesisVersion - left.synthesisVersion)[0];
+}
+
+function latestEvidencePackForTask(
+  packs: readonly DecisionEvidencePackProjection[],
+  researchTaskId: ResearchTaskProjection["researchTaskId"]
+) {
+  return [...packs].filter((pack) => pack.researchTaskId === researchTaskId).at(-1);
+}
+
 function researchRunTimestamp(run: ResearchRunControlProjection["runs"][number]) {
   const updatedAt = Date.parse(run.updatedAt);
 
@@ -457,6 +473,117 @@ function ResearchInsufficientSummary({
   );
 }
 
+function evidenceText(items: readonly EvidenceItemProjection[], language: AppLanguage, fallback: string) {
+  const summaries = uniqueTextItems(items.map((item) => compactUserFacingText(item.summary, language)).filter(Boolean));
+
+  return summaries.length ? summaries.join(" / ") : fallback;
+}
+
+function hasAlternativeOrCompetitorSignal(values: readonly (string | undefined)[]) {
+  return values.some((value) =>
+    /(?:대안|경쟁|경쟁사|대체재|기존\s*제품|alternative|competitor|competing|substitute|既存|代替|競合)/iu.test(value ?? "")
+  );
+}
+
+function ResearchDecisionSummary({
+  card,
+  copy,
+  language,
+  matrix,
+  pack,
+  result,
+  task
+}: {
+  readonly card: ResearchReviewCardProjection | undefined;
+  readonly copy: DecisionQueueCopy;
+  readonly language: AppLanguage;
+  readonly matrix: EvidenceMatrixProjection | undefined;
+  readonly pack: DecisionEvidencePackProjection | undefined;
+  readonly result: ResearchResultProjection | undefined;
+  readonly task: ResearchTaskProjection;
+}) {
+  if (!matrix && !pack && !result && !card) {
+    return null;
+  }
+
+  const evidence = matrix
+    ? evidenceText(matrix.proEvidence, language, compactUserFacingText(result?.resultSummary ?? task.objective, language))
+    : compactUserFacingText(pack?.claim ?? result?.resultSummary ?? task.objective, language);
+  const counterEvidence = matrix
+    ? evidenceText(matrix.conEvidence, language, matrix.missingConEvidenceReason ?? copy.research.decisionUnitNoCounterEvidence)
+    : compactUserFacingText(card?.terminalRationale ?? copy.research.decisionUnitNoCounterEvidence, language);
+  const uncertainty = matrix
+    ? evidenceText(matrix.uncertainties, language, matrix.knownRisk ?? copy.research.decisionUnitNoUncertainty)
+    : compactUserFacingText(result?.limitationNotes ?? pack?.knownRisk ?? copy.research.decisionUnitNoUncertainty, language);
+  const nextDecision = compactUserFacingText(
+    pack?.nextValidationAction ??
+      result?.implicationScope ??
+      copy.research.decisionUnitFallbackNextDecision,
+    language
+  );
+  const isInsufficient =
+    task.status === "research_insufficient" ||
+    card?.state === "research_insufficient" ||
+    card?.terminalOutcome === "research_insufficient" ||
+    matrix?.decisionBlocked === true;
+  const competitorFound = hasAlternativeOrCompetitorSignal([
+    task.objective,
+    result?.resultSummary,
+    result?.claim,
+    result?.decisionContext,
+    result?.implicationScope,
+    pack?.claim,
+    pack?.decisionContext,
+    pack?.knownRisk,
+    matrix?.knownRisk,
+    matrix?.missingConEvidenceReason,
+    ...(matrix?.proEvidence.map((item) => item.summary) ?? []),
+    ...(matrix?.conEvidence.map((item) => item.summary) ?? [])
+  ]);
+
+  return (
+    <aside className="research-decision-summary" aria-label={copy.research.decisionUnitSummaryTitle}>
+      <strong>{copy.research.decisionUnitSummaryTitle}</strong>
+      <dl className="research-evidence-grid">
+        <div>
+          <dt>{copy.research.decisionUnitEvidence}</dt>
+          <dd>{evidence}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.decisionUnitCounterEvidence}</dt>
+          <dd>{counterEvidence}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.decisionUnitUncertainty}</dt>
+          <dd>{uncertainty}</dd>
+        </div>
+        <div>
+          <dt>{copy.research.decisionUnitNextDecision}</dt>
+          <dd>{nextDecision}</dd>
+        </div>
+        {competitorFound ? (
+          <div>
+            <dt>{copy.research.decisionUnitMvpNarrowing}</dt>
+            <dd>{copy.research.decisionUnitMvpNarrowingSuggestion}</dd>
+          </div>
+        ) : null}
+        {isInsufficient ? (
+          <>
+            <div>
+              <dt>{copy.research.decisionUnitMissingEvidence}</dt>
+              <dd>{copy.research.decisionUnitInsufficientMissingEvidence}</dd>
+            </div>
+            <div>
+              <dt>{copy.research.decisionUnitNextSearchOrQuestion}</dt>
+              <dd>{copy.research.decisionUnitInsufficientNextSearch}</dd>
+            </div>
+          </>
+        ) : null}
+      </dl>
+    </aside>
+  );
+}
+
 function VisibleChatGptResearchHandoff({
   copy,
   language,
@@ -669,6 +796,9 @@ export function ResearchView({ controller }: ResearchViewProps) {
                 (task.status === "planned" || card?.recoveryActions.includes("import_manual_result") === true);
               const canStartReadOnlyRun = readyReadOnlyResearchTaskIdSet.has(task.researchTaskId);
               const latestRun = latestResearchRunForTask(researchOperations.runs?.runs ?? [], task.researchTaskId);
+              const latestResult = latestResearchResultForTask(research.results, task.researchTaskId);
+              const latestMatrix = latestEvidenceMatrixForTask(research.evidenceMatrices, task.researchTaskId);
+              const latestPack = latestEvidencePackForTask(evidencePacks, task.researchTaskId);
               const runStatusLabel = latestRun
                 ? phase15aRunStatusLabel(copy.phase15a, latestRun.status)
                 : canStartReadOnlyRun
@@ -756,6 +886,15 @@ export function ResearchView({ controller }: ResearchViewProps) {
                         </ul>
                       </aside>
                     ) : null}
+                    <ResearchDecisionSummary
+                      card={card}
+                      copy={copy}
+                      language={language}
+                      matrix={latestMatrix}
+                      pack={latestPack}
+                      result={latestResult}
+                      task={task}
+                    />
                     {card?.additionalQuestions?.length ? (
                       <aside className="research-additional-questions" aria-label={copy.research.additionalQuestions}>
                         <p>{copy.research.additionalQuestions}</p>
@@ -773,7 +912,7 @@ export function ResearchView({ controller }: ResearchViewProps) {
                       card={card}
                       copy={copy}
                       language={language}
-                      result={latestResearchResultForTask(research.results, task.researchTaskId)}
+                      result={latestResult}
                       task={task}
                     />
                   </div>

@@ -129,7 +129,7 @@ export interface GeneratedInitialQuestionSetInput {
 export const MIN_QUESTION_BATCH_SIZE = 1;
 export const MAX_QUESTION_BATCH_SIZE = 5;
 export const DEFAULT_NEXT_QUESTION_BATCH_SIZE = MIN_QUESTION_BATCH_SIZE;
-export const INITIAL_QUESTION_GENERATION_DECISION_MS = 60_000;
+export const INITIAL_QUESTION_GENERATION_DECISION_MS = 10_000;
 
 const INITIAL_QUESTION_GENERATION_IDLE: InitialQuestionGenerationState = {
   status: "idle",
@@ -362,13 +362,18 @@ export function useDecisionQueueSessionActions({
         return;
       }
 
+      const currentControl = initialQuestionControlRef.current;
+
       clearInitialQuestionGenerationTimers();
+      currentControl?.resolveAction("fallback");
+      currentControl?.abortController.abort();
+      initialQuestionControlRef.current = null;
       setInitialQuestionGeneration({
-        status: "delayed",
+        status: "fallback",
         delayed: true,
-        canUseFallback: true,
-        canRetry: true,
-        canKeepWaiting: true
+        canUseFallback: false,
+        canRetry: false,
+        canKeepWaiting: false
       });
     }, INITIAL_QUESTION_GENERATION_DECISION_MS);
     initialQuestionDelayTimerRef.current = delayTimer;
@@ -498,19 +503,16 @@ export function useDecisionQueueSessionActions({
         clearInitialQuestionGenerationTimers();
         if (initialQuestionControlRef.current?.attemptId === attemptId) {
           setInitialQuestionGeneration({
-            status: "delayed",
+            status: "fallback",
             delayed: true,
-            canUseFallback: true,
-            canRetry: true,
-            canKeepWaiting: true
+            canUseFallback: false,
+            canRetry: false,
+            canKeepWaiting: false
           });
-          const action = await actionPromise;
-          if (initialQuestionControlRef.current?.attemptId === attemptId) {
-            initialQuestionControlRef.current = null;
-          }
+          initialQuestionControlRef.current = null;
           clearInitialQuestionGenerationTimers();
 
-          return { kind: "action", action };
+          return { kind: "action", action: "fallback" };
         }
       }
 

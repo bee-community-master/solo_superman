@@ -455,6 +455,58 @@ describe("useDecisionQueueResearchActions", () => {
     expect(props.setWorkflowError).toHaveBeenCalledWith(null);
   });
 
+  it("shows a visible failure when a public-web research start does not create a run card", async () => {
+    const startResearchRun = vi.fn(async () => researchRunCommandResponse(researchRunProjection()));
+    const appendCommandCalls = vi.fn();
+    const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
+      label,
+      response
+    ) => {
+      appendCommandCalls(label, response);
+
+      return response;
+    };
+    const { actions, props } = captureResearchActions({
+      appendCommand,
+      client: {
+        startResearchRun,
+        listResearchRuns: vi.fn(async () => researchRunProjection()),
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId,
+          sessionId,
+          version: 1 as ProjectionVersion,
+          phase: "validation",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: researchEvidenceProjection()
+      },
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection()
+      }
+    });
+
+    await actions.startReadOnlyResearchRun("research_task_visible_chatgpt" as ResearchTaskId);
+
+    expect(startResearchRun).toHaveBeenCalledWith(projectId, expect.objectContaining({
+      researchTaskId: "research_task_visible_chatgpt",
+      allowlistId
+    }));
+    expect(appendCommandCalls).toHaveBeenCalledWith("Start public web research run", expect.any(Object));
+    expect(props.setResearchOperations).toHaveBeenCalledWith(expect.any(Function));
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      DECISION_QUEUE_COPY.en.research.researchActionErrors.startRunNoRunCreated
+    );
+  });
+
   it("blocks manual public-web research starts when the task needs more clarification first", async () => {
     const startResearchRun = vi.fn();
     const { actions, props } = captureResearchActions({

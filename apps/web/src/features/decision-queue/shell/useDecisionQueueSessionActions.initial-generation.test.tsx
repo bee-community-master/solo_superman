@@ -83,7 +83,7 @@ function commandResponse<TProjection>(
 }
 
 describe("useDecisionQueueSessionActions initial live question controls", () => {
-  it("keeps retry status when a delayed retry attempt is told to keep waiting", async () => {
+  it("automatically starts with fallback questions when live generation takes too long", async () => {
     vi.useFakeTimers();
 
     const sessionId = "sess_initial_generation_retry" as SessionId;
@@ -201,32 +201,16 @@ describe("useDecisionQueueSessionActions initial live question controls", () => 
       vi.advanceTimersByTime(INITIAL_QUESTION_GENERATION_DECISION_MS);
     });
     await waitFor(() => {
-      expect(actions?.initialQuestionGeneration.status).toBe("delayed");
-    });
-
-    await act(async () => {
-      actions?.retryInitialQuestionGeneration();
-    });
-    await waitFor(() => {
       expect(generateInitialQuestionSet).toHaveBeenCalledTimes(2);
     });
+    expect(generateInitialQuestionSet.mock.calls[1]?.[0].generationMode).toBe("local_fallback");
+
     await act(async () => {
-      vi.advanceTimersByTime(INITIAL_QUESTION_GENERATION_DECISION_MS);
+      await runPromise;
     });
+
     await waitFor(() => {
-      expect(actions?.initialQuestionGeneration.status).toBe("delayed");
+      expect(actions?.initialQuestionGeneration.status).toBe("idle");
     });
-
-    await act(async () => {
-      actions?.keepWaitingForInitialQuestionGeneration();
-    });
-
-    expect(actions?.initialQuestionGeneration.status).toBe("retrying");
-    expect(actions?.initialQuestionGeneration.countdownSeconds).toBe(60);
-
-    await act(async () => {
-      actions?.requestInitialQuestionFallback();
-    });
-    await runPromise;
   });
 });

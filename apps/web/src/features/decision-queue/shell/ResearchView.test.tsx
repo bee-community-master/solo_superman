@@ -515,7 +515,12 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("Result ready to add");
-    expect(markup).toContain("Imported result is being turned into evidence");
+    expect(markup).toContain("Research decision summary");
+    expect(markup).toContain("Evidence");
+    expect(markup).toContain("Counter-evidence");
+    expect(markup).toContain("Uncertainty");
+    expect(markup).toContain("Next decision");
+    expect(markup).toContain("Imported result summary");
     expect(markup).toContain(
       "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared."
     );
