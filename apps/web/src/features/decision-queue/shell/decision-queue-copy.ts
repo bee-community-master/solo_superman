@@ -3574,7 +3574,7 @@ const KO_COPY: typeof EN_COPY = {
     currentWorkflowStep: "현재 단계",
     leftRailAria: "워크플로 내비게이션",
     workflowSteps: "작업 단계",
-    progressAria: "실시간 큐 진행률",
+    progressAria: "실시간 질문 진행률",
     progress: "진행률",
     completeness: "질문 처리율",
     pendingQuestions: "대기 중인 질문",
@@ -3664,14 +3664,14 @@ const KO_COPY: typeof EN_COPY = {
         "같은 답변 또는 리서치 작업이 이미 처리되어 최신 질문과 리서치 상태를 다시 불러왔습니다.",
       activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
       draftedAnswersRequired: "저장한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 저장해야 합니다.",
-      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 큐를 새로고침했습니다.",
+      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 질문 목록을 새로고침했습니다.",
       draftedAnswersPartialFailureRefreshRequired:
-        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
+        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 질문 목록을 새로고침하세요.",
       activeSessionRequiredRefreshQuestions: "질문을 새로고침하려면 활성 세션이 필요합니다.",
       activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
       answerCurrentBeforeLoadNextQuestions:
         "다음 질문 목록을 불러오기 전에 현재 질문에 답하거나 저장해야 합니다.",
-      activeSessionRequiredKnownRisk: "큐 항목을 나중에 확인할 항목으로 남기려면 활성 세션이 필요합니다.",
+      activeSessionRequiredKnownRisk: "이 항목을 나중에 확인할 항목으로 남기려면 활성 세션이 필요합니다.",
       knownRiskNextValidationActionRequired:
         "사업 점검 항목을 나중에 확인하려면 다음 확인 내용을 적어야 합니다.",
       activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
