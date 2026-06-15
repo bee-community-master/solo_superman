@@ -1007,6 +1007,32 @@ describe("ResearchView", () => {
     expect(markup).toContain("limitation:small-sample");
   });
 
+  it("shows the newest evidence pack for each task regardless of array order", () => {
+    const research = researchProjection();
+    const oldPack = evidencePackProjection({
+      evidencePackId: "evidence_pack_old_pricing" as DecisionEvidencePackId,
+      claim: "Older pricing evidence should not be shown.",
+      createdAt: "2026-05-22T00:00:00.000Z"
+    });
+    const newerPack = evidencePackProjection({
+      evidencePackId: "evidence_pack_new_pricing" as DecisionEvidencePackId,
+      claim: "Newest pricing evidence should be shown.",
+      createdAt: "2026-05-22T00:10:00.000Z"
+    });
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...research,
+          evidencePacks: [newerPack, oldPack]
+        }
+      }
+    });
+
+    expect(markup).toContain("<dt>Evidence</dt><dd>Newest pricing evidence should be shown.</dd>");
+    expect(markup).not.toContain("<dt>Evidence</dt><dd>Older pricing evidence should not be shown.</dd>");
+  });
+
   it("renders unsafe evidence pack source URLs as text instead of links", () => {
     const research = researchProjection();
     const markup = renderResearchView({

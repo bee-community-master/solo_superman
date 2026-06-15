@@ -63,7 +63,15 @@ function latestEvidencePackForTask(
   packs: readonly DecisionEvidencePackProjection[],
   researchTaskId: ResearchTaskProjection["researchTaskId"]
 ) {
-  return [...packs].filter((pack) => pack.researchTaskId === researchTaskId).at(-1);
+  return [...packs]
+    .filter((pack) => pack.researchTaskId === researchTaskId)
+    .sort((left, right) => evidencePackTimestamp(right) - evidencePackTimestamp(left))[0];
+}
+
+function evidencePackTimestamp(pack: DecisionEvidencePackProjection) {
+  const createdAt = Date.parse(pack.createdAt);
+
+  return Number.isNaN(createdAt) ? 0 : createdAt;
 }
 
 function researchRunTimestamp(run: ResearchRunControlProjection["runs"][number]) {
