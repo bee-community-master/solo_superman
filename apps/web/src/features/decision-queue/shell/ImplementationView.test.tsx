@@ -291,7 +291,7 @@ describe("ImplementationView", () => {
 
     expect(markup).toContain("Execution records");
     expect(markup).toContain('<button type="button">Refresh runtime status</button>');
-    expect(markup).toContain("Tool unavailable. No background tasks are pending.");
+    expect(markup).toContain("Tool unavailable. No background tasks are waiting to run.");
     expect(markup).toContain('aria-label="Runtime evidence details"');
     expect(markup).toContain("Runtime checked at");
     expect(markup).toContain("2026-05-23T00:00:00.000Z");
@@ -361,7 +361,7 @@ describe("ImplementationView", () => {
     expect(markup).toContain("available");
     expect(markup).toContain("Live Codex question and research preview execution is enabled.");
     expect(markup).not.toContain("Live Codex SDK turn execution is enabled for preview-only artifacts.");
-    expect(markup).toContain("Tool available. No background tasks are pending.");
+    expect(markup).toContain("Tool available. No background tasks are waiting to run.");
   });
 
   it("localizes runtime pending summary copy for Korean users", () => {
@@ -369,7 +369,7 @@ describe("ImplementationView", () => {
       runtimeStatus: codexRuntimeStatus()
     }, "ko");
 
-    expect(markup).toContain("도구 사용 불가. 대기 중인 백그라운드 작업은 없습니다.");
+    expect(markup).toContain("도구 사용 불가. 실행을 기다리는 백그라운드 작업은 없습니다.");
     expect(markup).not.toContain("No background tasks are pending.");
   });
 

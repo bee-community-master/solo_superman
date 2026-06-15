@@ -192,9 +192,9 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.remoteStatusLabels.no_remote).toBe("リモート未接続");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.issueModeLabels.github_ready).toBe("GitHub issues ready");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.open).toBe("열림");
-    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.blocked).toBe("차단됨");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.issueDocumentStatusLabels.blocked).toBe("확인 필요");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerJobStatusLabels.planned).toBe("계획됨");
-    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerJobStatusLabels.blocked).toBe("ブロック中");
+    expect(DECISION_QUEUE_COPY.ja.autoImplementation.workerJobStatusLabels.blocked).toBe("根拠待ち");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.deliveryGateLabels).toContain(
       "기능 PR 코드 리뷰에서 수정할 내용 없음이 2회 연속 확인되기 전에는 merge하지 않습니다."
     );
@@ -284,13 +284,13 @@ describe("decision queue language copy", () => {
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordStageTick).toBe("Record current stage check-in");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.startStage).toBe("Start current stage");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.pauseStage).toBe("Pause current stage");
-    expect(DECISION_QUEUE_COPY.en.autoImplementation.blockStage).toBe("Block current stage");
+    expect(DECISION_QUEUE_COPY.en.autoImplementation.blockStage).toBe("Mark current stage needs attention");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.completeWorkerJob).toBe("Mark task complete from result");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.importWorkerLedger).toBe("Import task result");
     expect(DECISION_QUEUE_COPY.en.autoImplementation.recordPullRequestOpenDryRun).toBe("Preview PR creation");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordPullRequestOpenDryRun).toContain("PR 생성");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.recordStageTick).toContain("현재 단계");
-    expect(DECISION_QUEUE_COPY.ko.autoImplementation.blockStage).toContain("차단");
+    expect(DECISION_QUEUE_COPY.ko.autoImplementation.blockStage).toContain("확인 필요");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.completeWorkerJob).toContain("작업 결과");
     expect(DECISION_QUEUE_COPY.ko.autoImplementation.workerLedgerImport).toBe("로컬 Codex 작업 결과 JSON");
     expect(DECISION_QUEUE_COPY.ja.autoImplementation.runWorkerJob).toBe("ローカルCodex作業を実行");

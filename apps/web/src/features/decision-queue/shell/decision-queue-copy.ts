@@ -75,21 +75,21 @@ function projectNameFromWorkspacePath(workspacePath: string | null) {
 const EN_CODEX_RUNTIME_STATUS_LABELS = {
   available: "available",
   unavailable: "unavailable",
-  blocked: "blocked",
+  blocked: "needs attention",
   unknown: "unknown"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
 const JA_CODEX_RUNTIME_STATUS_LABELS = {
   available: "利用可能",
   unavailable: "利用不可",
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   unknown: "不明"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
 const KO_CODEX_RUNTIME_STATUS_LABELS = {
   available: "사용 가능",
   unavailable: "사용 불가",
-  blocked: "차단됨",
+  blocked: "확인 필요",
   unknown: "알 수 없음"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
@@ -118,21 +118,21 @@ const EN_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "authenticated",
   missing: "login required",
   unknown: "unknown",
-  blocked: "blocked"
+  blocked: "needs attention"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const JA_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "ログイン済み",
   missing: "ログインが必要",
   unknown: "不明",
-  blocked: "ブロック中"
+  blocked: "確認が必要"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const KO_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "로그인됨",
   missing: "로그인 필요",
   unknown: "알 수 없음",
-  blocked: "차단됨"
+  blocked: "확인 필요"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const EN_CODEX_ACCOUNT_TYPE_LABELS = {
@@ -214,19 +214,19 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
 } satisfies Record<AutoImplementationPullRequestMutationAction, string>;
 
 const EN_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "blocked",
+  blocked: "needs attention",
   dry_run_ready: "preview ready",
   applied: "applied"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const JA_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   dry_run_ready: "プレビュー準備済み",
   applied: "適用済み"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const KO_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "차단됨",
+  blocked: "확인 필요",
   dry_run_ready: "미리보기 준비됨",
   applied: "적용됨"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
@@ -248,7 +248,7 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
 
 const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "not requested yet",
-  blocked: "blocked",
+  blocked: "needs attention",
   dry_run_ready: "preview ready",
   approved_ready: "approved and ready",
   applied: "GitHub issues created"
@@ -256,7 +256,7 @@ const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 
 const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "未リクエスト",
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   dry_run_ready: "プレビュー準備済み",
   approved_ready: "承認済み・準備完了",
   applied: "GitHub Issue作成済み"
@@ -264,7 +264,7 @@ const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 
 const KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "아직 요청되지 않음",
-  blocked: "차단됨",
+  blocked: "확인 필요",
   dry_run_ready: "미리보기 준비됨",
   approved_ready: "승인되어 생성 준비됨",
   applied: "GitHub 이슈 생성됨"
@@ -1065,25 +1065,25 @@ const EN_COPY = {
     runtimeEvidence: "Execution records",
     adapterPrefix: "Tool",
     effectSuffix: "item(s)",
-    pendingBackgroundTasks: (count: number) => `${count} background task(s) pending.`,
-    noBackgroundTasks: "No background tasks are pending.",
+    pendingBackgroundTasks: (count: number) => `${count} background task(s) waiting to run.`,
+    noBackgroundTasks: "No background tasks are waiting to run.",
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
     pending: "No activity yet",
     commandStatusLabels: {
-      pending: "pending",
+      pending: "waiting to run",
       partially_complete: "partially complete",
       complete: "complete",
       failed: "failed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "queued",
+      queued: "waiting to start",
       leased: "leased",
       running: "running",
       succeeded: "succeeded",
       failed: "failed",
-      blocked: "blocked",
+      blocked: "needs attention",
       cancelled: "cancelled"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "Refresh status",
@@ -1169,7 +1169,7 @@ const EN_COPY = {
     recordStageTick: "Record current stage check-in",
     startStage: "Start current stage",
     pauseStage: "Pause current stage",
-    blockStage: "Block current stage",
+    blockStage: "Mark current stage needs attention",
     completeWorkerJob: "Mark task complete from result",
     importWorkerLedger: "Import task result",
     workerLedgerImport: "Local Codex task result JSON",
@@ -1205,7 +1205,7 @@ const EN_COPY = {
       activeRunRequiredPauseStage:
         "An active auto implementation workspace run is required before pausing a stage.",
       activeRunRequiredBlockStage:
-        "An active auto implementation workspace run is required before blocking a stage.",
+        "An active auto implementation workspace run is required before marking a stage as needing attention.",
       activeRunRequiredCompleteWorker:
         "An active auto implementation workspace run is required before completing a local Codex task from recorded task evidence.",
       completedLedgerRequiredCompleteWorker:
@@ -1243,7 +1243,7 @@ const EN_COPY = {
         "A pull request merge is already recorded; do not merge the same auto implementation PR again."
     },
     workerPlan: "Local Codex task plan",
-    workerStageAdvanceBlocker: "Stage advance blocker",
+    workerStageAdvanceBlocker: "Stage advance issue",
     workerRuntimeReadiness: "Local Codex runtime readiness",
     workerRuntimeStatus: "Codex runtime status",
     workerRuntimeExecutionMode: "Execution mode",
@@ -1295,7 +1295,7 @@ const EN_COPY = {
     workerPlanStageRequiredEvidence: "Current stage evidence",
     workerPlanForbiddenActions: "Forbidden actions",
     workerPlanSourceRefs: "Source refs",
-    workerPlanBlocker: "Blocker",
+    workerPlanBlocker: "Needs attention",
     workerPlanMissingEvidence: "Missing evidence",
     workerPlanEvidenceRefs: "Task evidence refs",
     workerLedgerEvidence: "Imported implementation evidence",
@@ -1326,7 +1326,7 @@ const EN_COPY = {
     stagePlan: "5-minute stage plan",
     stagePlanTicks: "check-ins",
     stagePlanLedger: "implementation record",
-    stagePlanBlocker: "blocked",
+    stagePlanBlocker: "needs attention",
     reviewProtocol: "Review and merge protocol",
     deliveryGateLabels: [
       "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
@@ -1349,22 +1349,22 @@ const EN_COPY = {
       planned: "planned",
       active: "active",
       completed: "completed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<AutoImplementationPlanningIssueDocument["status"], string>,
     planningIssueRowStatus: "slice status",
     planningIssueRowTasks: "planning tasks",
     issueDocs: "Issue documents",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
-      ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`
+      ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} need attention / ${summary.open} open / ${summary.total} total`
       : "Issue status summary: no issue documents",
     issueDocumentStatusLabels: {
       open: "open",
       completed: "completed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "planned",
-      blocked: "blocked",
+      blocked: "waiting for evidence",
       completed: "completed",
       none: "none"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -1399,7 +1399,7 @@ const EN_COPY = {
     prMutationRequestMode: "Request mode",
     prMutationMutatesGitHub: "Mutates GitHub",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "Blocked reason",
+    prMutationBlockedReason: "Reason attention is needed",
     prMutationRollbackNotes: "Rollback notes",
     prMutationIssueLinks: "Issue links",
     prMutationReviewStreaks: "Review streak refs",
@@ -1413,7 +1413,7 @@ const EN_COPY = {
     prMutationAuditEvidence: "Audit evidence",
     noGithubPullRequestMutations: "No GitHub PR action records yet; PR open, update, and merge actions are still unclaimed.",
     noPullRequestUrl: "No PR URL recorded",
-    notBlocked: "not blocked",
+    notBlocked: "no issue",
     yes: "yes",
     no: "no",
     none: "none",
@@ -1424,10 +1424,10 @@ const EN_COPY = {
     reviewLoopProgress: "Review loop progress",
     currentStageGate: "Current stage requirement",
     runStatusLabels: {
-      pending: "pending",
+      pending: "waiting to start",
       running: "running",
       paused: "paused",
-      blocked: "blocked",
+      blocked: "needs attention",
       completed: "completed",
       failed: "failed",
       not_started: "not started"
@@ -1479,12 +1479,12 @@ const EN_COPY = {
       ]
     } satisfies Record<AutoImplementationStage, readonly string[]>,
     stageStatusLabels: {
-      pending: "pending",
+      pending: "waiting to start",
       ready: "ready",
       running: "running",
       paused: "paused",
       completed: "completed",
-      blocked: "blocked",
+      blocked: "needs attention",
       failed: "failed",
       not_started: "not started"
     } satisfies Record<AutoImplementationStageStatus | "not_started", string>,
@@ -2122,7 +2122,7 @@ const JA_COPY: typeof EN_COPY = {
       authenticated: "ログイン済み",
       missing: "ログインが必要",
       unknown: "不明",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     },
     rawIdea: "アイデア概要",
     rawIdeaPlaceholder: "例: 創業者向けのFounder Brief生成ツール",
@@ -2663,25 +2663,25 @@ const JA_COPY: typeof EN_COPY = {
     runtimeEvidence: "実行記録",
     adapterPrefix: "ツール",
     effectSuffix: "件",
-    pendingBackgroundTasks: (count: number) => `バックグラウンド作業が${count}件待機中です。`,
-    noBackgroundTasks: "待機中のバックグラウンド作業はありません。",
+    pendingBackgroundTasks: (count: number) => `バックグラウンド作業が${count}件、実行を待っています。`,
+    noBackgroundTasks: "実行待ちのバックグラウンド作業はありません。",
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
     pending: "活動はまだありません",
     commandStatusLabels: {
-      pending: "保留中",
+      pending: "実行待ち",
       partially_complete: "一部完了",
       complete: "完了",
       failed: "失敗",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "キュー待ち",
+      queued: "開始待ち",
       leased: "処理中",
       running: "実行中",
       succeeded: "成功",
       failed: "失敗",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       cancelled: "キャンセル済み"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "ステータス更新",
@@ -2692,11 +2692,11 @@ const JA_COPY: typeof EN_COPY = {
     startGuideNextAction: "次の実装アクション",
     startGuideMetricsTitle: "実装準備メトリクス",
     startGuideCompositeScore: "総合準備度",
-    startGuideGateFailures: "ゲートブロッカー",
+    startGuideGateFailures: "残り確認項目",
     startGuideMetricsReady: "具体化済みメトリクス",
     startGuideMetricsReadyCount: (ready: number, total: number, threshold: number) =>
       `${total}件中${ready}件が${threshold}%以上`,
-    startGuideGateFailureList: "残っている実装ゲートブロッカー",
+    startGuideGateFailureList: "実装前に確認する項目",
     startGuideNoGateFailures: "すべての実装準備ゲートが通過しています。",
     startGuideSession: "アクティブセッション",
     startGuideReadiness: "完成ソース",
@@ -2710,7 +2710,7 @@ const JA_COPY: typeof EN_COPY = {
     startGuideReadinessMissing: "まず完成度を採点し、多くの指標が具体化しているか確認してください。",
     startGuideReadinessBlocked: (count: number) =>
       count > 0
-        ? `実装に進むには readiness gate blocker が ${count} 件残っています。`
+        ? `実装に進むには確認項目が${count}件残っています。`
         : "完成エビデンスがまだ不足しています。Founder Briefを準備するか残りのreadiness gapを解消してください。",
     startGuideHandoffReady: "実装計画の引き渡しが完了し、実装に進めます。",
     startGuideHandoffMissing: "実装計画の引き渡しを実行し、準備エビデンスを実装コンテキストに変換してください。",
@@ -2767,7 +2767,7 @@ const JA_COPY: typeof EN_COPY = {
     recordStageTick: "現在段階の進捗確認を記録",
     startStage: "現在段階を開始",
     pauseStage: "現在段階を一時停止",
-    blockStage: "現在段階をブロック",
+    blockStage: "現在段階を要確認にする",
     completeWorkerJob: "作業結果から完了扱いにする",
     importWorkerLedger: "作業結果を取り込む",
     workerLedgerImport: "ローカルCodex作業結果JSON",
@@ -2797,7 +2797,7 @@ const JA_COPY: typeof EN_COPY = {
       activeRunRequiredStageTick: "段階の進捗確認を記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredStartStage: "段階を開始するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredPauseStage: "段階を一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
-      activeRunRequiredBlockStage: "段階をブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredBlockStage: "段階を要確認にするにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredCompleteWorker:
         "作業結果の根拠からローカルCodex作業を完了するには、アクティブな自動実装ワークスペース実行が必要です。",
       completedLedgerRequiredCompleteWorker:
@@ -2832,7 +2832,7 @@ const JA_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR mergeはすでに記録されています。同じ自動実装PRを再mergeしないでください。"
     },
     workerPlan: "ローカルCodex作業計画",
-    workerStageAdvanceBlocker: "段階進行のブロック理由",
+    workerStageAdvanceBlocker: "段階進行で確認が必要な理由",
     workerRuntimeReadiness: "ローカルCodex実行環境の準備状態",
     workerRuntimeStatus: "実行環境の状態",
     workerRuntimeExecutionMode: "実行モード",
@@ -2884,7 +2884,7 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanStageRequiredEvidence: "現在段階の根拠",
     workerPlanForbiddenActions: "禁止アクション",
     workerPlanSourceRefs: "参照元",
-    workerPlanBlocker: "ブロッカー",
+    workerPlanBlocker: "確認が必要",
     workerPlanMissingEvidence: "不足している根拠",
     workerPlanEvidenceRefs: "作業確認資料",
     workerLedgerEvidence: "取り込み済み実装根拠",
@@ -2915,7 +2915,7 @@ const JA_COPY: typeof EN_COPY = {
     stagePlan: "5分間隔のステージ計画",
     stagePlanTicks: "進捗確認",
     stagePlanLedger: "実装記録",
-    stagePlanBlocker: "ブロック",
+    stagePlanBlocker: "確認が必要",
     reviewProtocol: "レビューとマージの手順",
     deliveryGateLabels: [
       "各実装単位は、PRを開く前にローカルMarkdown IssueまたはGitHub Issueへ紐づけます。",
@@ -2944,16 +2944,16 @@ const JA_COPY: typeof EN_COPY = {
     planningIssueRowTasks: "計画タスク",
     issueDocs: "Issue文書",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
-      ? `Issue状態の要約: 完了 ${summary.completed}件 / ブロック ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
+      ? `Issue状態の要約: 完了 ${summary.completed}件 / 確認が必要 ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
       : "Issue状態の要約: Issue文書はまだありません",
     issueDocumentStatusLabels: {
       open: "未完了",
       completed: "完了",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "計画済み",
-      blocked: "ブロック中",
+      blocked: "根拠待ち",
       completed: "完了",
       none: "なし"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -2988,7 +2988,7 @@ const JA_COPY: typeof EN_COPY = {
     prMutationRequestMode: "リクエストモード",
     prMutationMutatesGitHub: "GitHubを変更",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "ブロック理由",
+    prMutationBlockedReason: "確認が必要な理由",
     prMutationRollbackNotes: "ロールバックメモ",
     prMutationIssueLinks: "Issueリンク",
     prMutationReviewStreaks: "レビュー連続パス",
@@ -3002,7 +3002,7 @@ const JA_COPY: typeof EN_COPY = {
     prMutationAuditEvidence: "監査根拠",
     noGithubPullRequestMutations: "GitHub PR操作記録はまだありません。PR作成・本文更新・mergeはまだ完了扱いではありません。",
     noPullRequestUrl: "PR URL未記録",
-    notBlocked: "ブロックなし",
+    notBlocked: "問題なし",
     yes: "はい",
     no: "いいえ",
     none: "なし",
@@ -3013,10 +3013,10 @@ const JA_COPY: typeof EN_COPY = {
     reviewLoopProgress: "レビュー/クリーンコード進捗",
     currentStageGate: "現在段階の条件",
     runStatusLabels: {
-      pending: "未開始",
+      pending: "開始待ち",
       running: "進行中",
       paused: "一時停止",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       completed: "完了",
       failed: "失敗",
       not_started: "未開始"
@@ -3068,12 +3068,12 @@ const JA_COPY: typeof EN_COPY = {
       ]
     },
     stageStatusLabels: {
-      pending: "待機中",
+      pending: "開始待ち",
       ready: "準備完了",
       running: "進行中",
       paused: "一時停止",
       completed: "完了",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       failed: "失敗",
       not_started: "未開始"
     },
@@ -4270,25 +4270,25 @@ const KO_COPY: typeof EN_COPY = {
     runtimeEvidence: "실행 기록",
     adapterPrefix: "도구",
     effectSuffix: "개",
-    pendingBackgroundTasks: (count: number) => `백그라운드 작업 ${count}개가 대기 중입니다.`,
-    noBackgroundTasks: "대기 중인 백그라운드 작업은 없습니다.",
+    pendingBackgroundTasks: (count: number) => `백그라운드 작업 ${count}개가 실행을 기다리고 있습니다.`,
+    noBackgroundTasks: "실행을 기다리는 백그라운드 작업은 없습니다.",
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
     pending: "아직 활동이 없습니다",
     commandStatusLabels: {
-      pending: "대기 중",
+      pending: "실행 기다림",
       partially_complete: "일부 완료",
       complete: "완료",
       failed: "실패",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "대기열",
+      queued: "시작 기다림",
       leased: "처리 중",
       running: "실행 중",
       succeeded: "성공",
       failed: "실패",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       cancelled: "취소됨"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "상태 새로고침",
@@ -4374,7 +4374,7 @@ const KO_COPY: typeof EN_COPY = {
     recordStageTick: "현재 단계 진행 확인 기록",
     startStage: "현재 단계 시작",
     pauseStage: "현재 단계 일시정지",
-    blockStage: "현재 단계 차단",
+    blockStage: "현재 단계 확인 필요로 표시",
     completeWorkerJob: "작업 결과로 완료 처리",
     importWorkerLedger: "작업 결과 가져오기",
     workerLedgerImport: "로컬 Codex 작업 결과 JSON",
@@ -4404,7 +4404,7 @@ const KO_COPY: typeof EN_COPY = {
       activeRunRequiredStageTick: "단계 진행 확인을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredStartStage: "단계를 시작하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredPauseStage: "단계를 일시정지하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
-      activeRunRequiredBlockStage: "단계를 차단하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredBlockStage: "단계를 확인 필요로 표시하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredCompleteWorker:
         "작업 결과 근거로 로컬 Codex 작업을 완료하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       completedLedgerRequiredCompleteWorker:
@@ -4439,7 +4439,7 @@ const KO_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR merge가 이미 기록되어 있습니다. 같은 자동 구현 PR을 다시 merge하지 마세요."
     },
     workerPlan: "로컬 Codex 작업 계획",
-    workerStageAdvanceBlocker: "단계 진행 차단 사유",
+    workerStageAdvanceBlocker: "단계 진행에 필요한 확인",
     workerRuntimeReadiness: "로컬 Codex 실행 환경 준비 상태",
     workerRuntimeStatus: "실행 환경 상태",
     workerRuntimeExecutionMode: "실행 모드",
@@ -4491,7 +4491,7 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanStageRequiredEvidence: "현재 단계 근거",
     workerPlanForbiddenActions: "금지된 작업",
     workerPlanSourceRefs: "참조 출처",
-    workerPlanBlocker: "차단 항목",
+    workerPlanBlocker: "확인 필요",
     workerPlanMissingEvidence: "누락된 근거",
     workerPlanEvidenceRefs: "작업 근거 참조",
     workerLedgerEvidence: "가져온 구현 근거",
@@ -4522,7 +4522,7 @@ const KO_COPY: typeof EN_COPY = {
     stagePlan: "5분 단위 단계 계획",
     stagePlanTicks: "진행 확인",
     stagePlanLedger: "구현 기록",
-    stagePlanBlocker: "차단",
+    stagePlanBlocker: "확인 필요",
     reviewProtocol: "리뷰와 머지 프로토콜",
     deliveryGateLabels: [
       "각 구현 단위는 PR을 열기 전에 로컬 markdown 이슈 또는 GitHub 이슈에 연결합니다.",
@@ -4545,22 +4545,22 @@ const KO_COPY: typeof EN_COPY = {
       planned: "계획됨",
       active: "진행 중",
       completed: "완료",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     },
     planningIssueRowStatus: "단위 상태",
     planningIssueRowTasks: "계획 작업",
     issueDocs: "이슈 문서",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
-      ? `이슈 상태 요약: 완료 ${summary.completed}개 / 차단 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
+      ? `이슈 상태 요약: 완료 ${summary.completed}개 / 확인 필요 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
       : "이슈 상태 요약: 아직 이슈 문서가 없습니다",
     issueDocumentStatusLabels: {
       open: "열림",
       completed: "완료",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "계획됨",
-      blocked: "차단됨",
+      blocked: "근거 기다림",
       completed: "완료",
       none: "없음"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -4595,7 +4595,7 @@ const KO_COPY: typeof EN_COPY = {
     prMutationRequestMode: "요청 모드",
     prMutationMutatesGitHub: "GitHub 변경 여부",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "차단 이유",
+    prMutationBlockedReason: "확인이 필요한 이유",
     prMutationRollbackNotes: "롤백 메모",
     prMutationIssueLinks: "이슈 링크",
     prMutationReviewStreaks: "리뷰 연속 통과 근거",
@@ -4609,7 +4609,7 @@ const KO_COPY: typeof EN_COPY = {
     prMutationAuditEvidence: "감사 근거",
     noGithubPullRequestMutations: "아직 GitHub PR 작업 기록이 없습니다. PR 생성, 본문 업데이트, merge는 아직 완료로 주장되지 않습니다.",
     noPullRequestUrl: "PR URL 기록 없음",
-    notBlocked: "차단 없음",
+    notBlocked: "문제 없음",
     yes: "예",
     no: "아니오",
     none: "없음",
@@ -4620,10 +4620,10 @@ const KO_COPY: typeof EN_COPY = {
     reviewLoopProgress: "리뷰/클린코드 진행",
     currentStageGate: "현재 단계 조건",
     runStatusLabels: {
-      pending: "대기",
+      pending: "시작 기다림",
       running: "진행 중",
       paused: "일시정지",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       completed: "완료",
       failed: "실패",
       not_started: "시작 전"
@@ -4675,12 +4675,12 @@ const KO_COPY: typeof EN_COPY = {
       ]
     },
     stageStatusLabels: {
-      pending: "대기",
+      pending: "시작 기다림",
       ready: "준비됨",
       running: "진행 중",
       paused: "일시정지",
       completed: "완료",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       failed: "실패",
       not_started: "시작 전"
     },
