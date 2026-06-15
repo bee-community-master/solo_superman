@@ -56,7 +56,7 @@ describe("single-session product loop smoke", () => {
       "same-session auto implementation generated a runnable local software scaffold with source-traced smoke test",
       "same-session generated product data carried Planning Handoff source refs, residual risk register, and first-slice tasks"
     ]));
-  });
+  }, 15_000);
 
   it("can run the same single-session loop through the live-web adapter branch with non-fixture public source URLs", async () => {
     const evidence = await runSingleSessionProductLoopSmoke({

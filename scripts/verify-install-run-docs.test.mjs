@@ -208,7 +208,7 @@ describe("#105 local install/run verification docs", () => {
     expect(readme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(readme).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle`");
     expect(readme).toContain("`--require-ready`");
-    expect(readme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
+    expect(readme).toContain("`pnpm release:evidence-checklist -- --include-signed-package --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(readme).toContain("pre-gate ready-release command 실행 기록");
     expect(readme).toContain("filled-bundle/aggregate self-command");
@@ -219,7 +219,7 @@ describe("#105 local install/run verification docs", () => {
     expect(englishReadme).toContain("`pnpm release:evidence-bundle -- ./solo-superman-release-evidence-bundle`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle`");
     expect(englishReadme).toContain("`--require-ready`");
-    expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
+    expect(englishReadme).toContain("`pnpm release:evidence-checklist -- --include-signed-package --format template --issue 266 --output ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("`pnpm verify:release-evidence-template -- --input ./issue-266-release-evidence-template.json`");
     expect(englishReadme).toContain("pre-gate ready-release command records");
     expect(englishReadme).toContain("filled-bundle and aggregate self-commands");
@@ -259,6 +259,10 @@ describe("#105 local install/run verification docs", () => {
     expect(englishContributingDoc).toContain("`pnpm release:evidence-checklist -- --format markdown --issue <number>` / `pnpm release:evidence-checklist -- --format comment --issue <number>` / `pnpm release:evidence-checklist -- --format template --issue <number>`");
     expect(contributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
     expect(englishContributingDoc).toContain("`pnpm release:evidence-bundle -- <bundle-dir>`");
+    expect(contributingDoc).toContain("`pnpm db:generate`");
+    expect(englishContributingDoc).toContain("`pnpm db:generate`");
+    expect(contributingDoc).toContain("`pnpm db:migrate`");
+    expect(englishContributingDoc).toContain("`pnpm db:migrate`");
     expect(contributingDoc).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> [--require-ready]`");
     expect(englishContributingDoc).toContain("`pnpm verify:release-evidence-bundle -- --bundle-dir <bundle-dir> [--require-ready]`");
     expect(contributingDoc).toContain("`pnpm verify:release-evidence-template -- --input <filled-template.json>`");

@@ -104,7 +104,7 @@ Windows PowerShell에서는 local execution policy가 `pnpm.ps1`을 막아도 No
 
 `pnpm verify:signed-package-release`는 `docs/signed-package-release.example.json`을 검사해 macOS codesign/pkgutil/notarization/stapling/Gatekeeper evidence, Windows Authenticode/timestamp evidence, release manifest checksum/size/signature evidence가 #266에 묶여 있는지 확인합니다. 기본 실행은 실제 signing evidence 없이 통과하되 `releaseEvidenceStatus=blocked`와 `blockedEvidenceRuns`로 무엇이 남았는지 보여줍니다. `pnpm verify:signed-package-release:dry-run`은 fixture artifact checksum/size/signature ref와 manifest signature ref shape를 credential-free로 검증하지만 실제 signing evidence를 대체하지 않습니다. 실제 release 환경에서는 `pnpm verify:signed-package-release -- --require-release-evidence`를 사용하며, 이 모드는 macOS/Windows/manifest evidence run이 모두 passed가 아니면 실패해야 합니다.
 
-`pnpm verify:release-readiness`는 [`release-readiness_KO.md`](release-readiness_KO.md)와 [`release-readiness.example.json`](release-readiness.example.json)을 검사해 signed package, packaged updater rollback, Windows 실기기 검증 gate가 general release 전까지 명시적으로 blocked인지 확인합니다. 실제 일반 공개 직전에는 `pnpm verify:release-readiness -- --require-ready`를 실행하며, 현재 technical preview 계약은 #259 Windows evidence와 signing/updater evidence가 없으므로 이 모드에서 실패해야 합니다.
+`pnpm verify:release-readiness`는 [`release-readiness_KO.md`](release-readiness_KO.md)와 [`release-readiness.example.json`](release-readiness.example.json)을 검사해 packaged updater rollback과 Windows 실기기 검증 gate가 general release 전까지 명시적으로 blocked인지 확인합니다. 실제 일반 공개 직전에는 `pnpm verify:release-readiness -- --require-ready`를 실행하며, 현재 technical preview 계약은 #259 Windows evidence와 #267 packaged updater rollback evidence가 없으므로 이 모드에서 실패해야 합니다. Signed package evidence는 direct/non-store 배포의 optional hardening이며 signed artifact를 주장할 때만 포함합니다.
 
 ## 오류 리포트용 support bundle
 

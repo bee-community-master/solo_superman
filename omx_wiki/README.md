@@ -7,7 +7,7 @@ This wiki is the compact, persistent map for future implementation work. It does
 1. [`product-capability-flow.md`](product-capability-flow.md) — end-to-end idea -> questions -> research -> readiness -> implementation flow.
 2. [`verification-map.md`](verification-map.md) — command-to-capability verification matrix.
 3. [`auto-implementation-gates.md`](auto-implementation-gates.md) — issue/markdown PR chunking, review-loop, clean-code, missing-test, and merge gates.
-4. [`release-handoff.md`](release-handoff.md) — remaining #259/#266/#267 evidence handoff path.
+4. [`release-handoff.md`](release-handoff.md) — default #259/#267 release handoff path, with optional #266 signed-package hardening only when signed artifacts are claimed.
 
 ## Ground rules
 

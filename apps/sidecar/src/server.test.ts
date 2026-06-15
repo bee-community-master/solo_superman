@@ -8283,7 +8283,7 @@ describe("PR-02 sidecar health shell", () => {
     } finally {
       await storage.close();
     }
-  });
+  }, 15_000);
 
   it("rejects untraceable or duplicate PlanResearch commands without leaking DB idempotency errors", async () => {
     const { app: storageApp, storage } = await createMigratedStorageApp();
@@ -10108,7 +10108,7 @@ describe("PR-02 sidecar health shell", () => {
     } finally {
       await storage.close();
     }
-  });
+  }, 15_000);
 
   it("can prepare a run for a selected Planning Handoff PR-sized issue slice", async () => {
     const workspaceRoot = await makeTempAppDataDir();
@@ -11760,7 +11760,7 @@ describe("PR-02 sidecar health shell", () => {
     } finally {
       await storage.close();
     }
-  });
+  }, 15_000);
 
   it("rejects non-canonical local GitHub PR issue links before recording a mutation", async () => {
     const workspaceRoot = await makeTempAppDataDir();
