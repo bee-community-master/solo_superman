@@ -713,7 +713,7 @@ const EN_COPY = {
     queueActiveBatchReady: (count: number) => `${count === 1 ? "1 current question" : `${count} current questions`} selected for this round.`,
     queueRecoveryStatusLabels: {
       idle: "Up to date",
-      pending_refetch: "Refresh pending",
+      pending_refetch: "Refresh waiting",
       recovering: "Refreshing",
       recovered_by_refetch: "Updated",
       stale: "Needs refresh"
@@ -728,7 +728,7 @@ const EN_COPY = {
     queueItemStateLabels: {
       active: "Current",
       next: "Up next",
-      blocked: "Blocked",
+      blocked: "Needs attention",
       deferred: "Later check",
       answered: "Answered",
       resolved: "Resolved"
@@ -736,7 +736,7 @@ const EN_COPY = {
     queueSections: {
       active: { title: "Current questions", emptyLabel: "No current questions." },
       next: { title: "Up next", emptyLabel: "No upcoming questions." },
-      blocked: { title: "Needs attention", emptyLabel: "No blocked items." },
+      blocked: { title: "Needs attention", emptyLabel: "No items need attention." },
       deferred: { title: "Saved for later", emptyLabel: "No saved items." }
     }
   },
@@ -2316,7 +2316,7 @@ const JA_COPY: typeof EN_COPY = {
     queueActiveBatchReady: (count: number) => `${count}件の現在の質問がこのラウンドに選ばれています。`,
     queueRecoveryStatusLabels: {
       idle: "最新",
-      pending_refetch: "更新待ち",
+      pending_refetch: "更新を待っています",
       recovering: "更新中",
       recovered_by_refetch: "更新済み",
       stale: "更新が必要"
@@ -2331,7 +2331,7 @@ const JA_COPY: typeof EN_COPY = {
     queueItemStateLabels: {
       active: "現在",
       next: "次の候補",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       deferred: "既知のリスク",
       answered: "回答済み",
       resolved: "解決済み"
@@ -2339,7 +2339,7 @@ const JA_COPY: typeof EN_COPY = {
     queueSections: {
       active: { title: "現在の質問", emptyLabel: "現在の質問はありません。" },
       next: { title: "次に確認", emptyLabel: "次に確認する質問はありません。" },
-      blocked: { title: "確認が必要", emptyLabel: "ブロック中の項目はありません。" },
+      blocked: { title: "確認が必要", emptyLabel: "確認が必要な項目はありません。" },
       deferred: { title: "後で確認", emptyLabel: "後で確認する項目はありません。" }
     }
   },
@@ -3925,7 +3925,7 @@ const KO_COPY: typeof EN_COPY = {
     queueActiveBatchReady: (count: number) => `현재 질문 ${count}개가 이번 라운드에 선택되었습니다.`,
     queueRecoveryStatusLabels: {
       idle: "최신",
-      pending_refetch: "새로고침 대기",
+      pending_refetch: "새로고침 기다림",
       recovering: "새로고침 중",
       recovered_by_refetch: "새로고침됨",
       stale: "새로고침 필요"
@@ -3940,7 +3940,7 @@ const KO_COPY: typeof EN_COPY = {
     queueItemStateLabels: {
       active: "현재",
       next: "다음 후보",
-      blocked: "막힘",
+      blocked: "확인 필요",
       deferred: "나중에 확인",
       answered: "답변됨",
       resolved: "해결됨"
@@ -3948,7 +3948,7 @@ const KO_COPY: typeof EN_COPY = {
     queueSections: {
       active: { title: "현재 질문", emptyLabel: "현재 질문이 없습니다." },
       next: { title: "다음에 확인", emptyLabel: "다음에 확인할 질문이 없습니다." },
-      blocked: { title: "확인 필요", emptyLabel: "막힌 항목이 없습니다." },
+      blocked: { title: "확인 필요", emptyLabel: "확인이 필요한 항목이 없습니다." },
       deferred: { title: "나중에 보기", emptyLabel: "나중에 볼 항목이 없습니다." }
     }
   },

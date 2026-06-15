@@ -992,7 +992,7 @@ describe("QuestionsView", () => {
         {
           id: "blocked",
           title: "Needs attention",
-          emptyLabel: "No blocked items.",
+          emptyLabel: "No items need attention.",
           items: [
             {
               queueItemId: "research_review_follow_up" as QueueItemId,
@@ -1021,7 +1021,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Source trace");
     expect(markup).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
     expect(markup).not.toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
-    expect(markup).toContain("Blocked");
+    expect(markup).toContain("Needs attention");
+    expect(markup).not.toContain("Blocked");
     expect(markup).not.toContain(">blocked<");
   });
 
