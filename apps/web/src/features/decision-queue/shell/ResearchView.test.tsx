@@ -592,6 +592,50 @@ describe("ResearchView", () => {
     expect(foundAlternativeMarkup).toContain("Where the MVP should narrow");
   });
 
+  it("does not present a research objective as evidence before any result is retained", () => {
+    const researchTaskId = "research_task_card_without_result" as ResearchTaskId;
+    const research = {
+      ...researchProjection(),
+      taskIds: [researchTaskId],
+      tasks: [
+        {
+          researchTaskId,
+          sessionId: "sess_research_batch" as SessionId,
+          objective: "Find evidence for current alternatives before narrowing the MVP.",
+          routeOutcome: "research_needed",
+          impact: "high",
+          status: "planned",
+          createdAt: "2026-05-22T00:00:00.000Z"
+        }
+      ],
+      results: [],
+      evidenceMatrices: [],
+      evidencePacks: [],
+      reviewCards: [
+        {
+          cardId: "research_review_card_without_result" as QueueItemId,
+          researchTaskId,
+          cardType: "research_review",
+          title: "Review current alternatives",
+          state: "needs_review",
+          impact: "high",
+          availableOutcomes: ["risk_accepted", "research_insufficient"],
+          blocksPlanning: true,
+          recoveryActions: ["import_manual_result"]
+        }
+      ]
+    } satisfies ResearchEvidenceProjection;
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research
+      }
+    });
+
+    expect(markup).not.toContain("Research decision summary");
+    expect(markup).not.toContain("Where the MVP should narrow");
+  });
+
   it("renders allowlist concurrency controls for manual and answer-triggered research starts", () => {
     const markup = renderResearchView({
       researchOperations: {

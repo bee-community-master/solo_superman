@@ -502,7 +502,7 @@ function ResearchDecisionSummary({
   readonly result: ResearchResultProjection | undefined;
   readonly task: ResearchTaskProjection;
 }) {
-  if (!matrix && !pack && !result && !card) {
+  if (!matrix && !pack && !result) {
     return null;
   }
 
