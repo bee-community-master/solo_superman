@@ -39,15 +39,15 @@ function latestResearchResultForTask(
   results: readonly ResearchResultProjection[],
   researchTaskId: ResearchResultProjection["researchTaskId"]
 ) {
-  for (let index = results.length - 1; index >= 0; index -= 1) {
-    const result = results[index];
+  return [...results]
+    .filter((result) => result.researchTaskId === researchTaskId)
+    .sort((left, right) => researchResultTimestamp(right) - researchResultTimestamp(left))[0];
+}
 
-    if (result?.researchTaskId === researchTaskId) {
-      return result;
-    }
-  }
+function researchResultTimestamp(result: ResearchResultProjection) {
+  const importedAt = Date.parse(result.importedAt);
 
-  return undefined;
+  return Number.isNaN(importedAt) ? 0 : importedAt;
 }
 
 function latestEvidenceMatrixForTask(

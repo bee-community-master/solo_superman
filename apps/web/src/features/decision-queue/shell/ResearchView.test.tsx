@@ -13,6 +13,7 @@ import type {
   ResearchDisclosureLogId,
   ResearchEvidenceProjection,
   ResearchResultId,
+  ResearchResultProjection,
   ResearchRunControlProjection,
   ResearchRunId,
   ResearchTaskId,
@@ -590,6 +591,52 @@ describe("ResearchView", () => {
     });
 
     expect(foundAlternativeMarkup).toContain("Where the MVP should narrow");
+  });
+
+  it("uses the newest imported research result regardless of array order", () => {
+    const researchTaskId = "research_task_import_order" as ResearchTaskId;
+    const oldResult = {
+      researchResultId: "research_result_import_old" as ResearchResultId,
+      researchTaskId,
+      sourceTitle: "Older import",
+      sourceReliability: "medium",
+      resultSummary: "Older result should not drive the decision summary.",
+      implicationScope: "Older next decision should not be shown.",
+      importedAt: "2026-05-22T00:00:00.000Z"
+    } satisfies ResearchResultProjection;
+    const newerResult = {
+      ...oldResult,
+      researchResultId: "research_result_import_new" as ResearchResultId,
+      sourceTitle: "Newer import",
+      resultSummary: "Newer result should drive the decision summary.",
+      implicationScope: "Newer next decision should be shown.",
+      importedAt: "2026-05-22T00:10:00.000Z"
+    } satisfies ResearchResultProjection;
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...researchProjection(),
+          taskIds: [researchTaskId],
+          tasks: [
+            {
+              researchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Review imported ordering.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "needs_review",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ],
+          results: [newerResult, oldResult]
+        }
+      }
+    });
+
+    expect(markup).toContain("<dt>Evidence</dt><dd>Newer result should drive the decision summary.</dd>");
+    expect(markup).toContain("<dt>Next decision</dt><dd>Newer next decision should be shown.</dd>");
+    expect(markup).not.toContain("<dt>Evidence</dt><dd>Older result should not drive the decision summary.</dd>");
   });
 
   it("does not present a research objective as evidence before any result is retained", () => {
