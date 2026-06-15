@@ -720,6 +720,40 @@ function checkProjectWikiDocsShape() {
   }
 }
 
+function checkReleaseReadinessDocsNoStaleSignedPackageBlockers() {
+  const releaseSummaryDocs = {
+    "README.md": readText("README.md"),
+    "README.en.md": readText("README.en.md"),
+    "omx_wiki/release-handoff.md": readText("omx_wiki/release-handoff.md")
+  };
+
+  rejectSnippets("release docs must not describe signed packages as default broad-release blockers", releaseSummaryDocs, [
+    "signed package, packaged updater rollback, and Windows real-device evidence are ready",
+    "signed package, packaged updater rollback, Windows 실기기 evidence가 준비되기 전까지",
+    "General release remains blocked until the external evidence issues are completed",
+    "General release remains blocked until #259/#266/#267",
+    "#259/#266/#267에 필요한 blocked gate"
+  ]);
+
+  requireSnippets("README.md missing optional signed-package release boundary", releaseSummaryDocs["README.md"], [
+    "기본 general-release blocker인 #259/#267",
+    "Signed artifact를 release claim에 포함할 때만",
+    "signed package evidence는 signed artifact를 주장할 때만 optional hardening"
+  ]);
+
+  requireSnippets("README.en.md missing optional signed-package release boundary", releaseSummaryDocs["README.en.md"], [
+    "default general-release blockers #259/#267",
+    "Add `--include-signed-package` only when signed artifacts are part of the release claim",
+    "signed package evidence is added only as optional hardening when signed artifacts are claimed"
+  ]);
+
+  requireSnippets("release handoff wiki missing optional signed-package release boundary", releaseSummaryDocs["omx_wiki/release-handoff.md"], [
+    "default external evidence issues",
+    "#266 signed package release evidence is optional hardening",
+    "--include-signed-package"
+  ]);
+}
+
 function checkContributorDocsSnippets() {
   const docs = Object.fromEntries(CONTRIBUTOR_DOC_PATHS.map((path) => [path, readText(path)]));
 
@@ -841,9 +875,19 @@ function checkContributorDocsSnippets() {
 
   requireSnippets("contributing guide missing contributor commands", docs["docs/contributing_KO.md"], [
     "pnpm start:local",
+    "pnpm db:generate",
+    "pnpm db:migrate",
     "pnpm verify:docs",
     "packages/contracts",
     "PR 체크리스트"
+  ]);
+  requireSnippets("English contributing guide missing contributor commands", readText("docs/contributing_EN.md"), [
+    "pnpm start:local",
+    "pnpm db:generate",
+    "pnpm db:migrate",
+    "pnpm verify:docs",
+    "packages/contracts",
+    "PR checklist"
   ]);
 
   requireSnippets("architecture doc missing runtime boundary", docs["docs/architecture_KO.md"], [
@@ -1094,6 +1138,8 @@ function checkProjectWikiDocsSnippets() {
     "#259",
     "#266",
     "#267",
+    "optional hardening",
+    "--include-signed-package",
     "pnpm release:evidence-bundle",
     "pnpm verify:release-evidence-bundle -- --bundle-dir ./solo-superman-release-evidence-bundle --require-ready",
     "pnpm verify:ready-release -- --evidence-bundle-dir ./solo-superman-release-evidence-bundle",
@@ -1201,6 +1247,7 @@ export function runDocContractChecks() {
   checkContributorDocsSnippets();
   checkProjectWikiDocsShape();
   checkProjectWikiDocsSnippets();
+  checkReleaseReadinessDocsNoStaleSignedPackageBlockers();
 
   for (const referencePath of REFERENCE_DOC_PATHS) {
     const reference = readText(referencePath);

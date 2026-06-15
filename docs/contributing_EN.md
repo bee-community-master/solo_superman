@@ -19,6 +19,8 @@ The local app opens a browser screen through the local web frontend and local No
 | Run local app | `pnpm start:local` |
 | Web dev server only | `pnpm dev:web` |
 | Sidecar service only | `pnpm dev:sidecar` |
+| Generate DB client/artifacts | `pnpm db:generate` |
+| Run DB migrations | `pnpm db:migrate` |
 | Typecheck | `pnpm typecheck` |
 | Lint | `pnpm lint` |
 | Unit tests | `pnpm test` |
