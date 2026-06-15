@@ -483,8 +483,9 @@ function ResearchInsufficientSummary({
 
 function evidenceText(items: readonly EvidenceItemProjection[], language: AppLanguage, fallback: string) {
   const summaries = uniqueTextItems(items.map((item) => compactUserFacingText(item.summary, language)).filter(Boolean));
+  const fallbackText = compactUserFacingText(fallback, language);
 
-  return summaries.length ? summaries.join(" / ") : fallback;
+  return summaries.length ? summaries.join(" / ") : fallbackText;
 }
 
 function hasAlternativeOrCompetitorSignal(values: readonly (string | undefined)[]) {

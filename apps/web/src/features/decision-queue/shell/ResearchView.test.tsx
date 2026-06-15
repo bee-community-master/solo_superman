@@ -965,6 +965,40 @@ describe("ResearchView", () => {
     expect(markup).toContain("Which source disproves pricing urgency?");
   });
 
+  it("localizes decision summary fallback evidence text", () => {
+    const research = researchProjection();
+    const markup = renderResearchView(
+      {
+        projections: {
+          ...emptyProjectionState(),
+          research: {
+            ...research,
+            evidenceMatrices: [
+              {
+                evidenceMatrixId: "matrix_localized_fallback",
+                researchTaskId: "research_task_reviewed" as ResearchTaskId,
+                researchResultId: "research_result_localized_fallback" as ResearchResultId,
+                synthesisVersion: 1,
+                proEvidence: [],
+                conEvidence: [],
+                uncertainties: [],
+                additionalQuestions: [],
+                balanceStatus: "missing_con_evidence",
+                decisionBlocked: true,
+                missingConEvidenceReason: "Evidence has 0 usable finding(s), below configured minimum 1.",
+                knownRisk: "Evidence has 0 usable finding(s), below configured minimum 1."
+              }
+            ]
+          }
+        }
+      },
+      "ko"
+    );
+
+    expect(markup).toContain("이번 검색에서 판단에 쓸 수 있는 공개 근거를 찾지 못했습니다.");
+    expect(markup).not.toContain("Evidence has 0 usable finding");
+  });
+
   it("renders evidence packs with research-level risks and validation actions", () => {
     const research = researchProjection();
     const markup = renderResearchView({
