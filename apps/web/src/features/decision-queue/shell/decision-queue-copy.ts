@@ -555,12 +555,12 @@ const EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "Waiting to start.",
       generating: "Still creating the first planning question.",
-      delayed: "Live generation has taken 60 seconds. Choose whether to regenerate, keep waiting, or start with the basic questions.",
+      delayed: "Live generation did not finish within 10 seconds. Solo Superman is ready to start with the basic questions.",
       fallback: "Starting with the basic planning questions.",
       retrying: "Retrying live question generation."
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `${seconds} seconds left before Solo Superman asks whether to regenerate or keep waiting.`,
+      `${seconds} seconds left before Solo Superman starts with the basic planning questions automatically.`,
     initialQuestionRegenerate: "Regenerate",
     initialQuestionKeepWaiting: "Keep waiting",
     initialQuestionUseFallback: "Start with basic questions",
@@ -2160,12 +2160,12 @@ const JA_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "開始待ちです。",
       generating: "最初の計画質問をまだ生成しています。",
-      delayed: "ライブ質問生成が60秒かかりました。再生成するか、さらに待つか、基本質問で始めるかを選んでください。",
+      delayed: "ライブ質問生成が10秒以内に終わりませんでした。基本の計画質問で始められます。",
       fallback: "基本の計画質問で開始しています。",
       retrying: "ライブ質問生成を再試行しています。"
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `再生成するか待つかを選ぶまで残り${seconds}秒です。`,
+      `基本の計画質問で自動的に始めるまで残り${seconds}秒です。`,
     initialQuestionRegenerate: "再生成",
     initialQuestionKeepWaiting: "さらに待つ",
     initialQuestionUseFallback: "基本質問で開始",
@@ -3769,12 +3769,12 @@ const KO_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "시작 대기 중입니다.",
       generating: "첫 기획 질문을 계속 생성 중입니다.",
-      delayed: "라이브 질문 생성이 60초 걸렸습니다. 재생성할지, 더 기다릴지, 기본 질문으로 시작할지 선택하세요.",
+      delayed: "라이브 질문 생성이 10초 안에 끝나지 않았습니다. 기본 기획 질문으로 바로 시작할 수 있습니다.",
       fallback: "기본 기획 질문으로 시작합니다.",
       retrying: "라이브 질문 생성을 다시 시도합니다."
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `재생성할지 더 기다릴지 묻기까지 ${seconds}초 남았습니다.`,
+      `기본 기획 질문으로 자동 시작하기까지 ${seconds}초 남았습니다.`,
     initialQuestionRegenerate: "재생성",
     initialQuestionKeepWaiting: "더 기다리기",
     initialQuestionUseFallback: "기본 질문으로 시작",
