@@ -204,7 +204,7 @@ describe("PlanningView", () => {
     expect(markup).toContain("Shows the score drivers and readiness gates");
     expect(markup).toContain("Spec sections");
     expect(markup).toContain("60%");
-    expect(markup).toContain("Question debt");
+    expect(markup).toContain("Open questions");
     expect(markup).toContain("40%");
     expect(markup).toContain("Evidence quality");
     expect(markup).toContain("50%");

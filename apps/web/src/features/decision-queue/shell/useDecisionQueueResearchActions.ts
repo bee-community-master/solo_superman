@@ -227,7 +227,11 @@ export function useDecisionQueueResearchActions({
               runs
             }));
 
-            if (selectedRun && (selectedRun.status === "running" || selectedRun.status === "queued")) {
+            if (!selectedRun) {
+              throw new Error(researchActionErrors.startRunNoRunCreated);
+            }
+
+            if (selectedRun.status === "running" || selectedRun.status === "queued") {
               const refreshedRuns = await client.getResearchRunStatus(projectId, selectedRun.researchRunId);
 
               setResearchOperations((current) => ({
@@ -574,7 +578,11 @@ export function useDecisionQueueResearchActions({
         runs
       }));
 
-      if (selectedRun && (selectedRun.status === "running" || selectedRun.status === "queued")) {
+      if (!selectedRun) {
+        throw new Error(researchActionErrors.startRunNoRunCreated);
+      }
+
+      if (selectedRun.status === "running" || selectedRun.status === "queued") {
         const refreshedRuns = await client.getResearchRunStatus(projectId, selectedRun.researchRunId);
 
         setResearchOperations((current) => ({

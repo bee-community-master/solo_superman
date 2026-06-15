@@ -137,11 +137,29 @@ describe("OnboardingView", () => {
       }
     });
 
-    expect(markup).toContain("Live generation has taken 60 seconds");
+    expect(markup).toContain("Live generation did not finish within 10 seconds");
     expect(markup).not.toContain("Keep generating");
     expect(markup).toContain("Start with basic questions");
     expect(markup).toContain("Regenerate");
     expect(markup).toContain("Keep waiting");
+  });
+
+  it("hides retry choices once automatic fallback has started", () => {
+    const markup = renderOnboardingView({
+      isBusy: true,
+      initialQuestionGeneration: {
+        status: "fallback",
+        delayed: true,
+        canUseFallback: false,
+        canRetry: false,
+        canKeepWaiting: false
+      }
+    });
+
+    expect(markup).toContain("Starting with the basic planning questions.");
+    expect(markup).not.toContain("Start with basic questions");
+    expect(markup).not.toContain("Regenerate");
+    expect(markup).not.toContain("Keep waiting");
   });
 
   it("shows the ChatGPT login gate only when visible ChatGPT research is selected", () => {

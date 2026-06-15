@@ -4,6 +4,7 @@ import { ImplementationStepLedgerPanel } from "../ImplementationStepLedgerPanel"
 import type { CommandStatus, EffectTaskStatus, RuntimeActivityProjection } from "@solo-superman/contracts";
 import { useAppLanguage } from "../../../shared/i18n/app-language";
 import { codexRuntimeEvidenceView } from "../codex-runtime-status-view";
+import { userFacingCommandLogStatus } from "./command-log-display";
 import { useDecisionQueueCopy, type DecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -400,11 +401,7 @@ export function ImplementationView({ controller }: ImplementationViewProps) {
             commandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>
-                  {entry.status
-                    ? commandStatusLabel(entry.status.commandStatus, copy.implementation)
-                    : entry.response?.category ?? entry.message ?? entry.error ?? copy.implementation.pending}
-                </span>
+                <span>{userFacingCommandLogStatus(entry, copy.rightRail)}</span>
                 {entry.status?.effects.length ? (
                   <ul className="effect-list">
                     {entry.status.effects.map((effect) => (

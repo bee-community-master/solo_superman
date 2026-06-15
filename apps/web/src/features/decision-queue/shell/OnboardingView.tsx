@@ -51,6 +51,8 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
     controller.runtimeStatus?.reason ??
     (controller.connectionState.status === "unavailable" ? controller.connectionState.message : null);
   const codexStatusReason = userFacingCodexRuntimeReason(rawCodexStatusReason, language);
+  const showInitialQuestionGenerationActions =
+    initialQuestionGeneration.status === "delayed" && initialQuestionGeneration.delayed;
 
   return (
     <div className="view-grid onboarding-view">
@@ -86,7 +88,7 @@ export function OnboardingView({ controller }: OnboardingViewProps) {
                 </p>
               ) : null}
             </div>
-            {initialQuestionGeneration.delayed ? (
+            {showInitialQuestionGenerationActions ? (
               <div className="card-actions initial-question-generation-actions">
                 <button
                   type="button"

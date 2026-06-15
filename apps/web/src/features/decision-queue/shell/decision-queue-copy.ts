@@ -75,21 +75,21 @@ function projectNameFromWorkspacePath(workspacePath: string | null) {
 const EN_CODEX_RUNTIME_STATUS_LABELS = {
   available: "available",
   unavailable: "unavailable",
-  blocked: "blocked",
+  blocked: "needs attention",
   unknown: "unknown"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
 const JA_CODEX_RUNTIME_STATUS_LABELS = {
   available: "利用可能",
   unavailable: "利用不可",
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   unknown: "不明"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
 const KO_CODEX_RUNTIME_STATUS_LABELS = {
   available: "사용 가능",
   unavailable: "사용 불가",
-  blocked: "차단됨",
+  blocked: "확인 필요",
   unknown: "알 수 없음"
 } satisfies Record<CodexRuntimeStatus | "unknown", string>;
 
@@ -118,21 +118,21 @@ const EN_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "authenticated",
   missing: "login required",
   unknown: "unknown",
-  blocked: "blocked"
+  blocked: "needs attention"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const JA_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "ログイン済み",
   missing: "ログインが必要",
   unknown: "不明",
-  blocked: "ブロック中"
+  blocked: "確認が必要"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const KO_CODEX_ACCOUNT_STATUS_LABELS = {
   authenticated: "로그인됨",
   missing: "로그인 필요",
   unknown: "알 수 없음",
-  blocked: "차단됨"
+  blocked: "확인 필요"
 } satisfies Record<CodexAccountAuthStatus, string>;
 
 const EN_CODEX_ACCOUNT_TYPE_LABELS = {
@@ -214,19 +214,19 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_ACTION_LABELS = {
 } satisfies Record<AutoImplementationPullRequestMutationAction, string>;
 
 const EN_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "blocked",
+  blocked: "needs attention",
   dry_run_ready: "preview ready",
   applied: "applied"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const JA_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   dry_run_ready: "プレビュー準備済み",
   applied: "適用済み"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
 
 const KO_AUTO_IMPLEMENTATION_PR_MUTATION_STATUS_LABELS = {
-  blocked: "차단됨",
+  blocked: "확인 필요",
   dry_run_ready: "미리보기 준비됨",
   applied: "적용됨"
 } satisfies Record<AutoImplementationPullRequestMutationStatus, string>;
@@ -248,7 +248,7 @@ const KO_AUTO_IMPLEMENTATION_PR_MUTATION_REQUEST_MODE_LABELS = {
 
 const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "not requested yet",
-  blocked: "blocked",
+  blocked: "needs attention",
   dry_run_ready: "preview ready",
   approved_ready: "approved and ready",
   applied: "GitHub issues created"
@@ -256,7 +256,7 @@ const EN_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 
 const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "未リクエスト",
-  blocked: "ブロック中",
+  blocked: "確認が必要",
   dry_run_ready: "プレビュー準備済み",
   approved_ready: "承認済み・準備完了",
   applied: "GitHub Issue作成済み"
@@ -264,7 +264,7 @@ const JA_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
 
 const KO_AUTO_IMPLEMENTATION_GITHUB_ISSUE_MUTATION_STATUS_LABELS = {
   not_requested: "아직 요청되지 않음",
-  blocked: "차단됨",
+  blocked: "확인 필요",
   dry_run_ready: "미리보기 준비됨",
   approved_ready: "승인되어 생성 준비됨",
   applied: "GitHub 이슈 생성됨"
@@ -555,16 +555,16 @@ const EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "Waiting to start.",
       generating: "Still creating the first planning question.",
-      delayed: "Live generation has taken 60 seconds. Choose whether to regenerate, keep waiting, or start with the basic questions.",
+      delayed: "Live generation did not finish within 10 seconds. Solo Superman is ready to start with the basic questions.",
       fallback: "Starting with the basic planning questions.",
       retrying: "Retrying live question generation."
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `${seconds} seconds left before Solo Superman asks whether to regenerate or keep waiting.`,
+      `${seconds} seconds left before Solo Superman starts with the basic planning questions automatically.`,
     initialQuestionRegenerate: "Regenerate",
     initialQuestionKeepWaiting: "Keep waiting",
     initialQuestionUseFallback: "Start with basic questions",
-    queue: "Queue",
+    queue: "Questions",
     refreshQuestionList: "Refresh question list",
     loadNextQuestions: "Load next questions",
     questionBatchSizeLabel: "Questions to show at once",
@@ -580,20 +580,28 @@ const EN_COPY = {
     questionProgressActive: "Active now",
     questionProgressUpcoming: "Upcoming next",
     questionProgressAnswered: "Answered",
-    questionProgressFollowUps: "Follow-ups",
+    questionProgressFollowUps: "Research follow-up questions",
     questionProgressOpenFollowUps: "Open follow-ups",
     questionProgressTopics: "Topics covered",
     questionProgressOpenTopics: "Open topics",
-    questionProgressFollowUpBudget: "Follow-up budget",
-    questionProgressBlocked: "Blocked",
+    questionProgressFollowUpBudget: "Additional questions available",
+    questionProgressBlocked: "Needs attention",
     questionProgressBacklog: "Later backlog",
     planningDetailProgressTitle: "Planning update",
     planningDetailProgressFallbackTitle: "current idea",
+    planningDetailDecided: "Decided",
+    planningDetailExcluded: "Excluded",
+    planningDetailNextToCheck: "Next to check",
+    planningDetailNextQuestionReason: "Why this question is next",
+    planningDetailNoExcluded: "No scope has been excluded yet.",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `${count} answer${count === 1 ? "" : "s"} now shape “${title}”.`,
     planningDetailProgressNextQuestion: (question: string) => `Next detail to decide: ${question}`,
+    planningDetailProgressNextQuestionReason: (question: string, reason: string) =>
+      `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `Research to run next: ${objective}`,
     planningDetailProgressNoResearch: "Research will appear here once an answer creates a public-check task.",
+    queueDiagnosticsTitle: "More detail",
     questionLoopNextActionTitle: "Question loop next action",
     questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -601,10 +609,10 @@ const EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current visible question${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} cleared.`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining question debt.`,
+      `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining open decisions.`,
     questionLoopNextActionBlocked: (count: number) =>
-      `Resolve ${count} blocked research or risk card${count === 1 ? "" : "s"} before scoring completion.`,
-    questionLoopNextActionComplete: "Question debt is clear; move to Planning readiness and score completion.",
+      `Resolve ${count} research or risk card${count === 1 ? "" : "s"} that need attention before checking planning readiness.`,
+    questionLoopNextActionComplete: "The questions are clear; move to Planning readiness to review the remaining gaps.",
     questionFatigueStatusLabels: {
       checkpoint: "Fatigue checkpoint",
       break_recommended: "Break recommended"
@@ -612,7 +620,8 @@ const EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${open} open questions remain after ${percent}% handled across ${generated} generated questions.`,
     questionFatigueHelp: "Answer only the current question, carry uncertain assumptions as known risks, or pause before loading more.",
-    questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `The plan can use ${count} more research-driven question${count === 1 ? "" : "s"} if the next decision needs them.`,
     researchAdditionalQuestions: "Research-generated questions",
     researchFollowUpSourceTrace: "Source trace",
     answerFormatLabels: {
@@ -704,7 +713,7 @@ const EN_COPY = {
     queueActiveBatchReady: (count: number) => `${count === 1 ? "1 current question" : `${count} current questions`} selected for this round.`,
     queueRecoveryStatusLabels: {
       idle: "Up to date",
-      pending_refetch: "Refresh pending",
+      pending_refetch: "Refresh waiting",
       recovering: "Refreshing",
       recovered_by_refetch: "Updated",
       stale: "Needs refresh"
@@ -719,7 +728,7 @@ const EN_COPY = {
     queueItemStateLabels: {
       active: "Current",
       next: "Up next",
-      blocked: "Blocked",
+      blocked: "Needs attention",
       deferred: "Later check",
       answered: "Answered",
       resolved: "Resolved"
@@ -727,7 +736,7 @@ const EN_COPY = {
     queueSections: {
       active: { title: "Current questions", emptyLabel: "No current questions." },
       next: { title: "Up next", emptyLabel: "No upcoming questions." },
-      blocked: { title: "Needs attention", emptyLabel: "No blocked items." },
+      blocked: { title: "Needs attention", emptyLabel: "No items need attention." },
       deferred: { title: "Saved for later", emptyLabel: "No saved items." }
     }
   },
@@ -767,7 +776,7 @@ const EN_COPY = {
     modeChangeReasonPlaceholder: "Record why the question/research criteria are changing.",
     modeAuditHelp: "Changes are saved to the audit trail and keep the current question set.",
     progress: "Progress",
-    pending: "pending",
+    pending: "Not scored yet",
     scoreCompleteness: "Score completeness",
     noRiskProjection: "No risk summary yet.",
     whyBuildNowRisky: "Why building now is risky",
@@ -775,7 +784,7 @@ const EN_COPY = {
     confidenceMapHelp: "Shows the score drivers and readiness gates behind the current Planning score.",
     scoreBreakdownLabels: {
       sectionCompleteness: "Spec sections",
-      questionDebtResolution: "Question debt",
+      questionDebtResolution: "Open questions",
       evidenceQuality: "Evidence quality",
       decisionApproval: "Decision approval",
       consistencyAndConflict: "Consistency"
@@ -867,6 +876,8 @@ const EN_COPY = {
         "Enable public web research sources before starting research runs.",
       readyRunsNoReadyTasks:
         "No quick public-search task is ready yet. Answer the current planning question or use visible ChatGPT for broader research tasks.",
+      startRunNoRunCreated:
+        "Research did not start. The local service responded, but no run card was created. Try again after refreshing research status.",
       maxConcurrentRunsInvalid: "Max simultaneous research runs must be a positive whole number.",
       maxSessionRunsInvalid:
         "Max research runs per session must be a whole number greater than or equal to the simultaneous run limit.",
@@ -924,8 +935,25 @@ const EN_COPY = {
     knownRisk: "Known risk",
     noEvidenceItems: "No evidence items",
     additionalQuestions: "Research-generated follow-up questions",
+    decisionUnitSummaryTitle: "Research decision summary",
+    decisionUnitEvidence: "Evidence",
+    decisionUnitCounterEvidence: "Counter-evidence",
+    decisionUnitUncertainty: "Uncertainty",
+    decisionUnitNextDecision: "Next decision",
+    decisionUnitMvpNarrowing: "Where the MVP should narrow",
+    decisionUnitMissingEvidence: "What is still missing",
+    decisionUnitNextSearchOrQuestion: "Next search or question",
+    decisionUnitNoCounterEvidence: "No strong counter-evidence has been captured yet.",
+    decisionUnitNoUncertainty: "No explicit uncertainty has been captured yet.",
+    decisionUnitFallbackNextDecision: "Use this result to decide whether the current MVP scope should stay this broad.",
+    decisionUnitInsufficientMissingEvidence:
+      "This result still needs a clearer source, counterpoint, or target-user signal before it can support the planning decision.",
+    decisionUnitInsufficientNextSearch:
+      "Search with narrower terms and ask which existing alternative the target user would keep using.",
+    decisionUnitMvpNarrowingSuggestion:
+      "Existing alternatives appear in the evidence. Narrow the first MVP to the smallest user case those alternatives do not handle well.",
     sourceTrace: "Source trace",
-    importedResultPendingTitle: "Imported result is being turned into evidence",
+    importedResultPendingTitle: "Imported result summary",
     importedResultPendingDescription:
       "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared.",
     importedResultSummary: "Imported result summary",
@@ -1037,25 +1065,25 @@ const EN_COPY = {
     runtimeEvidence: "Execution records",
     adapterPrefix: "Tool",
     effectSuffix: "item(s)",
-    pendingBackgroundTasks: (count: number) => `${count} background task(s) pending.`,
-    noBackgroundTasks: "No background tasks are pending.",
+    pendingBackgroundTasks: (count: number) => `${count} background task(s) waiting to run.`,
+    noBackgroundTasks: "No background tasks are waiting to run.",
     noCommandStatus: "No command status records yet.",
     activity: "Activity",
-    pending: "pending",
+    pending: "No activity yet",
     commandStatusLabels: {
-      pending: "pending",
+      pending: "waiting to run",
       partially_complete: "partially complete",
       complete: "complete",
       failed: "failed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "queued",
+      queued: "waiting to start",
       leased: "leased",
       running: "running",
       succeeded: "succeeded",
       failed: "failed",
-      blocked: "blocked",
+      blocked: "needs attention",
       cancelled: "cancelled"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "Refresh status",
@@ -1141,7 +1169,7 @@ const EN_COPY = {
     recordStageTick: "Record current stage check-in",
     startStage: "Start current stage",
     pauseStage: "Pause current stage",
-    blockStage: "Block current stage",
+    blockStage: "Mark current stage needs attention",
     completeWorkerJob: "Mark task complete from result",
     importWorkerLedger: "Import task result",
     workerLedgerImport: "Local Codex task result JSON",
@@ -1177,7 +1205,7 @@ const EN_COPY = {
       activeRunRequiredPauseStage:
         "An active auto implementation workspace run is required before pausing a stage.",
       activeRunRequiredBlockStage:
-        "An active auto implementation workspace run is required before blocking a stage.",
+        "An active auto implementation workspace run is required before marking a stage as needing attention.",
       activeRunRequiredCompleteWorker:
         "An active auto implementation workspace run is required before completing a local Codex task from recorded task evidence.",
       completedLedgerRequiredCompleteWorker:
@@ -1215,7 +1243,7 @@ const EN_COPY = {
         "A pull request merge is already recorded; do not merge the same auto implementation PR again."
     },
     workerPlan: "Local Codex task plan",
-    workerStageAdvanceBlocker: "Stage advance blocker",
+    workerStageAdvanceBlocker: "Stage advance issue",
     workerRuntimeReadiness: "Local Codex runtime readiness",
     workerRuntimeStatus: "Codex runtime status",
     workerRuntimeExecutionMode: "Execution mode",
@@ -1267,7 +1295,7 @@ const EN_COPY = {
     workerPlanStageRequiredEvidence: "Current stage evidence",
     workerPlanForbiddenActions: "Forbidden actions",
     workerPlanSourceRefs: "Source refs",
-    workerPlanBlocker: "Blocker",
+    workerPlanBlocker: "Needs attention",
     workerPlanMissingEvidence: "Missing evidence",
     workerPlanEvidenceRefs: "Task evidence refs",
     workerLedgerEvidence: "Imported implementation evidence",
@@ -1298,7 +1326,7 @@ const EN_COPY = {
     stagePlan: "5-minute stage plan",
     stagePlanTicks: "check-ins",
     stagePlanLedger: "implementation record",
-    stagePlanBlocker: "blocked",
+    stagePlanBlocker: "needs attention",
     reviewProtocol: "Review and merge protocol",
     deliveryGateLabels: [
       "Keep each implementation slice tied to one local markdown issue or GitHub issue before opening the PR.",
@@ -1321,22 +1349,22 @@ const EN_COPY = {
       planned: "planned",
       active: "active",
       completed: "completed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<AutoImplementationPlanningIssueDocument["status"], string>,
     planningIssueRowStatus: "slice status",
     planningIssueRowTasks: "planning tasks",
     issueDocs: "Issue documents",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null): string => summary
-      ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`
+      ? `Issue status summary: ${summary.completed} completed / ${summary.blocked} need attention / ${summary.open} open / ${summary.total} total`
       : "Issue status summary: no issue documents",
     issueDocumentStatusLabels: {
       open: "open",
       completed: "completed",
-      blocked: "blocked"
+      blocked: "needs attention"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "planned",
-      blocked: "blocked",
+      blocked: "waiting for evidence",
       completed: "completed",
       none: "none"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -1371,7 +1399,7 @@ const EN_COPY = {
     prMutationRequestMode: "Request mode",
     prMutationMutatesGitHub: "Mutates GitHub",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "Blocked reason",
+    prMutationBlockedReason: "Reason attention is needed",
     prMutationRollbackNotes: "Rollback notes",
     prMutationIssueLinks: "Issue links",
     prMutationReviewStreaks: "Review streak refs",
@@ -1385,7 +1413,7 @@ const EN_COPY = {
     prMutationAuditEvidence: "Audit evidence",
     noGithubPullRequestMutations: "No GitHub PR action records yet; PR open, update, and merge actions are still unclaimed.",
     noPullRequestUrl: "No PR URL recorded",
-    notBlocked: "not blocked",
+    notBlocked: "no issue",
     yes: "yes",
     no: "no",
     none: "none",
@@ -1396,10 +1424,10 @@ const EN_COPY = {
     reviewLoopProgress: "Review loop progress",
     currentStageGate: "Current stage requirement",
     runStatusLabels: {
-      pending: "pending",
+      pending: "waiting to start",
       running: "running",
       paused: "paused",
-      blocked: "blocked",
+      blocked: "needs attention",
       completed: "completed",
       failed: "failed",
       not_started: "not started"
@@ -1451,12 +1479,12 @@ const EN_COPY = {
       ]
     } satisfies Record<AutoImplementationStage, readonly string[]>,
     stageStatusLabels: {
-      pending: "pending",
+      pending: "waiting to start",
       ready: "ready",
       running: "running",
       paused: "paused",
       completed: "completed",
-      blocked: "blocked",
+      blocked: "needs attention",
       failed: "failed",
       not_started: "not started"
     } satisfies Record<AutoImplementationStageStatus | "not_started", string>,
@@ -1494,7 +1522,11 @@ const EN_COPY = {
     activeRuns: "active runs",
     recentActivity: "Recent activity",
     researchNeedsReview: "Evidence checks are not finished yet. Check remaining items and recovery paths first.",
-    pending: "pending",
+    pending: "No activity yet",
+    activityInProgress: "Saving or checking now",
+    activityReflected: "Reflected in the plan",
+    activityNeedsAction: "Needs your attention",
+    activityFailed: (error: string) => `Action failed: ${error}`,
     noActivity: "No activity yet.",
     radarAxes: {
       problem: "Problem",
@@ -2090,7 +2122,7 @@ const JA_COPY: typeof EN_COPY = {
       authenticated: "ログイン済み",
       missing: "ログインが必要",
       unknown: "不明",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     },
     rawIdea: "アイデア概要",
     rawIdeaPlaceholder: "例: 創業者向けのFounder Brief生成ツール",
@@ -2128,16 +2160,16 @@ const JA_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "開始待ちです。",
       generating: "最初の計画質問をまだ生成しています。",
-      delayed: "ライブ質問生成が60秒かかりました。再生成するか、さらに待つか、基本質問で始めるかを選んでください。",
+      delayed: "ライブ質問生成が10秒以内に終わりませんでした。基本の計画質問で始められます。",
       fallback: "基本の計画質問で開始しています。",
       retrying: "ライブ質問生成を再試行しています。"
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `再生成するか待つかを選ぶまで残り${seconds}秒です。`,
+      `基本の計画質問で自動的に始めるまで残り${seconds}秒です。`,
     initialQuestionRegenerate: "再生成",
     initialQuestionKeepWaiting: "さらに待つ",
     initialQuestionUseFallback: "基本質問で開始",
-    queue: "キュー",
+    queue: "質問",
     refreshQuestionList: "質問リストを更新",
     loadNextQuestions: "次の質問を読み込む",
     questionBatchSizeLabel: "1回に表示する質問数",
@@ -2152,20 +2184,28 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressActive: "回答中",
     questionProgressUpcoming: "次の質問",
     questionProgressAnswered: "回答済み",
-    questionProgressFollowUps: "追加質問",
+    questionProgressFollowUps: "リサーチ由来の追加質問",
     questionProgressOpenFollowUps: "未回答の追加質問",
     questionProgressTopics: "対象トピック",
     questionProgressOpenTopics: "未解決トピック",
-    questionProgressFollowUpBudget: "追加質問枠",
-    questionProgressBlocked: "ブロック中",
+    questionProgressFollowUpBudget: "必要なら使える追加質問",
+    questionProgressBlocked: "確認が必要",
     questionProgressBacklog: "後続の未表示",
     planningDetailProgressTitle: "企画への反映",
     planningDetailProgressFallbackTitle: "現在のアイデア",
+    planningDetailDecided: "決まったこと",
+    planningDetailExcluded: "除外したこと",
+    planningDetailNextToCheck: "次に確認すること",
+    planningDetailNextQuestionReason: "次の質問が必要な理由",
+    planningDetailNoExcluded: "まだ除外した範囲はありません。",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `回答 ${count}件が「${title}」の企画に反映されています。`,
     planningDetailProgressNextQuestion: (question: string) => `次に決めること: ${question}`,
+    planningDetailProgressNextQuestionReason: (question: string, reason: string) =>
+      `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `次に確認するリサーチ: ${objective}`,
     planningDetailProgressNoResearch: "公開確認できるリサーチ項目が作られると、ここに表示されます。",
+    queueDiagnosticsTitle: "詳しい状態",
     questionLoopNextActionTitle: "質問ループの次のアクション",
     questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
@@ -2173,10 +2213,10 @@ const JA_COPY: typeof EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `表示中の質問 ${count}件に回答してください。表示中の質問が片付くとループは自動で続けられます。`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `残りの質問負債を減らすため、次の質問 ${count}件を読み込んでください。`,
+      `残っている確認点を減らすため、次の質問 ${count}件を読み込んでください。`,
     questionLoopNextActionBlocked: (count: number) =>
-      `completion採点前に、ブロック中のリサーチまたはリスクカード ${count}件を解決してください。`,
-    questionLoopNextActionComplete: "質問負債は解消されています。Planning readinessへ進み、completionを採点してください。",
+      `計画準備度を見る前に、確認が必要なリサーチまたはリスクカード ${count}件を整理してください。`,
+    questionLoopNextActionComplete: "質問は整理されています。Planning readinessへ進み、残っている確認点を見てください。",
     questionFatigueStatusLabels: {
       checkpoint: "疲労チェックポイント",
       break_recommended: "休憩を推奨"
@@ -2184,7 +2224,8 @@ const JA_COPY: typeof EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${generated}件の生成済み質問のうち${percent}%を処理済みで、未解決が${open}件残っています。`,
     questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を後で確認する項目として残す、または次を読み込む前に一度止めることができます。",
-    questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `次の判断に必要なら、リサーチ由来の追加質問をあと${count}件まで扱えます。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     researchFollowUpSourceTrace: "ソーストレース",
     answerFormatLabels: {
@@ -2275,7 +2316,7 @@ const JA_COPY: typeof EN_COPY = {
     queueActiveBatchReady: (count: number) => `${count}件の現在の質問がこのラウンドに選ばれています。`,
     queueRecoveryStatusLabels: {
       idle: "最新",
-      pending_refetch: "更新待ち",
+      pending_refetch: "更新を待っています",
       recovering: "更新中",
       recovered_by_refetch: "更新済み",
       stale: "更新が必要"
@@ -2290,7 +2331,7 @@ const JA_COPY: typeof EN_COPY = {
     queueItemStateLabels: {
       active: "現在",
       next: "次の候補",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       deferred: "既知のリスク",
       answered: "回答済み",
       resolved: "解決済み"
@@ -2298,7 +2339,7 @@ const JA_COPY: typeof EN_COPY = {
     queueSections: {
       active: { title: "現在の質問", emptyLabel: "現在の質問はありません。" },
       next: { title: "次に確認", emptyLabel: "次に確認する質問はありません。" },
-      blocked: { title: "確認が必要", emptyLabel: "ブロック中の項目はありません。" },
+      blocked: { title: "確認が必要", emptyLabel: "確認が必要な項目はありません。" },
       deferred: { title: "後で確認", emptyLabel: "後で確認する項目はありません。" }
     }
   },
@@ -2338,7 +2379,7 @@ const JA_COPY: typeof EN_COPY = {
     modeChangeReasonPlaceholder: "質問/リサーチ基準を変える理由を記録します。",
     modeAuditHelp: "変更は監査ログに残り、現在の質問は維持されます。",
     progress: "進捗",
-    pending: "保留中",
+    pending: "未採点",
     scoreCompleteness: "完成度を採点",
     noRiskProjection: "リスク予測はまだありません。",
     whyBuildNowRisky: "今作ると危ない理由",
@@ -2346,7 +2387,7 @@ const JA_COPY: typeof EN_COPY = {
     confidenceMapHelp: "現在の Planning スコアの根拠になるスコア要因と準備ゲートを表示します。",
     scoreBreakdownLabels: {
       sectionCompleteness: "仕様セクション",
-      questionDebtResolution: "質問負債",
+      questionDebtResolution: "未解決の質問",
       evidenceQuality: "証拠品質",
       decisionApproval: "意思決定承認",
       consistencyAndConflict: "一貫性"
@@ -2434,6 +2475,8 @@ const JA_COPY: typeof EN_COPY = {
         "リサーチ実行を始める前に公開Webソース設定を作成または再有効化してください。",
       readyRunsNoReadyTasks:
         "短い公開検索で始められるリサーチ項目はまだありません。現在の企画質問に回答するか、広いリサーチは表示中のChatGPTに渡してください。",
+      startRunNoRunCreated:
+        "リサーチを開始できませんでした。ローカルサービスは応答しましたが、実行カードが作られていません。リサーチ状態を更新してから再試行してください。",
       maxConcurrentRunsInvalid: "同時に動かす最大リサーチ数は1以上の整数にしてください。",
       maxSessionRunsInvalid:
         "セッションあたりの最大リサーチ数は、同時実行上限以上の整数にしてください。",
@@ -2490,8 +2533,25 @@ const JA_COPY: typeof EN_COPY = {
     knownRisk: "既知のリスク",
     noEvidenceItems: "エビデンス項目なし",
     additionalQuestions: "リサーチが生成した追加質問",
+    decisionUnitSummaryTitle: "リサーチ判断サマリー",
+    decisionUnitEvidence: "根拠",
+    decisionUnitCounterEvidence: "反対根拠",
+    decisionUnitUncertainty: "不確実性",
+    decisionUnitNextDecision: "次の判断",
+    decisionUnitMvpNarrowing: "MVPを狭める場所",
+    decisionUnitMissingEvidence: "不足していること",
+    decisionUnitNextSearchOrQuestion: "次の検索または質問",
+    decisionUnitNoCounterEvidence: "強い反対根拠はまだ取り込まれていません。",
+    decisionUnitNoUncertainty: "明示的な不確実性はまだ取り込まれていません。",
+    decisionUnitFallbackNextDecision: "この結果を使い、現在のMVP範囲をこの広さのままにするか判断します。",
+    decisionUnitInsufficientMissingEvidence:
+      "この結果を計画判断に使うには、より明確な出典、反対視点、または対象ユーザーの反応が必要です。",
+    decisionUnitInsufficientNextSearch:
+      "検索語を絞り、対象ユーザーが使い続ける既存代替手段を確認してください。",
+    decisionUnitMvpNarrowingSuggestion:
+      "根拠内に既存代替手段が見えます。最初のMVPは、その代替手段が弱い最小ユースケースに絞ってください。",
     sourceTrace: "参照元トレース",
-    importedResultPendingTitle: "取り込んだ結果を根拠に変換しています",
+    importedResultPendingTitle: "取り込んだ結果の要約",
     importedResultPendingDescription:
       "貼り付けたリサーチ結果は、エビデンスマトリクス・追加質問・品質確認が準備されるまでここに保持されます。",
     importedResultSummary: "取り込んだ結果の要約",
@@ -2603,25 +2663,25 @@ const JA_COPY: typeof EN_COPY = {
     runtimeEvidence: "実行記録",
     adapterPrefix: "ツール",
     effectSuffix: "件",
-    pendingBackgroundTasks: (count: number) => `バックグラウンド作業が${count}件待機中です。`,
-    noBackgroundTasks: "待機中のバックグラウンド作業はありません。",
+    pendingBackgroundTasks: (count: number) => `バックグラウンド作業が${count}件、実行を待っています。`,
+    noBackgroundTasks: "実行待ちのバックグラウンド作業はありません。",
     noCommandStatus: "コマンドステータス記録はまだありません。",
     activity: "活動",
-    pending: "保留中",
+    pending: "活動はまだありません",
     commandStatusLabels: {
-      pending: "保留中",
+      pending: "実行待ち",
       partially_complete: "一部完了",
       complete: "完了",
       failed: "失敗",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "キュー待ち",
+      queued: "開始待ち",
       leased: "処理中",
       running: "実行中",
       succeeded: "成功",
       failed: "失敗",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       cancelled: "キャンセル済み"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "ステータス更新",
@@ -2632,11 +2692,11 @@ const JA_COPY: typeof EN_COPY = {
     startGuideNextAction: "次の実装アクション",
     startGuideMetricsTitle: "実装準備メトリクス",
     startGuideCompositeScore: "総合準備度",
-    startGuideGateFailures: "ゲートブロッカー",
+    startGuideGateFailures: "残り確認項目",
     startGuideMetricsReady: "具体化済みメトリクス",
     startGuideMetricsReadyCount: (ready: number, total: number, threshold: number) =>
       `${total}件中${ready}件が${threshold}%以上`,
-    startGuideGateFailureList: "残っている実装ゲートブロッカー",
+    startGuideGateFailureList: "実装前に確認する項目",
     startGuideNoGateFailures: "すべての実装準備ゲートが通過しています。",
     startGuideSession: "アクティブセッション",
     startGuideReadiness: "完成ソース",
@@ -2650,7 +2710,7 @@ const JA_COPY: typeof EN_COPY = {
     startGuideReadinessMissing: "まず完成度を採点し、多くの指標が具体化しているか確認してください。",
     startGuideReadinessBlocked: (count: number) =>
       count > 0
-        ? `実装に進むには readiness gate blocker が ${count} 件残っています。`
+        ? `実装に進むには確認項目が${count}件残っています。`
         : "完成エビデンスがまだ不足しています。Founder Briefを準備するか残りのreadiness gapを解消してください。",
     startGuideHandoffReady: "実装計画の引き渡しが完了し、実装に進めます。",
     startGuideHandoffMissing: "実装計画の引き渡しを実行し、準備エビデンスを実装コンテキストに変換してください。",
@@ -2707,7 +2767,7 @@ const JA_COPY: typeof EN_COPY = {
     recordStageTick: "現在段階の進捗確認を記録",
     startStage: "現在段階を開始",
     pauseStage: "現在段階を一時停止",
-    blockStage: "現在段階をブロック",
+    blockStage: "現在段階を要確認にする",
     completeWorkerJob: "作業結果から完了扱いにする",
     importWorkerLedger: "作業結果を取り込む",
     workerLedgerImport: "ローカルCodex作業結果JSON",
@@ -2737,7 +2797,7 @@ const JA_COPY: typeof EN_COPY = {
       activeRunRequiredStageTick: "段階の進捗確認を記録するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredStartStage: "段階を開始するにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredPauseStage: "段階を一時停止するにはアクティブな自動実装ワークスペース実行が必要です。",
-      activeRunRequiredBlockStage: "段階をブロックするにはアクティブな自動実装ワークスペース実行が必要です。",
+      activeRunRequiredBlockStage: "段階を要確認にするにはアクティブな自動実装ワークスペース実行が必要です。",
       activeRunRequiredCompleteWorker:
         "作業結果の根拠からローカルCodex作業を完了するには、アクティブな自動実装ワークスペース実行が必要です。",
       completedLedgerRequiredCompleteWorker:
@@ -2772,7 +2832,7 @@ const JA_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR mergeはすでに記録されています。同じ自動実装PRを再mergeしないでください。"
     },
     workerPlan: "ローカルCodex作業計画",
-    workerStageAdvanceBlocker: "段階進行のブロック理由",
+    workerStageAdvanceBlocker: "段階進行で確認が必要な理由",
     workerRuntimeReadiness: "ローカルCodex実行環境の準備状態",
     workerRuntimeStatus: "実行環境の状態",
     workerRuntimeExecutionMode: "実行モード",
@@ -2824,7 +2884,7 @@ const JA_COPY: typeof EN_COPY = {
     workerPlanStageRequiredEvidence: "現在段階の根拠",
     workerPlanForbiddenActions: "禁止アクション",
     workerPlanSourceRefs: "参照元",
-    workerPlanBlocker: "ブロッカー",
+    workerPlanBlocker: "確認が必要",
     workerPlanMissingEvidence: "不足している根拠",
     workerPlanEvidenceRefs: "作業確認資料",
     workerLedgerEvidence: "取り込み済み実装根拠",
@@ -2855,7 +2915,7 @@ const JA_COPY: typeof EN_COPY = {
     stagePlan: "5分間隔のステージ計画",
     stagePlanTicks: "進捗確認",
     stagePlanLedger: "実装記録",
-    stagePlanBlocker: "ブロック",
+    stagePlanBlocker: "確認が必要",
     reviewProtocol: "レビューとマージの手順",
     deliveryGateLabels: [
       "各実装単位は、PRを開く前にローカルMarkdown IssueまたはGitHub Issueへ紐づけます。",
@@ -2884,16 +2944,16 @@ const JA_COPY: typeof EN_COPY = {
     planningIssueRowTasks: "計画タスク",
     issueDocs: "Issue文書",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
-      ? `Issue状態の要約: 完了 ${summary.completed}件 / ブロック ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
+      ? `Issue状態の要約: 完了 ${summary.completed}件 / 確認が必要 ${summary.blocked}件 / 未完了 ${summary.open}件 / 合計 ${summary.total}件`
       : "Issue状態の要約: Issue文書はまだありません",
     issueDocumentStatusLabels: {
       open: "未完了",
       completed: "完了",
-      blocked: "ブロック中"
+      blocked: "確認が必要"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "計画済み",
-      blocked: "ブロック中",
+      blocked: "根拠待ち",
       completed: "完了",
       none: "なし"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -2928,7 +2988,7 @@ const JA_COPY: typeof EN_COPY = {
     prMutationRequestMode: "リクエストモード",
     prMutationMutatesGitHub: "GitHubを変更",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "ブロック理由",
+    prMutationBlockedReason: "確認が必要な理由",
     prMutationRollbackNotes: "ロールバックメモ",
     prMutationIssueLinks: "Issueリンク",
     prMutationReviewStreaks: "レビュー連続パス",
@@ -2942,7 +3002,7 @@ const JA_COPY: typeof EN_COPY = {
     prMutationAuditEvidence: "監査根拠",
     noGithubPullRequestMutations: "GitHub PR操作記録はまだありません。PR作成・本文更新・mergeはまだ完了扱いではありません。",
     noPullRequestUrl: "PR URL未記録",
-    notBlocked: "ブロックなし",
+    notBlocked: "問題なし",
     yes: "はい",
     no: "いいえ",
     none: "なし",
@@ -2953,10 +3013,10 @@ const JA_COPY: typeof EN_COPY = {
     reviewLoopProgress: "レビュー/クリーンコード進捗",
     currentStageGate: "現在段階の条件",
     runStatusLabels: {
-      pending: "未開始",
+      pending: "開始待ち",
       running: "進行中",
       paused: "一時停止",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       completed: "完了",
       failed: "失敗",
       not_started: "未開始"
@@ -3008,12 +3068,12 @@ const JA_COPY: typeof EN_COPY = {
       ]
     },
     stageStatusLabels: {
-      pending: "待機中",
+      pending: "開始待ち",
       ready: "準備完了",
       running: "進行中",
       paused: "一時停止",
       completed: "完了",
-      blocked: "ブロック中",
+      blocked: "確認が必要",
       failed: "失敗",
       not_started: "未開始"
     },
@@ -3071,7 +3131,11 @@ const JA_COPY: typeof EN_COPY = {
     activeRuns: "実行中",
     recentActivity: "最近の活動",
     researchNeedsReview: "リサーチ確認はまだ完了していません。残り項目と復旧経路を先に確認してください。",
-    pending: "保留中",
+    pending: "活動はまだありません",
+    activityInProgress: "保存または確認中",
+    activityReflected: "企画に反映済み",
+    activityNeedsAction: "確認が必要",
+    activityFailed: (error: string) => `操作に失敗しました: ${error}`,
     noActivity: "活動はまだありません。",
     radarAxes: {
       problem: "問題定義",
@@ -3510,7 +3574,7 @@ const KO_COPY: typeof EN_COPY = {
     currentWorkflowStep: "현재 단계",
     leftRailAria: "워크플로 내비게이션",
     workflowSteps: "작업 단계",
-    progressAria: "실시간 큐 진행률",
+    progressAria: "실시간 질문 진행률",
     progress: "진행률",
     completeness: "질문 처리율",
     pendingQuestions: "대기 중인 질문",
@@ -3600,14 +3664,14 @@ const KO_COPY: typeof EN_COPY = {
         "같은 답변 또는 리서치 작업이 이미 처리되어 최신 질문과 리서치 상태를 다시 불러왔습니다.",
       activeSessionRequiredDraftedAnswers: "저장한 답변을 제출하려면 활성 세션이 필요합니다.",
       draftedAnswersRequired: "저장한 답변을 제출하기 전에 현재 질문 답변을 하나 이상 저장해야 합니다.",
-      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 큐를 새로고침했습니다.",
+      draftedAnswersPartialFailureRefreshed: " 실패 전에 일부 저장한 답변이 제출되었고 질문 목록을 새로고침했습니다.",
       draftedAnswersPartialFailureRefreshRequired:
-        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 큐를 새로고침하세요.",
+        " 실패 전에 일부 저장한 답변이 제출되었습니다. 계속하기 전에 질문 목록을 새로고침하세요.",
       activeSessionRequiredRefreshQuestions: "질문을 새로고침하려면 활성 세션이 필요합니다.",
       activeSessionRequiredLoadNextQuestions: "다음 질문 목록을 불러오려면 활성 세션이 필요합니다.",
       answerCurrentBeforeLoadNextQuestions:
         "다음 질문 목록을 불러오기 전에 현재 질문에 답하거나 저장해야 합니다.",
-      activeSessionRequiredKnownRisk: "큐 항목을 나중에 확인할 항목으로 남기려면 활성 세션이 필요합니다.",
+      activeSessionRequiredKnownRisk: "이 항목을 나중에 확인할 항목으로 남기려면 활성 세션이 필요합니다.",
       knownRiskNextValidationActionRequired:
         "사업 점검 항목을 나중에 확인하려면 다음 확인 내용을 적어야 합니다.",
       activeSessionRequiredImportResearch: "리서치를 가져오려면 활성 세션이 필요합니다.",
@@ -3705,16 +3769,16 @@ const KO_COPY: typeof EN_COPY = {
     initialQuestionGenerationStatus: {
       idle: "시작 대기 중입니다.",
       generating: "첫 기획 질문을 계속 생성 중입니다.",
-      delayed: "라이브 질문 생성이 60초 걸렸습니다. 재생성할지, 더 기다릴지, 기본 질문으로 시작할지 선택하세요.",
+      delayed: "라이브 질문 생성이 10초 안에 끝나지 않았습니다. 기본 기획 질문으로 바로 시작할 수 있습니다.",
       fallback: "기본 기획 질문으로 시작합니다.",
       retrying: "라이브 질문 생성을 다시 시도합니다."
     },
     initialQuestionGenerationCountdown: (seconds: number) =>
-      `재생성할지 더 기다릴지 묻기까지 ${seconds}초 남았습니다.`,
+      `기본 기획 질문으로 자동 시작하기까지 ${seconds}초 남았습니다.`,
     initialQuestionRegenerate: "재생성",
     initialQuestionKeepWaiting: "더 기다리기",
     initialQuestionUseFallback: "기본 질문으로 시작",
-    queue: "큐",
+    queue: "질문",
     refreshQuestionList: "질문 목록 새로고침",
     loadNextQuestions: "다음 질문 불러오기",
     questionBatchSizeLabel: "한 번에 볼 질문 수",
@@ -3729,20 +3793,28 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressActive: "지금 답할 질문",
     questionProgressUpcoming: "다음 질문",
     questionProgressAnswered: "답변됨",
-    questionProgressFollowUps: "후속 질문",
+    questionProgressFollowUps: "리서치가 만든 추가 질문",
     questionProgressOpenFollowUps: "남은 후속 질문",
     questionProgressTopics: "다룬 주제",
     questionProgressOpenTopics: "남은 주제",
-    questionProgressFollowUpBudget: "후속 질문 여유",
-    questionProgressBlocked: "막힘",
+    questionProgressFollowUpBudget: "필요하면 더 다룰 질문",
+    questionProgressBlocked: "확인 필요",
     questionProgressBacklog: "나중에 볼 질문",
     planningDetailProgressTitle: "기획 반영 내용",
     planningDetailProgressFallbackTitle: "현재 아이디어",
+    planningDetailDecided: "정해진 것",
+    planningDetailExcluded: "제외한 것",
+    planningDetailNextToCheck: "다음에 확인할 것",
+    planningDetailNextQuestionReason: "다음 질문이 필요한 이유",
+    planningDetailNoExcluded: "아직 제외한 범위는 없습니다.",
     planningDetailProgressAnswered: (count: number, title: string) =>
       `답변 ${count}개가 “${title}” 기획 초안에 반영되고 있습니다.`,
     planningDetailProgressNextQuestion: (question: string) => `다음에 정할 내용: ${question}`,
+    planningDetailProgressNextQuestionReason: (question: string, reason: string) =>
+      `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `다음에 확인할 리서치: ${objective}`,
     planningDetailProgressNoResearch: "공개 자료로 확인할 리서치가 생기면 여기에 표시됩니다.",
+    queueDiagnosticsTitle: "상세 상태",
     questionLoopNextActionTitle: "질문 루프 다음 행동",
     questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -3750,10 +3822,10 @@ const KO_COPY: typeof EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `지금 보이는 질문 ${count}개에 답하세요. 지금 보이는 질문이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `남은 질문 부채를 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
+      `남은 확인점을 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
     questionLoopNextActionBlocked: (count: number) =>
       `계획 준비도를 보기 전에 막힌 리서치 또는 나중에 확인할 항목 ${count}개를 해결하세요.`,
-    questionLoopNextActionComplete: "질문이 정리되었습니다. 계획 준비도 화면으로 이동해 남은 부분을 확인하세요.",
+    questionLoopNextActionComplete: "질문이 정리되었습니다. 계획 준비도 화면으로 이동해 남은 확인점을 보세요.",
     questionFatigueStatusLabels: {
       checkpoint: "피로 체크포인트",
       break_recommended: "잠시 쉬기 권장"
@@ -3761,7 +3833,8 @@ const KO_COPY: typeof EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${percent}%를 처리했고, 아직 ${open}개가 남아 있습니다.`,
     questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 나중에 확인할 항목으로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
-    questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `다음 판단에 필요하면 리서치가 만든 추가 질문을 ${count}개까지 더 다룰 수 있습니다.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     researchFollowUpSourceTrace: "소스 추적",
     answerFormatLabels: {
@@ -3852,7 +3925,7 @@ const KO_COPY: typeof EN_COPY = {
     queueActiveBatchReady: (count: number) => `현재 질문 ${count}개가 이번 라운드에 선택되었습니다.`,
     queueRecoveryStatusLabels: {
       idle: "최신",
-      pending_refetch: "새로고침 대기",
+      pending_refetch: "새로고침 기다림",
       recovering: "새로고침 중",
       recovered_by_refetch: "새로고침됨",
       stale: "새로고침 필요"
@@ -3867,7 +3940,7 @@ const KO_COPY: typeof EN_COPY = {
     queueItemStateLabels: {
       active: "현재",
       next: "다음 후보",
-      blocked: "막힘",
+      blocked: "확인 필요",
       deferred: "나중에 확인",
       answered: "답변됨",
       resolved: "해결됨"
@@ -3875,7 +3948,7 @@ const KO_COPY: typeof EN_COPY = {
     queueSections: {
       active: { title: "현재 질문", emptyLabel: "현재 질문이 없습니다." },
       next: { title: "다음에 확인", emptyLabel: "다음에 확인할 질문이 없습니다." },
-      blocked: { title: "확인 필요", emptyLabel: "막힌 항목이 없습니다." },
+      blocked: { title: "확인 필요", emptyLabel: "확인이 필요한 항목이 없습니다." },
       deferred: { title: "나중에 보기", emptyLabel: "나중에 볼 항목이 없습니다." }
     }
   },
@@ -3915,7 +3988,7 @@ const KO_COPY: typeof EN_COPY = {
     modeChangeReasonPlaceholder: "질문/리서치 기준을 바꾸는 이유를 기록하세요.",
     modeAuditHelp: "변경은 감사 로그에 남고, 현재 질문은 유지됩니다.",
     progress: "진행률",
-    pending: "대기 중",
+    pending: "아직 채점 전",
     scoreCompleteness: "완성도 채점",
     noRiskProjection: "아직 리스크 예측이 없습니다.",
     whyBuildNowRisky: "지금 만들면 위험한 이유",
@@ -3923,7 +3996,7 @@ const KO_COPY: typeof EN_COPY = {
     confidenceMapHelp: "현재 Planning 점수의 근거가 되는 점수 요인과 준비 게이트를 보여줍니다.",
     scoreBreakdownLabels: {
       sectionCompleteness: "스펙 섹션",
-      questionDebtResolution: "질문 부채",
+      questionDebtResolution: "남은 질문",
       evidenceQuality: "증거 품질",
       decisionApproval: "의사결정 승인",
       consistencyAndConflict: "일관성"
@@ -4009,6 +4082,8 @@ const KO_COPY: typeof EN_COPY = {
         "리서치 실행을 시작하기 전에 공개 웹 리서치 소스를 활성화하세요.",
       readyRunsNoReadyTasks:
         "짧은 공개 검색으로 바로 시작할 리서치 항목이 아직 없습니다. 현재 기획 질문에 답하거나, 넓은 리서치는 보이는 ChatGPT로 넘기세요.",
+      startRunNoRunCreated:
+        "리서치 실행을 시작하지 못했습니다. 로컬 서비스는 응답했지만 실행 카드가 만들어지지 않았습니다. 리서치 상태를 새로고침한 뒤 다시 시도하세요.",
       maxConcurrentRunsInvalid: "동시에 실행할 최대 리서치 수는 1 이상의 정수여야 합니다.",
       maxSessionRunsInvalid:
         "세션당 최대 리서치 실행 수는 동시 실행 한도 이상인 정수여야 합니다.",
@@ -4065,8 +4140,25 @@ const KO_COPY: typeof EN_COPY = {
     knownRisk: "알려진 리스크",
     noEvidenceItems: "근거 항목 없음",
     additionalQuestions: "리서치가 생성한 후속 질문",
+    decisionUnitSummaryTitle: "리서치 판단 요약",
+    decisionUnitEvidence: "근거",
+    decisionUnitCounterEvidence: "반대 근거",
+    decisionUnitUncertainty: "불확실성",
+    decisionUnitNextDecision: "다음 결정",
+    decisionUnitMvpNarrowing: "우리 MVP가 좁아져야 하는 지점",
+    decisionUnitMissingEvidence: "무엇이 부족한지",
+    decisionUnitNextSearchOrQuestion: "다음 검색/질문",
+    decisionUnitNoCounterEvidence: "아직 강한 반대 근거는 반영되지 않았습니다.",
+    decisionUnitNoUncertainty: "아직 명시적인 불확실성은 반영되지 않았습니다.",
+    decisionUnitFallbackNextDecision: "이 결과를 바탕으로 현재 MVP 범위를 그대로 둘지 결정하세요.",
+    decisionUnitInsufficientMissingEvidence:
+      "이 결과를 기획 판단에 쓰려면 더 명확한 출처, 반대 관점, 또는 타깃 사용자 신호가 필요합니다.",
+    decisionUnitInsufficientNextSearch:
+      "검색어를 더 좁히고 타깃 사용자가 계속 쓸 기존 대안이 무엇인지 확인하세요.",
+    decisionUnitMvpNarrowingSuggestion:
+      "근거에서 기존 대안이 보입니다. 첫 MVP는 그 대안이 잘 해결하지 못하는 가장 좁은 사용 사례로 줄이세요.",
     sourceTrace: "출처 추적",
-    importedResultPendingTitle: "가져온 결과를 근거로 바꾸는 중",
+    importedResultPendingTitle: "가져온 결과 요약",
     importedResultPendingDescription:
       "붙여 넣은 리서치 결과는 근거 매트릭스, 후속 질문, 품질 확인이 준비될 때까지 여기에서 유지됩니다.",
     importedResultSummary: "가져온 결과 요약",
@@ -4178,25 +4270,25 @@ const KO_COPY: typeof EN_COPY = {
     runtimeEvidence: "실행 기록",
     adapterPrefix: "도구",
     effectSuffix: "개",
-    pendingBackgroundTasks: (count: number) => `백그라운드 작업 ${count}개가 대기 중입니다.`,
-    noBackgroundTasks: "대기 중인 백그라운드 작업은 없습니다.",
+    pendingBackgroundTasks: (count: number) => `백그라운드 작업 ${count}개가 실행을 기다리고 있습니다.`,
+    noBackgroundTasks: "실행을 기다리는 백그라운드 작업은 없습니다.",
     noCommandStatus: "아직 명령 상태 기록이 없습니다.",
     activity: "활동",
-    pending: "대기 중",
+    pending: "아직 활동이 없습니다",
     commandStatusLabels: {
-      pending: "대기 중",
+      pending: "실행 기다림",
       partially_complete: "일부 완료",
       complete: "완료",
       failed: "실패",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     } satisfies Record<CommandStatus, string>,
     effectStatusLabels: {
-      queued: "대기열",
+      queued: "시작 기다림",
       leased: "처리 중",
       running: "실행 중",
       succeeded: "성공",
       failed: "실패",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       cancelled: "취소됨"
     } satisfies Record<EffectTaskStatus, string>,
     refreshStatus: "상태 새로고침",
@@ -4282,7 +4374,7 @@ const KO_COPY: typeof EN_COPY = {
     recordStageTick: "현재 단계 진행 확인 기록",
     startStage: "현재 단계 시작",
     pauseStage: "현재 단계 일시정지",
-    blockStage: "현재 단계 차단",
+    blockStage: "현재 단계 확인 필요로 표시",
     completeWorkerJob: "작업 결과로 완료 처리",
     importWorkerLedger: "작업 결과 가져오기",
     workerLedgerImport: "로컬 Codex 작업 결과 JSON",
@@ -4312,7 +4404,7 @@ const KO_COPY: typeof EN_COPY = {
       activeRunRequiredStageTick: "단계 진행 확인을 기록하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredStartStage: "단계를 시작하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredPauseStage: "단계를 일시정지하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
-      activeRunRequiredBlockStage: "단계를 차단하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
+      activeRunRequiredBlockStage: "단계를 확인 필요로 표시하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       activeRunRequiredCompleteWorker:
         "작업 결과 근거로 로컬 Codex 작업을 완료하려면 활성 자동 구현 작업공간 실행이 필요합니다.",
       completedLedgerRequiredCompleteWorker:
@@ -4347,7 +4439,7 @@ const KO_COPY: typeof EN_COPY = {
       pullRequestMergeAlreadyRecorded: "PR merge가 이미 기록되어 있습니다. 같은 자동 구현 PR을 다시 merge하지 마세요."
     },
     workerPlan: "로컬 Codex 작업 계획",
-    workerStageAdvanceBlocker: "단계 진행 차단 사유",
+    workerStageAdvanceBlocker: "단계 진행에 필요한 확인",
     workerRuntimeReadiness: "로컬 Codex 실행 환경 준비 상태",
     workerRuntimeStatus: "실행 환경 상태",
     workerRuntimeExecutionMode: "실행 모드",
@@ -4399,7 +4491,7 @@ const KO_COPY: typeof EN_COPY = {
     workerPlanStageRequiredEvidence: "현재 단계 근거",
     workerPlanForbiddenActions: "금지된 작업",
     workerPlanSourceRefs: "참조 출처",
-    workerPlanBlocker: "차단 항목",
+    workerPlanBlocker: "확인 필요",
     workerPlanMissingEvidence: "누락된 근거",
     workerPlanEvidenceRefs: "작업 근거 참조",
     workerLedgerEvidence: "가져온 구현 근거",
@@ -4430,7 +4522,7 @@ const KO_COPY: typeof EN_COPY = {
     stagePlan: "5분 단위 단계 계획",
     stagePlanTicks: "진행 확인",
     stagePlanLedger: "구현 기록",
-    stagePlanBlocker: "차단",
+    stagePlanBlocker: "확인 필요",
     reviewProtocol: "리뷰와 머지 프로토콜",
     deliveryGateLabels: [
       "각 구현 단위는 PR을 열기 전에 로컬 markdown 이슈 또는 GitHub 이슈에 연결합니다.",
@@ -4453,22 +4545,22 @@ const KO_COPY: typeof EN_COPY = {
       planned: "계획됨",
       active: "진행 중",
       completed: "완료",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     },
     planningIssueRowStatus: "단위 상태",
     planningIssueRowTasks: "계획 작업",
     issueDocs: "이슈 문서",
     issueStatusSummary: (summary: AutoImplementationIssueStatusSummary | null) => summary
-      ? `이슈 상태 요약: 완료 ${summary.completed}개 / 차단 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
+      ? `이슈 상태 요약: 완료 ${summary.completed}개 / 확인 필요 ${summary.blocked}개 / 열림 ${summary.open}개 / 전체 ${summary.total}개`
       : "이슈 상태 요약: 아직 이슈 문서가 없습니다",
     issueDocumentStatusLabels: {
       open: "열림",
       completed: "완료",
-      blocked: "차단됨"
+      blocked: "확인 필요"
     } satisfies Record<AutoImplementationIssueDocument["status"], string>,
     workerJobStatusLabels: {
       planned: "계획됨",
-      blocked: "차단됨",
+      blocked: "근거 기다림",
       completed: "완료",
       none: "없음"
     } satisfies Record<AutoImplementationWorkerJobStatus | "none", string>,
@@ -4503,7 +4595,7 @@ const KO_COPY: typeof EN_COPY = {
     prMutationRequestMode: "요청 모드",
     prMutationMutatesGitHub: "GitHub 변경 여부",
     prMutationPullRequest: "Pull request",
-    prMutationBlockedReason: "차단 이유",
+    prMutationBlockedReason: "확인이 필요한 이유",
     prMutationRollbackNotes: "롤백 메모",
     prMutationIssueLinks: "이슈 링크",
     prMutationReviewStreaks: "리뷰 연속 통과 근거",
@@ -4517,7 +4609,7 @@ const KO_COPY: typeof EN_COPY = {
     prMutationAuditEvidence: "감사 근거",
     noGithubPullRequestMutations: "아직 GitHub PR 작업 기록이 없습니다. PR 생성, 본문 업데이트, merge는 아직 완료로 주장되지 않습니다.",
     noPullRequestUrl: "PR URL 기록 없음",
-    notBlocked: "차단 없음",
+    notBlocked: "문제 없음",
     yes: "예",
     no: "아니오",
     none: "없음",
@@ -4528,10 +4620,10 @@ const KO_COPY: typeof EN_COPY = {
     reviewLoopProgress: "리뷰/클린코드 진행",
     currentStageGate: "현재 단계 조건",
     runStatusLabels: {
-      pending: "대기",
+      pending: "시작 기다림",
       running: "진행 중",
       paused: "일시정지",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       completed: "완료",
       failed: "실패",
       not_started: "시작 전"
@@ -4583,12 +4675,12 @@ const KO_COPY: typeof EN_COPY = {
       ]
     },
     stageStatusLabels: {
-      pending: "대기",
+      pending: "시작 기다림",
       ready: "준비됨",
       running: "진행 중",
       paused: "일시정지",
       completed: "완료",
-      blocked: "차단됨",
+      blocked: "확인 필요",
       failed: "실패",
       not_started: "시작 전"
     },
@@ -4646,7 +4738,11 @@ const KO_COPY: typeof EN_COPY = {
     activeRuns: "활성 실행",
     recentActivity: "최근 활동",
     researchNeedsReview: "리서치 검토가 아직 끝나지 않았습니다. 남은 항목과 복구 경로를 먼저 확인하세요.",
-    pending: "대기 중",
+    pending: "아직 활동이 없습니다",
+    activityInProgress: "저장 또는 확인 중",
+    activityReflected: "기획에 반영됨",
+    activityNeedsAction: "확인이 필요함",
+    activityFailed: (error: string) => `작업 실패: ${error}`,
     noActivity: "아직 활동이 없습니다.",
     radarAxes: {
       problem: "문제",

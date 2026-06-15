@@ -1,4 +1,5 @@
 import { PlanningCompletenessRadar } from "./PlanningCompletenessRadar";
+import { userFacingCommandLogStatus } from "./command-log-display";
 import { useDecisionQueueCopy } from "./decision-queue-copy";
 import type { DecisionQueueShellController } from "./useDecisionQueueShellController";
 
@@ -64,7 +65,7 @@ export function RightRail({ controller }: RightRailProps) {
             recentCommandLog.map((entry) => (
               <article className="activity-item" key={entry.id}>
                 <strong>{entry.label}</strong>
-                <span>{entry.status?.commandStatus ?? entry.response?.category ?? entry.message ?? entry.error ?? copy.rightRail.pending}</span>
+                <span>{userFacingCommandLogStatus(entry, copy.rightRail)}</span>
               </article>
             ))
           ) : (

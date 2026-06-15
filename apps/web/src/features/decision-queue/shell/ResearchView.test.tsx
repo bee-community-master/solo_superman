@@ -13,6 +13,7 @@ import type {
   ResearchDisclosureLogId,
   ResearchEvidenceProjection,
   ResearchResultId,
+  ResearchResultProjection,
   ResearchRunControlProjection,
   ResearchRunId,
   ResearchTaskId,
@@ -515,7 +516,12 @@ describe("ResearchView", () => {
     });
 
     expect(markup).toContain("Result ready to add");
-    expect(markup).toContain("Imported result is being turned into evidence");
+    expect(markup).toContain("Research decision summary");
+    expect(markup).toContain("Evidence");
+    expect(markup).toContain("Counter-evidence");
+    expect(markup).toContain("Uncertainty");
+    expect(markup).toContain("Next decision");
+    expect(markup).toContain("Imported result summary");
     expect(markup).toContain(
       "The pasted research result is retained here while the evidence matrix, follow-up questions, and quality checks are prepared."
     );
@@ -529,6 +535,152 @@ describe("ResearchView", () => {
     expect(markup).not.toContain(
       "Import research for Check whether pet lifecycle app buyers and daily users are the same people."
     );
+  });
+
+  it("suggests MVP narrowing only when alternatives are found in evidence, not just in the search objective", () => {
+    const researchTaskId = "research_task_alternative_scan" as ResearchTaskId;
+    const baseResearch = {
+      ...researchProjection(),
+      taskIds: [researchTaskId],
+      tasks: [
+        {
+          researchTaskId,
+          sessionId: "sess_research_batch" as SessionId,
+          objective: "Check current alternatives before choosing the first MVP slice.",
+          routeOutcome: "research_needed",
+          impact: "high",
+          status: "handoff_ready",
+          createdAt: "2026-05-22T00:00:00.000Z"
+        }
+      ],
+      results: [
+        {
+          researchResultId: "research_result_alternative_scan" as ResearchResultId,
+          researchTaskId,
+          sourceTitle: "Founder interview notes",
+          sourceReliability: "medium",
+          resultSummary: "Users want a faster planning recap after answering product questions.",
+          implicationScope: "Decide whether the next MVP slice should focus on answer recap speed.",
+          importedAt: "2026-05-22T00:05:00.000Z"
+        }
+      ]
+    } satisfies ResearchEvidenceProjection;
+    const genericScanMarkup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: baseResearch
+      }
+    });
+
+    expect(genericScanMarkup).not.toContain("Where the MVP should narrow");
+
+    const foundAlternativeMarkup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...baseResearch,
+          results: [
+            {
+              ...baseResearch.results[0]!,
+              resultSummary:
+                "Users compare this with a spreadsheet alternative, but the spreadsheet does not explain what to decide next."
+            }
+          ]
+        }
+      }
+    });
+
+    expect(foundAlternativeMarkup).toContain("Where the MVP should narrow");
+  });
+
+  it("uses the newest imported research result regardless of array order", () => {
+    const researchTaskId = "research_task_import_order" as ResearchTaskId;
+    const oldResult = {
+      researchResultId: "research_result_import_old" as ResearchResultId,
+      researchTaskId,
+      sourceTitle: "Older import",
+      sourceReliability: "medium",
+      resultSummary: "Older result should not drive the decision summary.",
+      implicationScope: "Older next decision should not be shown.",
+      importedAt: "2026-05-22T00:00:00.000Z"
+    } satisfies ResearchResultProjection;
+    const newerResult = {
+      ...oldResult,
+      researchResultId: "research_result_import_new" as ResearchResultId,
+      sourceTitle: "Newer import",
+      resultSummary: "Newer result should drive the decision summary.",
+      implicationScope: "Newer next decision should be shown.",
+      importedAt: "2026-05-22T00:10:00.000Z"
+    } satisfies ResearchResultProjection;
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...researchProjection(),
+          taskIds: [researchTaskId],
+          tasks: [
+            {
+              researchTaskId,
+              sessionId: "sess_research_batch" as SessionId,
+              objective: "Review imported ordering.",
+              routeOutcome: "research_needed",
+              impact: "high",
+              status: "needs_review",
+              createdAt: "2026-05-22T00:00:00.000Z"
+            }
+          ],
+          results: [newerResult, oldResult]
+        }
+      }
+    });
+
+    expect(markup).toContain("<dt>Evidence</dt><dd>Newer result should drive the decision summary.</dd>");
+    expect(markup).toContain("<dt>Next decision</dt><dd>Newer next decision should be shown.</dd>");
+    expect(markup).not.toContain("<dt>Evidence</dt><dd>Older result should not drive the decision summary.</dd>");
+  });
+
+  it("does not present a research objective as evidence before any result is retained", () => {
+    const researchTaskId = "research_task_card_without_result" as ResearchTaskId;
+    const research = {
+      ...researchProjection(),
+      taskIds: [researchTaskId],
+      tasks: [
+        {
+          researchTaskId,
+          sessionId: "sess_research_batch" as SessionId,
+          objective: "Find evidence for current alternatives before narrowing the MVP.",
+          routeOutcome: "research_needed",
+          impact: "high",
+          status: "planned",
+          createdAt: "2026-05-22T00:00:00.000Z"
+        }
+      ],
+      results: [],
+      evidenceMatrices: [],
+      evidencePacks: [],
+      reviewCards: [
+        {
+          cardId: "research_review_card_without_result" as QueueItemId,
+          researchTaskId,
+          cardType: "research_review",
+          title: "Review current alternatives",
+          state: "ready_for_review",
+          impact: "high",
+          availableOutcomes: ["risk_accepted", "research_insufficient"],
+          blocksPlanning: true,
+          recoveryActions: ["import_manual_result"]
+        }
+      ]
+    } satisfies ResearchEvidenceProjection;
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research
+      }
+    });
+
+    expect(markup).not.toContain("Research decision summary");
+    expect(markup).not.toContain("Where the MVP should narrow");
   });
 
   it("renders allowlist concurrency controls for manual and answer-triggered research starts", () => {
@@ -860,6 +1012,40 @@ describe("ResearchView", () => {
     expect(markup).toContain("Which source disproves pricing urgency?");
   });
 
+  it("localizes decision summary fallback evidence text", () => {
+    const research = researchProjection();
+    const markup = renderResearchView(
+      {
+        projections: {
+          ...emptyProjectionState(),
+          research: {
+            ...research,
+            evidenceMatrices: [
+              {
+                evidenceMatrixId: "matrix_localized_fallback",
+                researchTaskId: "research_task_reviewed" as ResearchTaskId,
+                researchResultId: "research_result_localized_fallback" as ResearchResultId,
+                synthesisVersion: 1,
+                proEvidence: [],
+                conEvidence: [],
+                uncertainties: [],
+                additionalQuestions: [],
+                balanceStatus: "missing_con_evidence",
+                decisionBlocked: true,
+                missingConEvidenceReason: "Evidence has 0 usable finding(s), below configured minimum 1.",
+                knownRisk: "Evidence has 0 usable finding(s), below configured minimum 1."
+              }
+            ]
+          }
+        }
+      },
+      "ko"
+    );
+
+    expect(markup).toContain("이번 검색에서 판단에 쓸 수 있는 공개 근거를 찾지 못했습니다.");
+    expect(markup).not.toContain("Evidence has 0 usable finding");
+  });
+
   it("renders evidence packs with research-level risks and validation actions", () => {
     const research = researchProjection();
     const markup = renderResearchView({
@@ -900,6 +1086,32 @@ describe("ResearchView", () => {
     expect(markup).toContain("Search for founder tools with low conversion despite interview demand.");
     expect(markup).toContain("Limitations");
     expect(markup).toContain("limitation:small-sample");
+  });
+
+  it("shows the newest evidence pack for each task regardless of array order", () => {
+    const research = researchProjection();
+    const oldPack = evidencePackProjection({
+      evidencePackId: "evidence_pack_old_pricing" as DecisionEvidencePackId,
+      claim: "Older pricing evidence should not be shown.",
+      createdAt: "2026-05-22T00:00:00.000Z"
+    });
+    const newerPack = evidencePackProjection({
+      evidencePackId: "evidence_pack_new_pricing" as DecisionEvidencePackId,
+      claim: "Newest pricing evidence should be shown.",
+      createdAt: "2026-05-22T00:10:00.000Z"
+    });
+    const markup = renderResearchView({
+      projections: {
+        ...emptyProjectionState(),
+        research: {
+          ...research,
+          evidencePacks: [newerPack, oldPack]
+        }
+      }
+    });
+
+    expect(markup).toContain("<dt>Evidence</dt><dd>Newest pricing evidence should be shown.</dd>");
+    expect(markup).not.toContain("<dt>Evidence</dt><dd>Older pricing evidence should not be shown.</dd>");
   });
 
   it("renders unsafe evidence pack source URLs as text instead of links", () => {

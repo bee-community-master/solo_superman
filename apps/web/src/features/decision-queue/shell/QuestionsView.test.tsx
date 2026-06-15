@@ -175,7 +175,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Up to date");
-    expect(markup).toContain("Queue");
+    expect(markup).toContain("Questions");
     expect(markup).toContain("Question progress");
     expect(markup).toContain("Refresh question list");
     expect(markup).toContain("Load next questions");
@@ -814,17 +814,20 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Active now");
     expect(markup).toContain("Upcoming next");
     expect(markup).toContain("Answered");
-    expect(markup).toContain("Follow-ups");
+    expect(markup).toContain("More detail");
+    expect(markup).toContain("Research follow-up questions");
     expect(markup).toContain("Open follow-ups");
     expect(markup).toContain("Topics covered");
     expect(markup).toContain("Open topics");
-    expect(markup).toContain("Follow-up budget");
-    expect(markup).toContain("Blocked");
+    expect(markup).toContain("Additional questions available");
+    expect(markup).toContain("Needs attention");
     expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
     expect(markup).toContain("Answer only the current question");
-    expect(markup).toContain("40 follow-up slots remain; use them deliberately.");
+    expect(markup).toContain(
+      "The plan can use 40 more research-driven questions if the next decision needs them."
+    );
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
     expect(markup).toContain("<dd>6</dd>");
@@ -915,7 +918,12 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Planning update");
+    expect(markup).toContain("Decided");
     expect(markup).toContain("1 answer now shape “Founder planning assistant”.");
+    expect(markup).toContain("Excluded");
+    expect(markup).toContain("No scope has been excluded yet.");
+    expect(markup).toContain("Next to check");
+    expect(markup).toContain("Why this question is next");
     expect(markup).toContain("Next detail to decide: Which first feature should the founder see after answering?");
     expect(markup).not.toContain("Next detail to decide: Review returned research evidence");
     expect(markup).toContain("Research to run next: Quickly check the first customer candidate and current alternatives.");
@@ -960,7 +968,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Question loop next action");
-    expect(markup).toContain("Load the next 3 questions to keep reducing the remaining question debt.");
+    expect(markup).toContain("Load the next 3 questions to keep reducing the remaining open decisions.");
   });
 
   it("clamps displayed question progress percentages to the visible 0 to 100 range", () => {
@@ -984,7 +992,7 @@ describe("QuestionsView", () => {
         {
           id: "blocked",
           title: "Needs attention",
-          emptyLabel: "No blocked items.",
+          emptyLabel: "No items need attention.",
           items: [
             {
               queueItemId: "research_review_follow_up" as QueueItemId,
@@ -1013,7 +1021,8 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Source trace");
     expect(markup).toContain("공개 리서치에서 유의미한 근거를 찾지 못했으니 사용자가 직접 판단/검증 기준을 정해야 합니다.");
     expect(markup).not.toContain("research:research_task_demo:evidence_matrix_demo:additional_question:1");
-    expect(markup).toContain("Blocked");
+    expect(markup).toContain("Needs attention");
+    expect(markup).not.toContain("Blocked");
     expect(markup).not.toContain(">blocked<");
   });
 

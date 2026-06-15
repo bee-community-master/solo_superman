@@ -310,7 +310,7 @@ describe("useDecisionQueueResearchActions", () => {
       objective: "Check the next source-traced question after the completed research run."
     });
     const terminalRuns = researchRunProjectionWithSelectedRun("accepted");
-    const startResearchRun = vi.fn(async () => researchRunCommandResponse());
+    const startResearchRun = vi.fn(async () => researchRunCommandResponse(researchRunProjectionWithSelectedRun()));
     const appendCommandCalls = vi.fn();
     const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
       label,
@@ -387,7 +387,7 @@ describe("useDecisionQueueResearchActions", () => {
   it("starts ready public-web research tasks immediately after the allowlist is activated", async () => {
     const createResearchAllowlist = vi.fn(async () => allowlistCommandResponse());
     const listResearchRuns = vi.fn(async () => researchRunProjection());
-    const startResearchRun = vi.fn(async () => researchRunCommandResponse());
+    const startResearchRun = vi.fn(async () => researchRunCommandResponse(researchRunProjectionWithSelectedRun()));
     const appendCommandCalls = vi.fn();
     const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
       label,
@@ -453,6 +453,113 @@ describe("useDecisionQueueResearchActions", () => {
     expect(props.refreshProjections).toHaveBeenCalledWith(projectId, sessionId);
     expect(props.refreshResearchOperations).toHaveBeenCalledWith(projectId);
     expect(props.setWorkflowError).toHaveBeenCalledWith(null);
+  });
+
+  it("shows a visible failure when allowlist activation starts research but no run card is created", async () => {
+    const createResearchAllowlist = vi.fn(async () => allowlistCommandResponse());
+    const listResearchRuns = vi.fn(async () => researchRunProjection());
+    const startResearchRun = vi.fn(async () => researchRunCommandResponse(researchRunProjection()));
+    const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
+      _label,
+      response
+    ) => response;
+    const { actions, props } = captureResearchActions({
+      appendCommand,
+      client: {
+        createResearchAllowlist,
+        listResearchRuns,
+        startResearchRun,
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId,
+          sessionId,
+          version: 1 as ProjectionVersion,
+          phase: "validation",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        spec: {
+          kind: "LivingSpecProjection",
+          sessionId,
+          version: 2 as ProjectionVersion,
+          title: "Pet lifecycle manager",
+          sections: ["Pet medical, feeding, daily care, insurance, and funeral records in one place."],
+          sectionCount: 1,
+          approvalStatus: "draft"
+        },
+        research: researchEvidenceProjection()
+      }
+    });
+
+    await actions.createOrReactivateAllowlist();
+
+    expect(createResearchAllowlist).toHaveBeenCalledWith(projectId, expect.any(Object));
+    expect(listResearchRuns).toHaveBeenCalledWith(projectId);
+    expect(startResearchRun).toHaveBeenCalledWith(projectId, expect.objectContaining({
+      researchTaskId: "research_task_visible_chatgpt",
+      allowlistId
+    }));
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      DECISION_QUEUE_COPY.en.research.researchActionErrors.startRunNoRunCreated
+    );
+  });
+
+  it("shows a visible failure when a public-web research start does not create a run card", async () => {
+    const startResearchRun = vi.fn(async () => researchRunCommandResponse(researchRunProjection()));
+    const appendCommandCalls = vi.fn();
+    const appendCommand: Parameters<typeof useDecisionQueueResearchActions>[0]["appendCommand"] = async (
+      label,
+      response
+    ) => {
+      appendCommandCalls(label, response);
+
+      return response;
+    };
+    const { actions, props } = captureResearchActions({
+      appendCommand,
+      client: {
+        startResearchRun,
+        listResearchRuns: vi.fn(async () => researchRunProjection()),
+        getResearchRunStatus: vi.fn(async () => researchRunProjection())
+      } as unknown as SidecarClient,
+      projections: {
+        ...emptyProjectionState(),
+        session: {
+          kind: "SessionShellProjection",
+          projectId,
+          sessionId,
+          version: 1 as ProjectionVersion,
+          phase: "validation",
+          projectPurposeMode: "business",
+          projectPurposeModeSelectionStatus: "confirmed",
+          projectPurposeModeLabel: "Business validation",
+          projectPurposeModeEffect: "Business validation mode keeps commercialization gates active."
+        },
+        research: researchEvidenceProjection()
+      },
+      researchOperations: {
+        ...emptyResearchOperationsState(),
+        allowlists: allowlistProjection()
+      }
+    });
+
+    await actions.startReadOnlyResearchRun("research_task_visible_chatgpt" as ResearchTaskId);
+
+    expect(startResearchRun).toHaveBeenCalledWith(projectId, expect.objectContaining({
+      researchTaskId: "research_task_visible_chatgpt",
+      allowlistId
+    }));
+    expect(appendCommandCalls).toHaveBeenCalledWith("Start public web research run", expect.any(Object));
+    expect(props.setResearchOperations).toHaveBeenCalledWith(expect.any(Function));
+    expect(props.setWorkflowError).toHaveBeenCalledWith(
+      DECISION_QUEUE_COPY.en.research.researchActionErrors.startRunNoRunCreated
+    );
   });
 
   it("blocks manual public-web research starts when the task needs more clarification first", async () => {

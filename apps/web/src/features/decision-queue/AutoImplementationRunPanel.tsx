@@ -271,7 +271,11 @@ function formatIssueStatusSummaryLabel(summary: AutoImplementationIssueStatusSum
     return "Issue status summary: no issue documents";
   }
 
-  return `Issue status summary: ${summary.completed} completed / ${summary.blocked} blocked / ${summary.open} open / ${summary.total} total`;
+  return `Issue status summary: ${summary.completed} completed / ${summary.blocked} need attention / ${summary.open} open / ${summary.total} total`;
+}
+
+function defaultWorkerJobStatusLabel(status: AutoImplementationWorkerJob["status"]) {
+  return status === "blocked" ? "waiting for evidence" : status;
 }
 
 function autoImplementationStageRecordForIssue(
@@ -332,18 +336,20 @@ function issueRowBlockerLabel(input: {
   readonly latestWorkerJob: AutoImplementationWorkerJob | null;
 }) {
   if (input.latestWorkerJob?.blockedReason) {
-    return `local Codex task blocker: ${userFacingAutoImplementationTaskText(input.latestWorkerJob.blockedReason)}`;
+    return `local Codex task needs attention: ${userFacingAutoImplementationTaskText(input.latestWorkerJob.blockedReason)}`;
   }
 
   if (input.stage?.blocker?.reason) {
-    return `stage blocker: ${userFacingAutoImplementationTaskText(input.stage.blocker.reason)}`;
+    return `stage needs attention: ${userFacingAutoImplementationTaskText(input.stage.blocker.reason)}`;
   }
 
   return null;
 }
 
 function latestIssueWorkerJobLabel(latestWorkerJob: AutoImplementationWorkerJob | null) {
-  return latestWorkerJob ? `latest local Codex task ${latestWorkerJob.jobId} (${latestWorkerJob.status})` : "latest local Codex task none";
+  return latestWorkerJob
+    ? `latest local Codex task ${latestWorkerJob.jobId} (${defaultWorkerJobStatusLabel(latestWorkerJob.status)})`
+    : "latest local Codex task none";
 }
 
 function issueRowMissingEvidence(
