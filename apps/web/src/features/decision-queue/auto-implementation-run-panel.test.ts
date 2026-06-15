@@ -233,7 +233,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(view.workspaceLabel).toContain("/repo/workspace/demo-project");
     expect(view.nextTickLabel).toContain("2026-05-19T00:05:00.000Z");
     expect(view.issueModeLabel).toContain("local markdown issues");
-    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 0 completed / 0 blocked / 7 open / 7 total");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 0 completed / 0 need attention / 7 open / 7 total");
     expect(view.githubIssueMutationLabel).toContain("not_requested");
     expect(view.githubIssueMutationStatus).toBe("not_requested");
     expect(view.githubIssueMutationBlockedReason).toBeNull();
@@ -300,17 +300,17 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("제작 진행 상황");
-    expect(koreanMarkup).toContain("<span>대기</span>");
+    expect(koreanMarkup).toContain("<span>시작 기다림</span>");
     expect(koreanMarkup).toContain("demo-project 프로젝트의 자동 구현 작업공간이 준비되었습니다. 원격 저장소 상태: 원격 저장소 없음.");
     expect(koreanMarkup).toContain("초기 구현 및 PR 생성: 준비됨");
-    expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프: 대기");
+    expect(koreanMarkup).toContain("기능 PR 코드 리뷰 및 수정 루프: 시작 기다림");
     expect(koreanMarkup).not.toContain("Initial implementation and PR creation: ready");
     expect(koreanMarkup).toContain("작업공간: /repo/workspace/demo-project");
     expect(koreanMarkup).toContain("원격 저장소: 원격 저장소 없음 · 이슈 모드: 로컬 markdown 이슈");
     expect(koreanMarkup).not.toContain("원격 저장소: no_remote");
     expect(koreanMarkup).not.toContain("이슈 모드: markdown_fallback");
     expect(koreanMarkup).toContain("다음 5분 진행 확인: 2026-05-19T00:05:00.000Z");
-    expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 차단 0개 / 열림 7개 / 전체 7개");
+    expect(koreanMarkup).toContain("이슈 상태 요약: 완료 0개 / 확인 필요 0개 / 열림 7개 / 전체 7개");
     expect(koreanMarkup).toContain("로컬 Codex 작업: 아직 계획되지 않음");
     expect(koreanMarkup).toContain("최신 로컬 Codex 작업 없음");
     expect(koreanMarkup).toContain(
@@ -705,7 +705,7 @@ describe("AutoImplementationRunPanel view model", () => {
     } as AutoImplementationRunProjection);
     const markup = renderPanelMarkup(view);
 
-    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
+    expect(view.issueStatusSummaryLabel).toBe("Issue status summary: 1 completed / 2 need attention / 4 open / 7 total");
     expect(view.stageProgress).toMatchObject({
       completedStageCount: 1,
       totalStageCount: 7,
@@ -724,44 +724,44 @@ describe("AutoImplementationRunPanel view model", () => {
       evidenceRefsLabel: "none"
     });
     expect(view.issueRows[1]).toMatchObject({
-      latestWorkerJobLabel: "latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)",
-      blockerLabel: "local Codex task blocker: execution authority record is missing.",
+      latestWorkerJobLabel: "latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (waiting for evidence)",
+      blockerLabel: "local Codex task needs attention: execution authority record is missing.",
       nextActionLabel: "Create a scoped execution authority record before local Codex task execution.",
       missingEvidenceLabel: "execution authority record",
       evidenceRefsLabel: "auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked"
     });
     expect(view.issueRows[2]).toMatchObject({
       latestWorkerJobLabel: "latest local Codex task none",
-      blockerLabel: "stage blocker: Repository review evidence is missing.",
+      blockerLabel: "stage needs attention: Repository review evidence is missing.",
       nextActionLabel: "Record the second repository code-review clean pass.",
       missingEvidenceLabel: "Repository code-review pass 2",
       evidenceRefsLabel: "stage-blocker:repository-review"
     });
-    expect(markup).toContain("Issue status summary: 1 completed / 2 blocked / 4 open / 7 total");
+    expect(markup).toContain("Issue status summary: 1 completed / 2 need attention / 4 open / 7 total");
     expect(markup).toContain("1/7 stages completed · current stage: Initial implementation and PR creation (completed)");
     expect(markup).toContain(
       "local-001: Initial implementation and PR creation — stage: Initial implementation and PR creation / status: completed (implementation-issues/001-initial_pr.md)"
     );
     expect(markup).toContain(
-      "local-002: Feature PR code review and fix loop — stage: Feature PR code review and fix loop / status: blocked (implementation-issues/002-code_review_fix_1.md)"
+      "local-002: Feature PR code review and fix loop — stage: Feature PR code review and fix loop / status: needs attention (implementation-issues/002-code_review_fix_1.md)"
     );
     expect(markup).toContain(
-      "local-003: Repository-wide code review and fix loop — stage: Repository-wide code review and fix loop / status: blocked (implementation-issues/003-code_review_fix_2.md)"
+      "local-003: Repository-wide code review and fix loop — stage: Repository-wide code review and fix loop / status: needs attention (implementation-issues/003-code_review_fix_2.md)"
     );
-    expect(markup).toContain("latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (blocked)");
+    expect(markup).toContain("latest local Codex task auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (waiting for evidence)");
     expect(markup).toContain("next: Create a scoped execution authority record before local Codex task execution.");
     expect(markup).toContain("missing: execution authority record");
     expect(markup).toContain("evidence: auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked");
-    expect(markup).toContain("local Codex task blocker: execution authority record is missing.");
+    expect(markup).toContain("local Codex task needs attention: execution authority record is missing.");
     expect(markup).toContain("next: Record the second repository code-review clean pass.");
     expect(markup).toContain("missing: Repository code-review pass 2");
     expect(markup).toContain("evidence: stage-blocker:repository-review");
-    expect(markup).toContain("stage blocker: Repository review evidence is missing.");
+    expect(markup).toContain("stage needs attention: Repository review evidence is missing.");
 
     const koreanMarkup = renderPanelMarkup(view, { language: "ko" });
     expect(koreanMarkup).toContain("단계: 초기 구현 및 PR 생성 / 상태: 완료");
-    expect(koreanMarkup).toContain("단계: 기능 PR 코드 리뷰 및 수정 루프 / 상태: 차단됨");
-    expect(koreanMarkup).toContain("최신 로컬 Codex 작업 auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (차단됨)");
+    expect(koreanMarkup).toContain("단계: 기능 PR 코드 리뷰 및 수정 루프 / 상태: 확인 필요");
+    expect(koreanMarkup).toContain("최신 로컬 Codex 작업 auto-worker-job:auto_run_demo:code_review_fix_1:job_blocked (근거 기다림)");
     expect(koreanMarkup).not.toContain("상태: completed");
     expect(koreanMarkup).not.toContain("상태: blocked");
   });
@@ -1362,7 +1362,7 @@ describe("AutoImplementationRunPanel view model", () => {
     );
     expect(withPostMergeEvidenceView.canAdvanceWorkerStage).toBe(true);
     expect(withPostMergeEvidenceView.workerStageAdvanceBlockerLabel).toBeNull();
-    expect(renderPanelMarkup(withMergeEvidenceButNoLedgerView)).toContain("Stage advance blocker");
+    expect(renderPanelMarkup(withMergeEvidenceButNoLedgerView)).toContain("Stage advance issue");
     expect(renderPanelMarkup(withMergeEvidenceButNoLedgerView)).toContain("post-merge-verify:merge_main:&lt;command&gt;");
   });
 
@@ -1604,7 +1604,7 @@ describe("AutoImplementationRunPanel view model", () => {
     expect(markup).toContain("Record current stage check-in");
     expect(markup).toContain("Start current stage");
     expect(markup).toContain("Pause current stage");
-    expect(markup).toContain("Block current stage");
+    expect(markup).toContain("Mark current stage needs attention");
     expect(markup).toContain("Mark task complete from result");
     expect(markup).toContain("Import task result");
     expect(markup).toContain("Preview GitHub issue creation");
