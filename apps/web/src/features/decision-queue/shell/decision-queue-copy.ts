@@ -584,7 +584,7 @@ const EN_COPY = {
     questionProgressOpenFollowUps: "Open follow-ups",
     questionProgressTopics: "Topics covered",
     questionProgressOpenTopics: "Open topics",
-    questionProgressFollowUpBudget: "Advanced follow-up capacity",
+    questionProgressFollowUpBudget: "Additional questions available",
     questionProgressBlocked: "Needs attention",
     questionProgressBacklog: "Later backlog",
     planningDetailProgressTitle: "Planning update",
@@ -601,7 +601,7 @@ const EN_COPY = {
       `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `Research to run next: ${objective}`,
     planningDetailProgressNoResearch: "Research will appear here once an answer creates a public-check task.",
-    queueDiagnosticsTitle: "Developer diagnostics",
+    queueDiagnosticsTitle: "More detail",
     questionLoopNextActionTitle: "Question loop next action",
     questionLoopNextActionStart: "Start or refresh the idea session before loading the next question.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -609,10 +609,10 @@ const EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `Answer the ${count} active question${count === 1 ? "" : "s"}; the loop can continue automatically after the current visible question${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} cleared.`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining question debt.`,
+      `Load the next ${count} question${count === 1 ? "" : "s"} to keep reducing the remaining open decisions.`,
     questionLoopNextActionBlocked: (count: number) =>
-      `Resolve ${count} blocked research or risk card${count === 1 ? "" : "s"} before scoring completion.`,
-    questionLoopNextActionComplete: "Question debt is clear; move to Planning readiness and score completion.",
+      `Resolve ${count} research or risk card${count === 1 ? "" : "s"} that need attention before checking planning readiness.`,
+    questionLoopNextActionComplete: "The questions are clear; move to Planning readiness to review the remaining gaps.",
     questionFatigueStatusLabels: {
       checkpoint: "Fatigue checkpoint",
       break_recommended: "Break recommended"
@@ -620,7 +620,8 @@ const EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${open} open questions remain after ${percent}% handled across ${generated} generated questions.`,
     questionFatigueHelp: "Answer only the current question, carry uncertain assumptions as known risks, or pause before loading more.",
-    questionFatigueFollowUpBudget: (count: number) => `${count} follow-up slots remain; use them deliberately.`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `The plan can use ${count} more research-driven question${count === 1 ? "" : "s"} if the next decision needs them.`,
     researchAdditionalQuestions: "Research-generated questions",
     researchFollowUpSourceTrace: "Source trace",
     answerFormatLabels: {
@@ -783,7 +784,7 @@ const EN_COPY = {
     confidenceMapHelp: "Shows the score drivers and readiness gates behind the current Planning score.",
     scoreBreakdownLabels: {
       sectionCompleteness: "Spec sections",
-      questionDebtResolution: "Question debt",
+      questionDebtResolution: "Open questions",
       evidenceQuality: "Evidence quality",
       decisionApproval: "Decision approval",
       consistencyAndConflict: "Consistency"
@@ -2187,7 +2188,7 @@ const JA_COPY: typeof EN_COPY = {
     questionProgressOpenFollowUps: "未回答の追加質問",
     questionProgressTopics: "対象トピック",
     questionProgressOpenTopics: "未解決トピック",
-    questionProgressFollowUpBudget: "詳細な追加質問枠",
+    questionProgressFollowUpBudget: "必要なら使える追加質問",
     questionProgressBlocked: "確認が必要",
     questionProgressBacklog: "後続の未表示",
     planningDetailProgressTitle: "企画への反映",
@@ -2204,7 +2205,7 @@ const JA_COPY: typeof EN_COPY = {
       `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `次に確認するリサーチ: ${objective}`,
     planningDetailProgressNoResearch: "公開確認できるリサーチ項目が作られると、ここに表示されます。",
-    queueDiagnosticsTitle: "開発者向け診断",
+    queueDiagnosticsTitle: "詳しい状態",
     questionLoopNextActionTitle: "質問ループの次のアクション",
     questionLoopNextActionStart: "次の質問を読み込む前に、アイデアセッションを開始または更新してください。",
     questionLoopNextActionDrafted: (count: number) =>
@@ -2212,10 +2213,10 @@ const JA_COPY: typeof EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `表示中の質問 ${count}件に回答してください。表示中の質問が片付くとループは自動で続けられます。`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `残りの質問負債を減らすため、次の質問 ${count}件を読み込んでください。`,
+      `残っている確認点を減らすため、次の質問 ${count}件を読み込んでください。`,
     questionLoopNextActionBlocked: (count: number) =>
-      `completion採点前に、ブロック中のリサーチまたはリスクカード ${count}件を解決してください。`,
-    questionLoopNextActionComplete: "質問負債は解消されています。Planning readinessへ進み、completionを採点してください。",
+      `計画準備度を見る前に、確認が必要なリサーチまたはリスクカード ${count}件を整理してください。`,
+    questionLoopNextActionComplete: "質問は整理されています。Planning readinessへ進み、残っている確認点を見てください。",
     questionFatigueStatusLabels: {
       checkpoint: "疲労チェックポイント",
       break_recommended: "休憩を推奨"
@@ -2223,7 +2224,8 @@ const JA_COPY: typeof EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `${generated}件の生成済み質問のうち${percent}%を処理済みで、未解決が${open}件残っています。`,
     questionFatigueHelp: "今の質問セットだけに答える、弱い仮説を後で確認する項目として残す、または次を読み込む前に一度止めることができます。",
-    questionFatigueFollowUpBudget: (count: number) => `追加質問枠は${count}件残っています。意図的に使ってください。`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `次の判断に必要なら、リサーチ由来の追加質問をあと${count}件まで扱えます。`,
     researchAdditionalQuestions: "リサーチ生成の質問",
     researchFollowUpSourceTrace: "ソーストレース",
     answerFormatLabels: {
@@ -2385,7 +2387,7 @@ const JA_COPY: typeof EN_COPY = {
     confidenceMapHelp: "現在の Planning スコアの根拠になるスコア要因と準備ゲートを表示します。",
     scoreBreakdownLabels: {
       sectionCompleteness: "仕様セクション",
-      questionDebtResolution: "質問負債",
+      questionDebtResolution: "未解決の質問",
       evidenceQuality: "証拠品質",
       decisionApproval: "意思決定承認",
       consistencyAndConflict: "一貫性"
@@ -3795,7 +3797,7 @@ const KO_COPY: typeof EN_COPY = {
     questionProgressOpenFollowUps: "남은 후속 질문",
     questionProgressTopics: "다룬 주제",
     questionProgressOpenTopics: "남은 주제",
-    questionProgressFollowUpBudget: "진단용 추가 질문 한도",
+    questionProgressFollowUpBudget: "필요하면 더 다룰 질문",
     questionProgressBlocked: "확인 필요",
     questionProgressBacklog: "나중에 볼 질문",
     planningDetailProgressTitle: "기획 반영 내용",
@@ -3812,7 +3814,7 @@ const KO_COPY: typeof EN_COPY = {
       `${question} — ${reason}`,
     planningDetailProgressResearch: (objective: string) => `다음에 확인할 리서치: ${objective}`,
     planningDetailProgressNoResearch: "공개 자료로 확인할 리서치가 생기면 여기에 표시됩니다.",
-    queueDiagnosticsTitle: "개발자 진단 정보",
+    queueDiagnosticsTitle: "상세 상태",
     questionLoopNextActionTitle: "질문 루프 다음 행동",
     questionLoopNextActionStart: "다음 질문을 불러오기 전에 아이디어 세션을 시작하거나 새로고침하세요.",
     questionLoopNextActionDrafted: (count: number) =>
@@ -3820,10 +3822,10 @@ const KO_COPY: typeof EN_COPY = {
     questionLoopNextActionActive: (count: number) =>
       `지금 보이는 질문 ${count}개에 답하세요. 지금 보이는 질문이 정리되면 루프가 자동으로 이어질 수 있습니다.`,
     questionLoopNextActionLoadNext: (count: number) =>
-      `남은 질문 부채를 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
+      `남은 확인점을 줄이기 위해 다음 질문 ${count}개를 불러오세요.`,
     questionLoopNextActionBlocked: (count: number) =>
       `계획 준비도를 보기 전에 막힌 리서치 또는 나중에 확인할 항목 ${count}개를 해결하세요.`,
-    questionLoopNextActionComplete: "질문이 정리되었습니다. 계획 준비도 화면으로 이동해 남은 부분을 확인하세요.",
+    questionLoopNextActionComplete: "질문이 정리되었습니다. 계획 준비도 화면으로 이동해 남은 확인점을 보세요.",
     questionFatigueStatusLabels: {
       checkpoint: "피로 체크포인트",
       break_recommended: "잠시 쉬기 권장"
@@ -3831,7 +3833,8 @@ const KO_COPY: typeof EN_COPY = {
     questionFatigueSummary: (open: number, generated: number, percent: number) =>
       `생성된 질문 ${generated}개 중 ${percent}%를 처리했고, 아직 ${open}개가 남아 있습니다.`,
     questionFatigueHelp: "현재 질문 묶음만 답하거나, 불확실한 가정은 나중에 확인할 항목으로 남기거나, 더 불러오기 전에 잠시 멈출 수 있습니다.",
-    questionFatigueFollowUpBudget: (count: number) => `후속 질문 여유가 ${count}개 남았습니다. 의도적으로 사용하세요.`,
+    questionFatigueFollowUpBudget: (count: number) =>
+      `다음 판단에 필요하면 리서치가 만든 추가 질문을 ${count}개까지 더 다룰 수 있습니다.`,
     researchAdditionalQuestions: "리서치가 생성한 질문",
     researchFollowUpSourceTrace: "소스 추적",
     answerFormatLabels: {
@@ -3993,7 +3996,7 @@ const KO_COPY: typeof EN_COPY = {
     confidenceMapHelp: "현재 Planning 점수의 근거가 되는 점수 요인과 준비 게이트를 보여줍니다.",
     scoreBreakdownLabels: {
       sectionCompleteness: "스펙 섹션",
-      questionDebtResolution: "질문 부채",
+      questionDebtResolution: "남은 질문",
       evidenceQuality: "증거 품질",
       decisionApproval: "의사결정 승인",
       consistencyAndConflict: "일관성"

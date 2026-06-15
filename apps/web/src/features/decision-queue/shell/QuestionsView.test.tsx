@@ -814,18 +814,20 @@ describe("QuestionsView", () => {
     expect(markup).toContain("Active now");
     expect(markup).toContain("Upcoming next");
     expect(markup).toContain("Answered");
-    expect(markup).toContain("Developer diagnostics");
+    expect(markup).toContain("More detail");
     expect(markup).toContain("Research follow-up questions");
     expect(markup).toContain("Open follow-ups");
     expect(markup).toContain("Topics covered");
     expect(markup).toContain("Open topics");
-    expect(markup).toContain("Advanced follow-up capacity");
+    expect(markup).toContain("Additional questions available");
     expect(markup).toContain("Needs attention");
     expect(markup).toContain("Later backlog");
     expect(markup).toContain("Fatigue checkpoint");
     expect(markup).toContain("18 open questions remain after 22% handled across 23 generated questions.");
     expect(markup).toContain("Answer only the current question");
-    expect(markup).toContain("40 follow-up slots remain; use them deliberately.");
+    expect(markup).toContain(
+      "The plan can use 40 more research-driven questions if the next decision needs them."
+    );
     expect(markup).toContain("<dd>23</dd>");
     expect(markup).toContain("<dd>18</dd>");
     expect(markup).toContain("<dd>6</dd>");
@@ -966,7 +968,7 @@ describe("QuestionsView", () => {
     });
 
     expect(markup).toContain("Question loop next action");
-    expect(markup).toContain("Load the next 3 questions to keep reducing the remaining question debt.");
+    expect(markup).toContain("Load the next 3 questions to keep reducing the remaining open decisions.");
   });
 
   it("clamps displayed question progress percentages to the visible 0 to 100 range", () => {

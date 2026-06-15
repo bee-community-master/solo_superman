@@ -234,7 +234,7 @@ describe("ImplementationView", () => {
     expect(markup).toContain("Evidence owner missing.");
     expect(markup).toContain("Spec sections");
     expect(markup).toContain("90%");
-    expect(markup).toContain("Question debt");
+    expect(markup).toContain("Open questions");
     expect(markup).toContain("75%");
     expect(markup).toContain("Evidence quality");
     expect(markup).toContain("80%");
